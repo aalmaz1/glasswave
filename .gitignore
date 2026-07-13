@@ -1,0 +1,33 @@
+```
+# Build artifacts
+build/
+.dart_tool/
+*.g.dart
+
+# Dependencies
+.pub/
+pubspec.lock
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+```
