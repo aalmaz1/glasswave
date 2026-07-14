@@ -24,7 +24,7 @@ dependencies:
   intl: ^0.19.0
   
   # Icons
-  lucide_icons: ^0.0.3
+  lucide_flutter: ^0.257.0
   
   # UI utilities
   flutter_staggered_grid_view: ^0.7.0
