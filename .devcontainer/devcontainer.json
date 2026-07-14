@@ -12,4 +12,4 @@
   "forwardPorts": [8080],
   "postCreateCommand": "dart pub global activate flutterfire_cli && echo 'export PATH=\"$PATH:$HOME/.pub-cache/bin\"' >> ~/.bashrc && source ~/.bashrc",
   "remoteUser": "root"
-}d
+}
