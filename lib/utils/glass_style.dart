@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 
 /// Дизайн-токены (глобальные константы G)
 class GlassStyle {
   // Все стеклянные поверхности
   static const Color bg = Color(0x0FFFFFFF); // rgba(255,255,255,0.06)
+  static const Color background = bg; // Алиас для совместимости
   static const Color bgHov = Color(0x1AFFFFFF); // 0.10
   static const Color border = Color(0x33FFFFFF); // 0.20
+  static const Color borderHover = borderHov; // Алиас для совместимости
   static const Color borderHov = Color(0x66FFFFFF); // 0.40
   
   // Shadow стандартный
@@ -22,6 +25,7 @@ class GlassStyle {
           spreadRadius: -10,
         ),
       ];
+  static List<BoxShadow> get shadows => shadow; // Алиас для совместимости
   
   // Shadow при наведении
   static List<BoxShadow> get shadowHov => [
@@ -43,6 +47,7 @@ class GlassStyle {
   
   // Blur значения
   static const double blurStandard = 24.0;
+  static const double blurSigma = 24.0; // Алиас для совместимости
   static const double blurNav = 28.0;
   static const double blurEditor = 32.0;
   
@@ -140,6 +145,59 @@ class DoubleLayerCard extends StatefulWidget {
   State<DoubleLayerCard> createState() => _DoubleLayerCardState();
 }
 
+/// Стеклянный контейнер (упрощенная версия для статических поверхностей)
+class GlassContainer extends StatelessWidget {
+  final Widget child;
+  final double? blur;
+  final double? borderRadius;
+  final Color? color;
+  final Border? border;
+  final List<BoxShadow>? boxShadow;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final VoidCallback? onTap;
+  
+  const GlassContainer({
+    super.key,
+    required this.child,
+    this.blur = GlassStyle.blurStandard,
+    this.borderRadius = GlassStyle.borderRadius,
+    this.color = GlassStyle.bg,
+    this.border,
+    this.boxShadow,
+    this.padding,
+    this.margin,
+    this.onTap,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: onTap != null ? SystemMouseCursors.click : MouseCursor.defer,
+      child: GestureDetector(
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(borderRadius!),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: blur!, sigmaY: blur!),
+            child: Container(
+              padding: padding,
+              margin: margin,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(borderRadius!),
+                border: border ?? Border.all(color: GlassStyle.border, width: 1.0),
+                boxShadow: boxShadow ?? GlassStyle.shadow,
+              ),
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DoubleLayerCardState extends State<DoubleLayerCard>
     with SingleTickerProviderStateMixin {
   bool _isHovered = false;
@@ -198,7 +256,7 @@ class _DoubleLayerCardState extends State<DoubleLayerCard>
           child: ClipRRect(
             borderRadius: BorderRadius.circular(GlassStyle.borderRadius),
             child: BackdropFilter(
-              filter: ImageFilter.blur(
+              filter: ui.ImageFilter.blur(
                 sigmaX: GlassStyle.blurStandard,
                 sigmaY: GlassStyle.blurStandard,
               ),
