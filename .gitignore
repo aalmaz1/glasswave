@@ -5,19 +5,16 @@
 .pub/
 pubspec.lock
 
-# Build outputs
-build/
-dist/
-
-# Logs
+# Logs and temp files
 *.log
+*.tmp
 
-# Environment variables
+# Environment
 .env
 .env.local
 *.env.*
 
-# IDE files
+# Editors
 .vscode/
 .idea/
 *.swp
@@ -27,12 +24,29 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Coverage reports
-coverage/
-htmlcov/
-.coverage
+# Build outputs
+build/
+dist/
+target/
 
-# Temporary files
-*.tmp
-*.temp
+# Python artifacts (if any Python files exist in project)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Node artifacts (if any JS/TS files exist in project)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage directory used by tools like Istanbul
+coverage/
+*.lcov
+
+# Temporary folders
+tmp/
+temp/
 ```
