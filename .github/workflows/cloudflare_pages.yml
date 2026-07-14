@@ -24,7 +24,7 @@ jobs:
         run: flutter pub get
 
       - name: Build for Web
-        run: flutter build web --release
+        run: flutter build web --release --base-href "/"
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
