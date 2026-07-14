@@ -1,169 +1,112 @@
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
-/// Glassmorphism constants - единая формула для всех поверхностей
+/// Дизайн-токены (глобальные константы G)
 class GlassStyle {
-  // Background: rgba(255,255,255,0.06)
-  static const Color background = Color(0x0FFFFFFF);
+  // Все стеклянные поверхности
+  static const Color bg = Color(0x0FFFFFFF); // rgba(255,255,255,0.06)
+  static const Color bgHov = Color(0x1AFFFFFF); // 0.10
+  static const Color border = Color(0x33FFFFFF); // 0.20
+  static const Color borderHov = Color(0x66FFFFFF); // 0.40
   
-  // Border: rgba(255,255,255,0.20)
-  static const Color border = Color(0x33FFFFFF);
+  // Shadow стандартный
+  static List<BoxShadow> get shadow => [
+        BoxShadow(
+          color: Color(0x80000000), // rgba(0,0,0,0.50)
+          blurRadius: 40,
+          offset: const Offset(0, 10),
+        ),
+        BoxShadow(
+          color: Color(0x26FFFFFF), // rgba(255,255,255,0.15)
+          blurRadius: 20,
+          offset: const Offset(0, -5),
+          spreadRadius: -10,
+        ),
+      ];
   
-  // Border hover: rgba(255,255,255,0.40)
-  static const Color borderHover = Color(0x66FFFFFF);
-  
-  // Shadow: rgba(0,0,0,0.5)
-  static const Color shadow = Color(0x80000000);
-  
-  // Inner glow top: rgba(255,255,255,0.15)
-  static const Color innerGlow = Color(0x26FFFFFF);
-  
-  // Holographic sheen gradient start: rgba(255,255,255,0.06)
-  static const Color sheenStart = Color(0x0FFFFFFF);
-  
-  // Holographic sheen gradient end: rgba(255,255,255,0.03)
-  static const Color sheenEnd = Color(0x07FFFFFF);
-  
-  // Blur sigma
-  static const double blurSigma = 24.0;
+  // Shadow при наведении
+  static List<BoxShadow> get shadowHov => [
+        BoxShadow(
+          color: Color(0x99000000), // rgba(0,0,0,0.60)
+          blurRadius: 60,
+          offset: const Offset(0, 20),
+        ),
+        BoxShadow(
+          color: Color(0x40FFFFFF), // rgba(255,255,255,0.25)
+          blurRadius: 20,
+          offset: const Offset(0, -5),
+          spreadRadius: -10,
+        ),
+      ];
   
   // Border radius
   static const double borderRadius = 20.0;
   
-  // Hover transform
+  // Blur значения
+  static const double blurStandard = 24.0;
+  static const double blurNav = 28.0;
+  static const double blurEditor = 32.0;
+  
+  // Текст
+  static const Color textPrimary = Color(0xEBFFFFFF); // 0.92
+  static const Color textSecondary = Color(0x99FFFFFF); // 0.60
+  static const Color textMuted = Color(0x4DFFFFFF); // 0.30
+  
+  // Overlay
+  static const Color overlay = Color(0x80000000); // 0.50
+  
+  // Hover transform для двухслойной карточки
   static const double hoverTranslateY = -6.0;
   static const double hoverScale = 1.02;
+  static const Duration hoverDuration = Duration(milliseconds: 320);
+  static const Curve hoverCurve = Curves.elasticOut;
   
-  /// BoxShadow для стеклянных поверхностей + inner glow сверху
-  static List<BoxShadow> get shadows => [
-        BoxShadow(
-          color: shadow,
-          blurRadius: 40,
-          offset: const Offset(0, 10),
-        ),
-        // Inner glow сверху
-        BoxShadow(
-          color: innerGlow,
-          blurRadius: 20,
-          offset: const Offset(0, -5),
-          spreadRadius: -5,
-        ),
-      ];
+  // Градиентная обводка - CustomPainter с точными координатами
+  static CustomPainter gradientBorderPainter({bool isHover = false}) =>
+      GradientBorderPainter(isHover: isHover);
   
-  /// Gradient border painter - только верхняя 1px рамка с градиентом
-  static CustomPainter gradientBorderPainter({
-    List<Color>? colors,
-  }) => TopGradientBorderPainter(colors: colors);
+  // Голографический блеск
+  static LinearGradient get holographicSheen => const LinearGradient(
+        begin: Alignment(-0.71, -0.71),
+        end: Alignment(0.71, 0.71),
+        colors: [
+          Color(0x0FFFFFFF), // 0.06
+          Colors.transparent,
+          Color(0x08FFFFFF), // 0.03
+        ],
+        stops: [0.0, 0.5, 1.0],
+      );
 }
 
-/// CustomPainter для градиентной рамки (только 1px сверху)
-/// Градиент: white 35% → white08 40% → white02 100%
-class TopGradientBorderPainter extends CustomPainter {
-  final List<Color>? colors;
-  
-  TopGradientBorderPainter({this.colors});
-  
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    
-    // Градиент для верхней рамки: white 35% → white08 40% → white02 100%
-    final gradient = LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.topRight,
-      stops: const [0.35, 0.40, 1.0],
-      colors: colors ?? [
-        Colors.white,
-        Colors.white.withValues(alpha: 0.08),
-        Colors.white.withValues(alpha: 0.02),
-      ],
-    );
-    
-    final paint = Paint()
-      ..shader = gradient.createShader(Rect.fromLTWH(0, 0, size.width, 1))
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    
-    // Рисуем ТОЛЬКО верхнюю линию с закруглёнными углами
-    final path = Path();
-    final radius = GlassStyle.borderRadius;
-    
-    // Начинаем слева с учётом радиуса
-    path.moveTo(radius, 0);
-    
-    // Верхняя линия до правого угла
-    path.lineTo(size.width - radius, 0);
-    
-    // Правый верхний угол (небольшая дуга для плавности)
-    path.arcToPoint(
-      Offset(size.width, radius),
-      radius: Radius.circular(radius),
-      clockwise: true,
-    );
-    
-    // Не рисуем боковые и нижние грани - только верх!
-    // Но для корректного stroke нужно замкнуть путь
-    path.lineTo(size.width, size.height);
-    path.lineTo(0, size.height);
-    path.lineTo(0, radius);
-    path.arcToPoint(
-      Offset(radius, 0),
-      radius: Radius.circular(radius),
-      clockwise: true,
-    );
-    path.close();
-    
-    // Используем clipPath чтобы закрасить только верхнюю часть
-    canvas.save();
-    // Клип для верхней 1px полосы с закруглёнными углами
-    final clipPath = Path();
-    clipPath.moveTo(radius, 0);
-    clipPath.lineTo(size.width - radius, 0);
-    clipPath.arcToPoint(
-      Offset(size.width, radius),
-      radius: Radius.circular(radius),
-      clockwise: true,
-    );
-    clipPath.lineTo(size.width, 1);
-    clipPath.lineTo(0, 1);
-    clipPath.lineTo(0, radius);
-    clipPath.arcToPoint(
-      Offset(radius, 0),
-      radius: Radius.circular(radius),
-      clockwise: true,
-    );
-    clipPath.close();
-    
-    canvas.clipPath(clipPath);
-    canvas.drawPath(path, paint);
-    canvas.restore();
-  }
-  
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-/// CustomPainter для полной градиентной рамки (альтернатива)
+/// CustomPainter для градиентной обводки
 class GradientBorderPainter extends CustomPainter {
-  final List<Color>? colors;
+  final bool isHover;
   
-  GradientBorderPainter({this.colors});
+  GradientBorderPainter({this.isHover = false});
   
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(GlassStyle.borderRadius));
     
-    // Градиент для рамки: white 35% → white08 40% → white02 100%
+    // Градиент от Alignment(-0.64,-0.77) до (0.64,0.77)
+    final begin = Alignment(-0.64, -0.77);
+    final end = Alignment(0.64, 0.77);
+    
     final gradient = LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      stops: const [0.35, 0.40, 1.0],
-      colors: colors ?? [
-        Colors.white,
-        Colors.white.withValues(alpha: 0.08),
-        Colors.white.withValues(alpha: 0.02),
-      ],
+      begin: begin,
+      end: end,
+      colors: isHover
+          ? [
+              const Color(0x99FFFFFF), // 0.60
+              const Color(0x24FFFFFF), // 0.14
+              const Color(0x05FFFFFF), // 0.02
+            ]
+          : [
+              const Color(0x59FFFFFF), // 0.35
+              const Color(0x14FFFFFF), // 0.08
+              const Color(0x05FFFFFF), // 0.02
+            ],
+      stops: const [0.0, 0.40, 1.0],
     );
     
     final paint = Paint()
@@ -175,49 +118,141 @@ class GradientBorderPainter extends CustomPainter {
   }
   
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
-/// Виджет стеклянной поверхности
-class GlassContainer extends StatelessWidget {
+/// Двухслойная карточка с hover эффектом
+class DoubleLayerCard extends StatefulWidget {
   final Widget child;
-  final double? borderRadius;
-  final double? blurSigma;
-  final Color? borderColor;
-  final EdgeInsetsGeometry? padding;
-  final BoxDecoration? decoration;
-  final bool enableHover;
+  final VoidCallback? onTap;
+  final double minHeight;
+  final EdgeInsets padding;
   
-  const GlassContainer({
+  const DoubleLayerCard({
     super.key,
     required this.child,
-    this.borderRadius,
-    this.blurSigma,
-    this.borderColor,
-    this.padding,
-    this.decoration,
-    this.enableHover = false,
+    this.onTap,
+    required this.minHeight,
+    required this.padding,
   });
   
   @override
+  State<DoubleLayerCard> createState() => _DoubleLayerCardState();
+}
+
+class _DoubleLayerCardState extends State<DoubleLayerCard>
+    with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _translateAnimation;
+  
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: GlassStyle.hoverDuration,
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: GlassStyle.hoverScale).animate(
+      CurvedAnimation(parent: _controller, curve: GlassStyle.hoverCurve),
+    );
+    _translateAnimation = Tween<double>(begin: 0.0, end: GlassStyle.hoverTranslateY).animate(
+      CurvedAnimation(parent: _controller, curve: GlassStyle.hoverCurve),
+    );
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+  
+  void _onHover(bool hovering) {
+    setState(() => _isHovered = hovering);
+    if (hovering) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+  }
+  
+  @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius ?? GlassStyle.borderRadius),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: blurSigma ?? GlassStyle.blurSigma, sigmaY: blurSigma ?? GlassStyle.blurSigma),
-        child: Container(
-          padding: padding,
-          decoration: decoration ??
-              BoxDecoration(
-                color: GlassStyle.background,
-                borderRadius: BorderRadius.circular(borderRadius ?? GlassStyle.borderRadius),
-                border: Border.all(
-                  color: borderColor ?? GlassStyle.border,
-                  width: 1.0,
-                ),
-                boxShadow: GlassStyle.shadows,
+    return MouseRegion(
+      onEnter: (_) => _onHover(true),
+      onExit: (_) => _onHover(false),
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Transform.translate(
+            offset: Offset(0, _translateAnimation.value),
+            child: Transform.scale(
+              scale: _scaleAnimation.value,
+              child: child,
+            ),
+          );
+        },
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(GlassStyle.borderRadius),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(
+                sigmaX: GlassStyle.blurStandard,
+                sigmaY: GlassStyle.blurStandard,
               ),
-          child: child,
+              child: Container(
+                constraints: BoxConstraints(minHeight: widget.minHeight),
+                padding: widget.padding,
+                decoration: BoxDecoration(
+                  color: GlassStyle.bg,
+                  borderRadius: BorderRadius.circular(GlassStyle.borderRadius),
+                  border: Border.all(
+                    color: _isHovered ? GlassStyle.borderHov : GlassStyle.border,
+                    width: 1.0,
+                  ),
+                  boxShadow: _isHovered ? GlassStyle.shadowHov : GlassStyle.shadow,
+                ),
+                child: Stack(
+                  children: [
+                    // Акцентный оверлей
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: const Alignment(-0.71, -0.71),
+                            end: const Alignment(0.71, 0.71),
+                            colors: [
+                              Colors.amber.withValues(alpha: 0.09),
+                              Colors.transparent,
+                            ],
+                            stops: const [0.0, 0.70],
+                            transform: const GradientRotation(145 * 3.14159 / 180),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Голографический блеск
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: GlassStyle.holographicSheen,
+                        ),
+                      ),
+                    ),
+                    // Градиентная обводка
+                    CustomPaint(
+                      painter: GlassStyle.gradientBorderPainter(isHover: _isHovered),
+                      size: Size.infinite,
+                    ),
+                    // Контент
+                    widget.child,
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
