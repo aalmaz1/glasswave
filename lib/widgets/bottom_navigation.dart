@@ -33,7 +33,7 @@ class BottomNavigation extends ConsumerWidget {
           padding: EdgeInsets.only(bottom: bottomPadding),
           child: GlassContainer(
             borderRadius: 30,
-            blurSigma: 28,
+            blur: 28,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               child: Row(
