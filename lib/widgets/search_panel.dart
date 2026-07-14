@@ -68,7 +68,7 @@ class SearchPanel extends ConsumerWidget {
                   GlassContainer(
                     borderRadius: 50,
                     child: IconButton(
-                      icon: const Icon(Icons.sliders, color: Colors.amber),
+                      icon: const Icon(Icons.tune, color: Colors.amber),
                       onPressed: () => _showSortSheet(context, ref),
                     ),
                   ),

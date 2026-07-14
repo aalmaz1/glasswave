@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 /// Glassmorphism constants - единая формула для всех поверхностей
@@ -109,7 +110,7 @@ class GlassContainer extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius ?? GlassStyle.borderRadius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blurSigma ?? GlassStyle.blurSigma, sigmaY: blurSigma ?? GlassStyle.blurSigma),
+        filter: ui.ImageFilter.blur(sigmaX: blurSigma ?? GlassStyle.blurSigma, sigmaY: blurSigma ?? GlassStyle.blurSigma),
         child: Container(
           padding: padding,
           decoration: decoration ??
