@@ -1,93 +1,54 @@
-```
-# Environment variables
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+*.class
+*.exe
+*.dll
+*.so
+*.a
+*.out
+dist/
+build/
+target/
+
+# Dependencies
+node_modules/
+venv/
+.venv/
 .env
+.env.local
+*.env.*
 
-# Logs
+# Logs and temp files
 *.log
-
-# Temporary files
 *.tmp
+*.swp
+*.swo
 
-# Editor/IDE files
+# Editors
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Dependencies
-node_modules/
-
-# Build artifacts
-dist/
-build/
-target/
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-.venv.bak/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git/modules/
+# System files
 .DS_Store
 Thumbs.db
 
-# Compiled and binary files
-*.class
-*.o
-*.so
-*.a
-*.obj
-*.out
-*.exe
-*.dll
-*.dylib
-*.jar
-*.war
-*.zip
-*.tar
-*.gz
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-
-# Coverage reports
+# Coverage
 coverage/
 htmlcov/
+.coverage
 
-# MyPy cache
+# Python specific
 .mypy_cache/
-.dmypy.json
-dmypy.json
-
-# PyTest cache
 .pytest_cache/
 
-# Gradle
+# Java/Gradle
 .gradle/
-
-# Julia
-julia-*/
-
-# Zig
-zig-cache/
-zig-out/
+target/
 
 # Compressed files
 *.zip
@@ -112,4 +73,3 @@ zig-out/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-```
