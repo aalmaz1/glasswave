@@ -1,12 +1,22 @@
 ```
-# Build artifacts
-build/
+# Flutter/Dart specific
 .dart_tool/
-*.g.dart
-
-# Dependencies
-.pub/
+.packages
+.pub-cache/
 pubspec.lock
+
+# Build outputs
+build/
+*.apk
+*.aab
+*.ipa
+*.app
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
 
 # Logs
 *.log
@@ -16,18 +26,19 @@ pubspec.lock
 .env.local
 *.env.*
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# Dependencies
+node_modules/
+vendor/
 
-# OS
+# OS generated files
 .DS_Store
 Thumbs.db
 
 # Coverage
 coverage/
-htmlcov/
-.coverage
+*.coverage
+
+# Temporary files
+*.tmp
+temp/
 ```
