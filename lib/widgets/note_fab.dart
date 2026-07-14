@@ -70,12 +70,12 @@ class _NoteFABState extends State<NoteFAB> with SingleTickerProviderStateMixin {
                 height: size,
                 decoration: BoxDecoration(
                   color: _isHovered 
-                      ? Colors.white.withOpacity(0.12) 
+                      ? Colors.white.withValues(alpha: 0.12) 
                       : GlassStyle.background,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: _isHovered 
-                        ? Colors.white.withOpacity(0.4) 
+                        ? Colors.white.withValues(alpha: 0.4) 
                         : GlassStyle.border,
                     width: 1.0,
                   ),

@@ -262,7 +262,7 @@ class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.amber.withOpacity(0.2),
+        color: Colors.amber.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -324,10 +324,10 @@ class _ActionButton extends StatelessWidget {
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: isActive 
-              ? Colors.amber.withOpacity(0.2)
+              ? Colors.amber.withValues(alpha: 0.2)
               : isDestructive 
-                  ? Colors.red.withOpacity(0.2) 
-                  : Colors.white.withOpacity(0.1),
+                  ? Colors.red.withValues(alpha: 0.2) 
+                  : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6),
         ),
         child: Icon(

@@ -26,7 +26,7 @@ class SearchPanel extends ConsumerWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.black.withOpacity(0.38),
+              Colors.black.withValues(alpha: 0.38),
               Colors.transparent,
             ],
           ),

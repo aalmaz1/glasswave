@@ -66,8 +66,8 @@ class GradientBorderPainter extends CustomPainter {
       stops: const [0.35, 0.40, 1.0],
       colors: colors ?? [
         Colors.white,
-        Colors.white.withOpacity(0.08),
-        Colors.white.withOpacity(0.02),
+        Colors.white.withValues(alpha: 0.08),
+        Colors.white.withValues(alpha: 0.02),
       ],
     );
     

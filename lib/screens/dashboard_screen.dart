@@ -84,7 +84,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         style: TextStyle(
                           fontSize: 11,
                           letterSpacing: 0.09.em,
-                          color: Colors.white.withOpacity(0.30),
+                          color: Colors.white.withValues(alpha: 0.30),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -125,7 +125,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           style: TextStyle(
                             fontSize: 11,
                             letterSpacing: 0.09.em,
-                            color: Colors.white.withOpacity(0.30),
+                            color: Colors.white.withValues(alpha: 0.30),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -408,7 +408,7 @@ class _ReminderSheetState extends State<ReminderSheet> {
                 icon: const Icon(Icons.delete_outline, color: Colors.red),
                 label: const Text('Удалить напоминание', style: TextStyle(color: Colors.red)),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red.withOpacity(0.3)),
+                  side: const BorderSide(color: Colors.red.withValues(alpha: 0.3)),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),

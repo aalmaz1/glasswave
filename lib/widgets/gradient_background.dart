@@ -113,7 +113,7 @@ class BlurCircle extends StatelessWidget {
             gradient: RadialGradient(
               colors: [
                 color,
-                color.withOpacity(0.5),
+                color.withValues(alpha: 0.5),
                 Colors.transparent,
               ],
               stops: const [0.0, 0.5, 1.0],
@@ -137,9 +137,9 @@ class HolographicSheen extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withOpacity(0.06),
+            Colors.white.withValues(alpha: 0.06),
             Colors.transparent,
-            Colors.white.withOpacity(0.03),
+            Colors.white.withValues(alpha: 0.03),
           ],
         ),
       ),
