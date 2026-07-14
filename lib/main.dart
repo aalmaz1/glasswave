@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'data/data_initializer.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/settings_screen.dart';
 import 'providers/app_providers.dart';
@@ -10,13 +10,11 @@ import 'providers/app_providers.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
   // Initialize date formatting for Russian locale
   await initializeDateFormatting('ru', null);
+  
+  // Initialize Hive and seed data
+  await DataInitializer.initialize();
 
   runApp(
     const ProviderScope(
@@ -38,9 +36,10 @@ class NoovaApp extends ConsumerWidget {
       theme: ThemeData(
         brightness: Brightness.dark,
         primaryColor: Colors.amber,
-        fontFamily: 'Manrope',
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(color: Colors.white),
+        textTheme: GoogleFonts.manropeTextTheme(
+          const TextTheme(
+            bodyMedium: TextStyle(color: Colors.white),
+          ),
         ),
       ),
       builder: (context, child) {
