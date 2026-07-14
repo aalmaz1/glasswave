@@ -14,6 +14,7 @@ dependencies:
   flutter_riverpod: ^2.4.9
   
   # Local storage
+  hive: ^2.2.3
   hive_flutter: ^1.1.0
   
   # Fonts
