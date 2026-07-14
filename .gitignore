@@ -1,18 +1,38 @@
 ```
-# Dart/Flutter build artifacts
-.dart_tool/
-.build/
-.packages
-*.g.dart
+# Build artifacts
+build/
+*.apk
+*.aab
+*.so
 
 # Dependencies
-vendor/
+.pub/
+.dart_tool/
+packages/
 
 # Logs
 *.log
 
-# Environment variables
+# Environment
 .env
 .env.local
-.env.*
+*.env.*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+*.coverage
+
+# Temporary files
+*.tmp
+*.temp
 ```
