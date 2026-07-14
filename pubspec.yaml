@@ -12,7 +12,8 @@ dependencies:
   
   # State management
   flutter_riverpod: ^2.6.1
-  
+
+  flutter_inset_box_shadow: ^1.0.8
   # Local storage
   hive: ^2.2.3
   hive_flutter: ^1.1.0
