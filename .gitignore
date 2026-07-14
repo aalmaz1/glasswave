@@ -1,38 +1,27 @@
 ```
-# Build artifacts
-build/
-*.apk
-*.aab
-*.so
-
 # Dependencies
-.pub/
 .dart_tool/
-packages/
+.packages
 
-# Logs
+# Build outputs
+build/
+
+# Logs and temp files
 *.log
+*.tmp
 
-# Environment
+# Environment variables
 .env
 .env.local
 *.env.*
 
-# Editor
-.vscode/
+# IDE files
 .idea/
+.vscode/
 *.swp
 *.swo
 
-# OS
+# OS generated files
 .DS_Store
 Thumbs.db
-
-# Coverage
-coverage/
-*.coverage
-
-# Temporary files
-*.tmp
-*.temp
 ```
