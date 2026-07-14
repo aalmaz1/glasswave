@@ -13,7 +13,7 @@ import '../widgets/note_editor.dart';
 /// Главный экран (Dashboard)
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
-  
+
   @override
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
@@ -21,7 +21,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   double _scrollOffset = 0;
   final ScrollController _scrollController = ScrollController();
-  
+
   @override
   void initState() {
     super.initState();
@@ -31,33 +31,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       });
     });
   }
-  
+
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
   }
-  
+
   int _getCrossAxisCount(double width) {
     if (width >= 1280) return 3;
     if (width >= 768) return 2;
     return 1;
   }
-  
+
   double _getGap(double width) {
     return width >= 1280 ? 18 : 14;
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final themeId = ref.watch(themeIdProvider);
-    final theme = AppTheme.all.firstWhere((t) => t.id == themeId, orElse: () => AppTheme.sunset);
+    final theme = AppTheme.all
+        .firstWhere((t) => t.id == themeId, orElse: () => AppTheme.sunset);
     final pinnedNotes = ref.watch(pinnedNotesProvider);
     final otherNotes = ref.watch(otherNotesProvider);
     final navTab = ref.watch(navTabProvider);
     final width = MediaQuery.of(context).size.width;
     final isMobile = width < 768;
-    
+
     return GradientBackground(
       theme: theme,
       scrollOffset: _scrollOffset,
@@ -71,7 +72,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               SliverToBoxAdapter(
                 child: SizedBox(height: 92),
               ),
-              
+
               // Pinned section
               if (pinnedNotes.isNotEmpty && navTab == NavTab.notes) ...[
                 SliverPadding(
@@ -105,18 +106,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       childAspectRatio: 1.1,
                     ),
                     delegate: SliverChildBuilderDelegate(
-                      (context, index) => _buildNoteCard(pinnedNotes[index], theme, isMobile),
+                      (context, index) =>
+                          _buildNoteCard(pinnedNotes[index], theme, isMobile),
                       childCount: pinnedNotes.length,
                     ),
                   ),
                 ),
               ],
-              
+
               // Other notes section
-              if (otherNotes.isNotEmpty || (pinnedNotes.isEmpty && pinnedNotes.isEmpty)) ...[
+              if (otherNotes.isNotEmpty ||
+                  (pinnedNotes.isEmpty && pinnedNotes.isEmpty)) ...[
                 if (pinnedNotes.isNotEmpty && navTab == NavTab.notes)
                   SliverPadding(
-                    padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
                     sliver: SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 12),
@@ -124,7 +128,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           'ОСТАЛЬНЫЕ',
                           style: TextStyle(
                             fontSize: 11,
-                            letterSpacing: 0.09.em,
+                            letterSpacing: 0.09,
                             color: Colors.white.withValues(alpha: 0.30),
                             fontWeight: FontWeight.w600,
                           ),
@@ -147,13 +151,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                        final allNotes = navTab == NavTab.notes 
-                            ? otherNotes 
+                        final allNotes = navTab == NavTab.notes
+                            ? otherNotes
                             : ref.watch(filteredNotesProvider);
                         return _buildNoteCard(allNotes[index], theme, isMobile);
                       },
-                      childCount: navTab == NavTab.notes 
-                          ? otherNotes.length 
+                      childCount: navTab == NavTab.notes
+                          ? otherNotes.length
                           : ref.watch(filteredNotesProvider).length,
                     ),
                   ),
@@ -161,20 +165,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ],
             ],
           ),
-          
+
           // Search panel
           SearchPanel(scrollOffset: _scrollOffset),
-          
+
           // Bottom navigation
           const BottomNavigation(),
-          
+
           // FAB
           NoteFAB(onPressed: () => _openEditor(null)),
         ],
       ),
     );
   }
-  
+
   Widget _buildNoteCard(Note note, AppTheme theme, bool isMobile) {
     return NoteCard(
       note: note,
@@ -187,7 +191,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       onReminder: () => _showReminderSheet(note),
     );
   }
-  
+
   void _openEditor(Note? note) {
     showModalBottomSheet(
       context: context,
@@ -206,31 +210,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ),
     );
   }
-  
+
   void _saveNote(Note note) {
     final notifier = ref.read(notesProvider.notifier);
     final existingNote = ref.read(notesProvider).firstWhere(
-      (n) => n.id == note.id,
-      orElse: () => note,
-    );
-    
+          (n) => n.id == note.id,
+          orElse: () => note,
+        );
+
     if (existingNote.id == note.id) {
       notifier.updateNote(note);
     } else {
       notifier.addNote(note);
     }
   }
-  
+
   void _togglePin(Note note) {
     final updated = note.copyWith(pinned: !note.pinned);
     ref.read(notesProvider.notifier).updateNote(updated);
   }
-  
+
   void _toggleArchive(Note note) {
     final updated = note.copyWith(archived: !note.archived, pinned: false);
     ref.read(notesProvider.notifier).updateNote(updated);
   }
-  
+
   void _toggleTrash(Note note) {
     if (note.trashed) {
       // Permanent delete
@@ -240,7 +244,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ref.read(notesProvider.notifier).updateNote(updated);
     }
   }
-  
+
   void _showReminderSheet(Note note) {
     showModalBottomSheet(
       context: context,
@@ -265,14 +269,14 @@ class ReminderSheet extends StatefulWidget {
   final Note note;
   final Function(DateTime)? onSave;
   final VoidCallback? onRemove;
-  
+
   const ReminderSheet({
     super.key,
     required this.note,
     this.onSave,
     this.onRemove,
   });
-  
+
   @override
   State<ReminderSheet> createState() => _ReminderSheetState();
 }
@@ -302,7 +306,7 @@ class _ReminderSheetState extends State<ReminderSheet> {
             ),
           ),
           const SizedBox(height: 20),
-          
+
           // Title
           Row(
             children: [
@@ -319,7 +323,7 @@ class _ReminderSheetState extends State<ReminderSheet> {
             ],
           ),
           const SizedBox(height: 20),
-          
+
           // Quick options
           _QuickOption(
             label: 'Сегодня',
@@ -327,8 +331,8 @@ class _ReminderSheetState extends State<ReminderSheet> {
             onTap: () {
               final now = DateTime.now();
               final reminder = DateTime(now.year, now.month, now.day, 20, 0);
-              widget.onSave?.call(reminder.isBefore(now) 
-                  ? reminder.add(const Duration(days: 1)) 
+              widget.onSave?.call(reminder.isBefore(now)
+                  ? reminder.add(const Duration(days: 1))
                   : reminder);
               Navigator.pop(context);
             },
@@ -338,7 +342,8 @@ class _ReminderSheetState extends State<ReminderSheet> {
             subtitle: '08:00',
             onTap: () {
               final tomorrow = DateTime.now().add(const Duration(days: 1));
-              widget.onSave?.call(DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 8, 0));
+              widget.onSave?.call(
+                  DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 8, 0));
               Navigator.pop(context);
             },
           ),
@@ -347,14 +352,16 @@ class _ReminderSheetState extends State<ReminderSheet> {
             subtitle: 'Понедельник 08:00',
             onTap: () {
               final now = DateTime.now();
-              final nextMonday = now.add(Duration(days: (8 - now.weekday) % 7 + 7));
-              widget.onSave?.call(DateTime(nextMonday.year, nextMonday.month, nextMonday.day, 8, 0));
+              final nextMonday =
+                  now.add(Duration(days: (8 - now.weekday) % 7 + 7));
+              widget.onSave?.call(DateTime(
+                  nextMonday.year, nextMonday.month, nextMonday.day, 8, 0));
               Navigator.pop(context);
             },
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Custom picker button
           SizedBox(
             width: double.infinity,
@@ -366,13 +373,13 @@ class _ReminderSheetState extends State<ReminderSheet> {
                   firstDate: DateTime.now(),
                   lastDate: DateTime.now().add(const Duration(days: 365)),
                 );
-                
+
                 if (date != null && context.mounted) {
                   final time = await showTimePicker(
                     context: context,
                     initialTime: TimeOfDay.now(),
                   );
-                  
+
                   if (time != null && context.mounted) {
                     final reminder = DateTime(
                       date.year,
@@ -387,14 +394,15 @@ class _ReminderSheetState extends State<ReminderSheet> {
                 }
               },
               icon: const Icon(Icons.edit_calendar, color: Colors.amber),
-              label: const Text('Выбрать дату', style: TextStyle(color: Colors.white)),
+              label: const Text('Выбрать дату',
+                  style: TextStyle(color: Colors.white)),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.white24),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),
-          
+
           // Remove button if reminder exists
           if (widget.note.reminder != null) ...[
             const SizedBox(height: 12),
@@ -406,15 +414,16 @@ class _ReminderSheetState extends State<ReminderSheet> {
                   Navigator.pop(context);
                 },
                 icon: const Icon(Icons.delete_outline, color: Colors.red),
-                label: const Text('Удалить напоминание', style: TextStyle(color: Colors.red)),
+                label: const Text('Удалить напоминание',
+                    style: TextStyle(color: Colors.red)),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red.withValues(alpha: 0.3)),
+                  side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
             ),
           ],
-          
+
           const SizedBox(height: 20),
         ],
       ),
@@ -426,20 +435,21 @@ class _QuickOption extends StatelessWidget {
   final String label;
   final String subtitle;
   final VoidCallback onTap;
-  
+
   const _QuickOption({
     required this.label,
     required this.subtitle,
     required this.onTap,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     return ListTile(
       onTap: onTap,
       leading: const Icon(Icons.access_time, color: Colors.white70),
       title: Text(label, style: const TextStyle(color: Colors.white)),
-      subtitle: Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 12)),
+      subtitle: Text(subtitle,
+          style: const TextStyle(color: Colors.white38, fontSize: 12)),
     );
   }
 }

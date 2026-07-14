@@ -9,50 +9,52 @@ class NoteEditor extends StatefulWidget {
   final Note? note;
   final AppTheme theme;
   final Function(Note)? onSave;
-  
+
   const NoteEditor({
     super.key,
     this.note,
     required this.theme,
     this.onSave,
   });
-  
+
   @override
   State<NoteEditor> createState() => _NoteEditorState();
 }
 
-class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateMixin {
+class _NoteEditorState extends State<NoteEditor>
+    with SingleTickerProviderStateMixin {
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
   late bool _isEditing;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-  
+
   @override
   void initState() {
     super.initState();
     _isEditing = widget.note != null;
     _titleController = TextEditingController(text: widget.note?.title ?? '');
     _bodyController = TextEditingController(text: widget.note?.body ?? '');
-    
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
-    
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic));
-    
+    ).animate(CurvedAnimation(
+        parent: _animationController, curve: Curves.easeOutCubic));
+
     _animationController.forward();
   }
-  
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -60,13 +62,14 @@ class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateM
     _animationController.dispose();
     super.dispose();
   }
-  
+
   void _save() {
-    if (_titleController.text.trim().isEmpty && _bodyController.text.trim().isEmpty) {
+    if (_titleController.text.trim().isEmpty &&
+        _bodyController.text.trim().isEmpty) {
       Navigator.pop(context);
       return;
     }
-    
+
     final now = DateTime.now();
     final note = Note(
       id: widget.note?.id ?? now.millisecondsSinceEpoch,
@@ -80,65 +83,69 @@ class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateM
       reminder: widget.note?.reminder,
       userEmail: widget.note?.userEmail ?? '',
     );
-    
+
     widget.onSave?.call(note);
     Navigator.pop(context);
   }
-  
+
   void _applyFormat(String before, String after) {
     final selection = _bodyController.selection;
     if (!selection.isValid) return;
-    
+
     final text = _bodyController.text;
     final selectedText = text.substring(selection.start, selection.end);
-    
+
     if (selectedText.isEmpty) {
       // Insert formatting markers at cursor position
-      _bodyController.text = text.substring(0, selection.start) + 
-                            before + after + 
-                            text.substring(selection.end);
+      _bodyController.text = text.substring(0, selection.start) +
+          before +
+          after +
+          text.substring(selection.end);
       _bodyController.selection = TextSelection.collapsed(
         offset: selection.start + before.length,
       );
     } else {
       // Wrap selected text
-      _bodyController.text = text.substring(0, selection.start) + 
-                            before + selectedText + after + 
-                            text.substring(selection.end);
+      _bodyController.text = text.substring(0, selection.start) +
+          before +
+          selectedText +
+          after +
+          text.substring(selection.end);
       _bodyController.selection = TextSelection(
         baseOffset: selection.start,
         extentOffset: selection.end + before.length + after.length,
       );
     }
   }
-  
+
   void _insertLinePrefix(String prefix) {
     final selection = _bodyController.selection;
     if (!selection.isValid) return;
-    
+
     final text = _bodyController.text;
-    final lines = text.substring(0, selection.start).split('\n');
-    final currentLineStart = text.substring(0, selection.start).lastIndexOf('\n') + 1;
-    
-    _bodyController.text = text.substring(0, currentLineStart) + 
-                          prefix + ' ' + 
-                          text.substring(currentLineStart);
-    
+    final currentLineStart =
+        text.substring(0, selection.start).lastIndexOf('\n') + 1;
+
+    _bodyController.text = text.substring(0, currentLineStart) +
+        prefix +
+        ' ' +
+        text.substring(currentLineStart);
+
     _bodyController.selection = TextSelection.collapsed(
       offset: selection.start + prefix.length + 1,
     );
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final height = MediaQuery.of(context).size.height;
     final isDesktop = width >= 1280;
-    
+
     // Modal dimensions for desktop/tablet
     double modalWidth;
     double modalHeight;
-    
+
     if (isDesktop) {
       modalWidth = (width * 0.62).clamp(0.0, 720.0);
       modalHeight = height * 0.88;
@@ -149,7 +156,7 @@ class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateM
       modalWidth = width;
       modalHeight = height;
     }
-    
+
     Widget editor = FadeTransition(
       opacity: _fadeAnimation,
       child: SlideTransition(
@@ -160,16 +167,16 @@ class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateM
             children: [
               // Header
               _buildHeader(),
-              
+
               // Title input
               _buildTitleInput(),
-              
+
               // Meta info
               _buildMeta(),
-              
+
               // Body textarea
               Expanded(child: _buildBody()),
-              
+
               // Formatting toolbar
               _buildToolbar(),
             ],
@@ -177,7 +184,7 @@ class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateM
         ),
       ),
     );
-    
+
     if (isDesktop) {
       editor = Center(
         child: SizedBox(
@@ -187,7 +194,7 @@ class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateM
         ),
       );
     }
-    
+
     return Stack(
       children: [
         // Backdrop for desktop/tablet
@@ -200,7 +207,7 @@ class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateM
               ),
             ),
           ),
-        
+
         // Editor
         if (isDesktop || width >= 768)
           editor
@@ -209,7 +216,7 @@ class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateM
       ],
     );
   }
-  
+
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -225,7 +232,7 @@ class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateM
               padding: const EdgeInsets.all(8),
             ),
           ),
-          
+
           // Label
           Text(
             _isEditing ? 'Редактировать' : 'Новая заметка',
@@ -235,7 +242,7 @@ class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateM
               color: Colors.white70,
             ),
           ),
-          
+
           // Save button
           GlassContainer(
             borderRadius: 12,
@@ -249,7 +256,7 @@ class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateM
       ),
     );
   }
-  
+
   Widget _buildTitleInput() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -269,12 +276,12 @@ class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateM
       ),
     );
   }
-  
+
   Widget _buildMeta() {
-    final wordCount = _bodyController.text.trim().isEmpty 
-        ? 0 
+    final wordCount = _bodyController.text.trim().isEmpty
+        ? 0
         : _bodyController.text.trim().split(RegExp(r'\s+')).length;
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Row(
@@ -296,7 +303,7 @@ class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateM
       ),
     );
   }
-  
+
   Widget _buildBody() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -318,7 +325,7 @@ class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateM
       ),
     );
   }
-  
+
   Widget _buildToolbar() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -347,9 +354,9 @@ class _NoteEditorState extends State<NoteEditor> with SingleTickerProviderStateM
 class _ToolbarButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
-  
+
   const _ToolbarButton({required this.label, required this.onTap});
-  
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(

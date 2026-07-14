@@ -7,7 +7,7 @@ import '../utils/glass_style.dart';
 /// Экран настроек
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
-  
+
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
@@ -17,7 +17,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
-  
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -25,13 +25,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _nameController.dispose();
     super.dispose();
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final themeId = ref.watch(themeIdProvider);
-    final theme = AppTheme.all.firstWhere((t) => t.id == themeId, orElse: () => AppTheme.sunset);
-    final fontSize = ref.watch(fontSizeProvider);
-    
+    final theme = AppTheme.all
+        .firstWhere((t) => t.id == themeId, orElse: () => AppTheme.sunset);
+
     return Scaffold(
       body: Stack(
         children: [
@@ -39,7 +39,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Container(
             decoration: BoxDecoration(gradient: theme.gradient),
           ),
-          
+
           // Content
           SafeArea(
             child: SingleChildScrollView(
@@ -52,9 +52,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     icon: const Icon(Icons.arrow_back, color: Colors.white70),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Title
                   const Text(
                     'Настройки',
@@ -64,23 +64,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       color: Colors.white,
                     ),
                   ),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   // Account section
                   _SectionTitle(title: 'Аккаунт'),
                   const SizedBox(height: 16),
                   _buildAccountCard(),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   // Theme selection
                   _SectionTitle(title: 'Тема'),
                   const SizedBox(height: 16),
                   _buildThemeGrid(),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   // Font size
                   _SectionTitle(title: 'Размер шрифта'),
                   const SizedBox(height: 16),
@@ -93,10 +93,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
-  
+
   Widget _buildAccountCard() {
     final user = ref.watch(currentUserProvider);
-    
+
     if (user == null) {
       // Auth panel
       return GlassContainer(
@@ -111,8 +111,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
-                        color: _isLoginTab 
-                            ? Colors.white.withValues(alpha: 0.1) 
+                        color: _isLoginTab
+                            ? Colors.white.withValues(alpha: 0.1)
                             : Colors.transparent,
                         borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(20),
@@ -132,8 +132,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
-                        color: !_isLoginTab 
-                            ? Colors.white.withValues(alpha: 0.1) 
+                        color: !_isLoginTab
+                            ? Colors.white.withValues(alpha: 0.1)
                             : Colors.transparent,
                         borderRadius: const BorderRadius.only(
                           topRight: Radius.circular(20),
@@ -149,7 +149,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 20),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -256,7 +256,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.green.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(6),
@@ -264,7 +265,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.check_circle, color: Colors.green, size: 14),
+                        const Icon(Icons.check_circle,
+                            color: Colors.green, size: 14),
                         const SizedBox(width: 4),
                         const Text(
                           '✓ Синхронизировано',
@@ -286,7 +288,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       );
     }
   }
-  
+
   Widget _buildThemeGrid() {
     return GridView.builder(
       shrinkWrap: true,
@@ -301,7 +303,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       itemBuilder: (context, index) {
         final t = AppTheme.all[index];
         final isSelected = t.id == ref.watch(themeIdProvider);
-        
+
         return GestureDetector(
           onTap: () => ref.read(themeIdProvider.notifier).state = t.id,
           child: Stack(
@@ -311,8 +313,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   gradient: t.gradient,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: isSelected 
-                        ? Colors.white 
+                    color: isSelected
+                        ? Colors.white
                         : Colors.white.withValues(alpha: 0.2),
                     width: isSelected ? 2 : 1,
                   ),
@@ -328,7 +330,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       color: Colors.white,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.check, size: 14, color: Colors.black87),
+                    child: const Icon(Icons.check,
+                        size: 14, color: Colors.black87),
                   ),
                 ),
               Positioned(
@@ -345,8 +348,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       },
     );
   }
-  
+
   Widget _buildFontSizeSelector() {
+    final fontSize = ref.watch(fontSizeProvider);
     return GlassContainer(
       child: Row(
         children: [
@@ -378,31 +382,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
-  
+
   void _handleAuth() {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final name = _nameController.text.trim();
-    
+
     if (!email.contains('@')) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Некорректный email')),
       );
       return;
     }
-    
+
     if (password.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Пароль должен быть не менее 6 символов')),
       );
       return;
     }
-    
+
     // Simple auth logic (local only)
     // In real app, would use Hive to store/retrieve users
     ref.read(currentUserProvider.notifier).state = null; // Reset for demo
   }
-  
+
   void _handleLogout() {
     ref.read(currentUserProvider.notifier).state = null;
     ref.read(notesProvider.notifier).reset();
@@ -411,9 +415,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
 class _SectionTitle extends StatelessWidget {
   final String title;
-  
+
   const _SectionTitle({required this.title});
-  
+
   @override
   Widget build(BuildContext context) {
     return Text(
@@ -422,7 +426,7 @@ class _SectionTitle extends StatelessWidget {
         fontSize: 16,
         fontWeight: FontWeight.w600,
         color: Colors.white70,
-        letterSpacing: 0.05.em,
+        letterSpacing: 0.05,
       ),
     );
   }
@@ -433,21 +437,21 @@ class _TextField extends StatefulWidget {
   final String label;
   final IconData icon;
   final bool isPassword;
-  
+
   const _TextField({
     required this.controller,
     required this.label,
     required this.icon,
     this.isPassword = false,
   });
-  
+
   @override
   State<_TextField> createState() => _TextFieldState();
 }
 
 class _TextFieldState extends State<_TextField> {
   bool _obscureText = true;
-  
+
   @override
   Widget build(BuildContext context) {
     return TextField(
@@ -489,14 +493,14 @@ class _FontSizeButton extends StatelessWidget {
   final double scale;
   final bool isSelected;
   final VoidCallback onTap;
-  
+
   const _FontSizeButton({
     required this.label,
     required this.scale,
     required this.isSelected,
     required this.onTap,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -505,14 +509,13 @@ class _FontSizeButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         margin: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? Colors.amber.withValues(alpha: 0.2) 
+          color: isSelected
+              ? Colors.amber.withValues(alpha: 0.2)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected 
-                ? Colors.amber 
-                : Colors.white.withValues(alpha: 0.2),
+            color:
+                isSelected ? Colors.amber : Colors.white.withValues(alpha: 0.2),
           ),
         ),
         child: Text(

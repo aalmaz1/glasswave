@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/note.dart';
 import '../themes/app_themes.dart';
 import '../utils/glass_style.dart';
+import 'gradient_background.dart';
 
 /// Карточка заметки с глассморфизмом и hover-эффектами
 class NoteCard extends StatefulWidget {
@@ -15,7 +16,7 @@ class NoteCard extends StatefulWidget {
   final VoidCallback? onTrash;
   final VoidCallback? onReminder;
   final bool showActionsAlways;
-  
+
   const NoteCard({
     super.key,
     required this.note,
@@ -27,17 +28,18 @@ class NoteCard extends StatefulWidget {
     this.onReminder,
     this.showActionsAlways = false,
   });
-  
+
   @override
   State<NoteCard> createState() => _NoteCardState();
 }
 
-class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin {
+class _NoteCardState extends State<NoteCard>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _translateAnimation;
-  
+
   @override
   void initState() {
     super.initState();
@@ -45,39 +47,42 @@ class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin
       duration: const Duration(milliseconds: 320),
       vsync: this,
     );
-    
-    _scaleAnimation = Tween<double>(begin: 1.0, end: GlassStyle.hoverScale).animate(
+
+    _scaleAnimation =
+        Tween<double>(begin: 1.0, end: GlassStyle.hoverScale).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
-    
-    _translateAnimation = Tween<double>(begin: 0.0, end: GlassStyle.hoverTranslateY).animate(
+
+    _translateAnimation =
+        Tween<double>(begin: 0.0, end: GlassStyle.hoverTranslateY).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
   }
-  
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-  
+
   void _onHoverEnter() {
     setState(() => _isHovered = true);
     _controller.forward();
   }
-  
+
   void _onHoverExit() {
     setState(() => _isHovered = false);
     _controller.reverse();
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 1280;
     final showActions = widget.showActionsAlways || _isHovered;
-    
-    final accentColor = widget.theme.accentColors[widget.note.accentIdx % widget.theme.accentColors.length];
-    
+
+    final accentColor = widget.theme
+        .accentColors[widget.note.accentIdx % widget.theme.accentColors.length];
+
     Widget card = MouseRegion(
       onEnter: (_) => isDesktop ? _onHoverEnter() : null,
       onExit: (_) => isDesktop ? _onHoverExit() : null,
@@ -98,10 +103,10 @@ class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin
         ),
       ),
     );
-    
+
     return card;
   }
-  
+
   Widget _buildCardInner(Color accentColor, bool showActions) {
     return Container(
       decoration: BoxDecoration(
@@ -132,10 +137,10 @@ class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin
                   ),
                 ),
               ),
-              
+
               // Holographic sheen
               const HolographicSheen(),
-              
+
               // Content
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -164,8 +169,12 @@ class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin
                           duration: const Duration(milliseconds: 200),
                           child: IconButton(
                             icon: Icon(
-                              widget.note.pinned ? Icons.push_pin : Icons.push_pin_outlined,
-                              color: widget.note.pinned ? Colors.amber : Colors.white70,
+                              widget.note.pinned
+                                  ? Icons.push_pin
+                                  : Icons.push_pin_outlined,
+                              color: widget.note.pinned
+                                  ? Colors.amber
+                                  : Colors.white70,
                               size: 18,
                             ),
                             onPressed: widget.onPin,
@@ -175,9 +184,9 @@ class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 8),
-                    
+
                     // Body text
                     Expanded(
                       child: Text(
@@ -191,15 +200,15 @@ class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    
+
                     const SizedBox(height: 12),
-                    
+
                     // Reminder badge
                     if (widget.note.reminder != null) ...[
                       _buildReminderBadge(),
                       const SizedBox(height: 8),
                     ],
-                    
+
                     // Footer: date + actions
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -212,7 +221,7 @@ class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin
                             color: Colors.white38,
                           ),
                         ),
-                        
+
                         // Action buttons
                         AnimatedOpacity(
                           opacity: showActions ? 1.0 : 0.0,
@@ -228,13 +237,17 @@ class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin
                                 ),
                                 const SizedBox(width: 8),
                                 _ActionButton(
-                                  icon: widget.note.archived ? Icons.unarchive_outlined : Icons.archive_outlined,
+                                  icon: widget.note.archived
+                                      ? Icons.unarchive_outlined
+                                      : Icons.archive_outlined,
                                   onTap: widget.onArchive,
                                 ),
                                 const SizedBox(width: 8),
                               ],
                               _ActionButton(
-                                icon: widget.note.trashed ? Icons.delete_forever : Icons.delete_outline,
+                                icon: widget.note.trashed
+                                    ? Icons.delete_forever
+                                    : Icons.delete_outline,
                                 onTap: widget.onTrash,
                                 isDestructive: widget.note.trashed,
                               ),
@@ -246,7 +259,7 @@ class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin
                   ],
                 ),
               ),
-              
+
               // Gradient border overlay (z-index top)
               CustomPaint(
                 painter: GradientBorderPainter(),
@@ -258,7 +271,7 @@ class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin
       ),
     );
   }
-  
+
   Widget _buildReminderBadge() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -283,11 +296,11 @@ class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin
       ),
     );
   }
-  
+
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
-    
+
     if (diff.inDays == 0) {
       return 'Сегодня';
     } else if (diff.inDays == 1) {
@@ -295,10 +308,10 @@ class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin
     } else if (diff.inDays < 7) {
       return '${diff.inDays} дн. назад';
     }
-    
+
     return DateFormat('d MMM', 'ru').format(date);
   }
-  
+
   String _formatReminderDate(DateTime date) {
     return DateFormat('d MMM, HH:mm', 'ru').format(date);
   }
@@ -309,14 +322,14 @@ class _ActionButton extends StatelessWidget {
   final VoidCallback? onTap;
   final bool isActive;
   final bool isDestructive;
-  
+
   const _ActionButton({
     required this.icon,
     this.onTap,
     this.isActive = false,
     this.isDestructive = false,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -324,20 +337,20 @@ class _ActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: isActive 
+          color: isActive
               ? Colors.amber.withValues(alpha: 0.2)
-              : isDestructive 
-                  ? Colors.red.withValues(alpha: 0.2) 
+              : isDestructive
+                  ? Colors.red.withValues(alpha: 0.2)
                   : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6),
         ),
         child: Icon(
           icon,
           size: 16,
-          color: isActive 
-              ? Colors.amber 
-              : isDestructive 
-                  ? Colors.red 
+          color: isActive
+              ? Colors.amber
+              : isDestructive
+                  ? Colors.red
                   : Colors.white70,
         ),
       ),

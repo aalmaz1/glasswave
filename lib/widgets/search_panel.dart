@@ -6,15 +6,15 @@ import '../utils/glass_style.dart';
 /// Поисковая панель (стеклянная таблетка)
 class SearchPanel extends ConsumerWidget {
   final double scrollOffset;
-  
+
   const SearchPanel({super.key, this.scrollOffset = 0});
-  
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final query = ref.watch(searchQueryProvider);
     final sortOption = ref.watch(sortOptionProvider);
     final isSortActive = sortOption != SortOption.defaultOrder;
-    
+
     return Positioned(
       top: 0,
       left: 0,
@@ -40,27 +40,33 @@ class SearchPanel extends ConsumerWidget {
                 child: GlassContainer(
                   borderRadius: 50,
                   child: TextField(
-                    onChanged: (value) => ref.read(searchQueryProvider.notifier).state = value,
+                    onChanged: (value) =>
+                        ref.read(searchQueryProvider.notifier).state = value,
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: 'Поиск по заметкам…',
                       hintStyle: const TextStyle(color: Colors.white38),
-                      prefixIcon: const Icon(Icons.search, color: Colors.white38),
+                      prefixIcon:
+                          const Icon(Icons.search, color: Colors.white38),
                       suffixIcon: query.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.close, color: Colors.white38, size: 18),
-                              onPressed: () => ref.read(searchQueryProvider.notifier).state = '',
+                              icon: const Icon(Icons.close,
+                                  color: Colors.white38, size: 18),
+                              onPressed: () => ref
+                                  .read(searchQueryProvider.notifier)
+                                  .state = '',
                             )
                           : null,
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                     ),
                   ),
                 ),
               ),
-              
+
               const SizedBox(width: 12),
-              
+
               // Sort button
               Stack(
                 clipBehavior: Clip.none,
@@ -87,14 +93,15 @@ class SearchPanel extends ConsumerWidget {
                     ),
                 ],
               ),
-              
+
               const SizedBox(width: 12),
-              
+
               // Settings button
               GlassContainer(
                 borderRadius: 50,
                 child: IconButton(
-                  icon: const Icon(Icons.settings_outlined, color: Colors.white70),
+                  icon: const Icon(Icons.settings_outlined,
+                      color: Colors.white70),
                   onPressed: () => Navigator.pushNamed(context, '/settings'),
                 ),
               ),
@@ -104,12 +111,13 @@ class SearchPanel extends ConsumerWidget {
       ),
     );
   }
-  
+
   void _showSortSheet(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => SortSheet(currentOption: ref.read(sortOptionProvider)),
+      builder: (context) =>
+          SortSheet(currentOption: ref.read(sortOptionProvider)),
     ).then((_) {
       // Handle sort option change
     });
@@ -119,9 +127,9 @@ class SearchPanel extends ConsumerWidget {
 /// Bottom sheet для сортировки
 class SortSheet extends ConsumerWidget {
   final SortOption currentOption;
-  
+
   const SortSheet({super.key, required this.currentOption});
-  
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
@@ -143,7 +151,7 @@ class SortSheet extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 20),
-          
+
           // Title
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
@@ -157,14 +165,15 @@ class SortSheet extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 20),
-          
+
           // Options
           _SortOptionTile(
             icon: Icons.shuffle_outlined,
             title: 'По умолчанию',
             isSelected: currentOption == SortOption.defaultOrder,
             onTap: () {
-              ref.read(sortOptionProvider.notifier).state = SortOption.defaultOrder;
+              ref.read(sortOptionProvider.notifier).state =
+                  SortOption.defaultOrder;
               Navigator.pop(context);
             },
           ),
@@ -173,7 +182,8 @@ class SortSheet extends ConsumerWidget {
             title: 'Дата создания',
             isSelected: currentOption == SortOption.dateCreated,
             onTap: () {
-              ref.read(sortOptionProvider.notifier).state = SortOption.dateCreated;
+              ref.read(sortOptionProvider.notifier).state =
+                  SortOption.dateCreated;
               Navigator.pop(context);
             },
           ),
@@ -182,7 +192,8 @@ class SortSheet extends ConsumerWidget {
             title: 'Дата изменения',
             isSelected: currentOption == SortOption.dateModified,
             onTap: () {
-              ref.read(sortOptionProvider.notifier).state = SortOption.dateModified;
+              ref.read(sortOptionProvider.notifier).state =
+                  SortOption.dateModified;
               Navigator.pop(context);
             },
           ),
@@ -198,14 +209,14 @@ class _SortOptionTile extends StatelessWidget {
   final String title;
   final bool isSelected;
   final VoidCallback onTap;
-  
+
   const _SortOptionTile({
     required this.icon,
     required this.title,
     required this.isSelected,
     required this.onTap,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     return ListTile(

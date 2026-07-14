@@ -15,45 +15,42 @@ final notesProvider = StateNotifierProvider<NotesNotifier, List<Note>>((ref) {
 
 class NotesNotifier extends StateNotifier<List<Note>> {
   NotesNotifier() : super([]);
-  
-  String get _boxName {
-    // Will be set when user logs in
-    return 'noova_notes_default';
-  }
-  
+
   void setUserEmail(String email) {
     state = [];
     loadNotes(email);
   }
-  
+
   Future<void> loadNotes(String email) async {
     final boxName = 'noova_notes_$email';
     final box = await Hive.openBox<Map>(boxName);
-    final notes = box.values.map((e) => Note.fromJson(Map<String, dynamic>.from(e))).toList();
+    final notes = box.values
+        .map((e) => Note.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
     state = notes.cast<Note>();
   }
-  
+
   Future<void> addNote(Note note) async {
     final boxName = 'noova_notes_${note.userEmail}';
     final box = await Hive.openBox<Map>(boxName);
     await box.put(note.id, note.toJson());
     state = [...state, note];
   }
-  
+
   Future<void> updateNote(Note note) async {
     final boxName = 'noova_notes_${note.userEmail}';
     final box = await Hive.openBox<Map>(boxName);
     await box.put(note.id, note.toJson());
     state = state.map((n) => n.id == note.id ? note : n).toList();
   }
-  
+
   Future<void> deleteNote(int id, String email) async {
     final boxName = 'noova_notes_$email';
     final box = await Hive.openBox<Map>(boxName);
     await box.delete(id);
     state = state.where((n) => n.id != id).toList();
   }
-  
+
   void reset() {
     state = [];
   }
@@ -64,12 +61,13 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 
 // Активная сортировка
 enum SortOption {
-  defaultOrder,      // По умолчанию (порядок добавления)
-  dateCreated,       // Дата создания (id desc)
-  dateModified,      // Дата изменения (updatedAt desc)
+  defaultOrder, // По умолчанию (порядок добавления)
+  dateCreated, // Дата создания (id desc)
+  dateModified, // Дата изменения (updatedAt desc)
 }
 
-final sortOptionProvider = StateProvider<SortOption>((ref) => SortOption.defaultOrder);
+final sortOptionProvider =
+    StateProvider<SortOption>((ref) => SortOption.defaultOrder);
 
 // Активная вкладка навигации
 enum NavTab {
@@ -86,22 +84,22 @@ final filteredNotesProvider = Provider<List<Note>>((ref) {
   final query = ref.watch(searchQueryProvider).toLowerCase();
   final sortOption = ref.watch(sortOptionProvider);
   final navTab = ref.watch(navTabProvider);
-  
+
   // Filter by tab
   List<Note> filtered = notes.where((note) {
     if (navTab == NavTab.archive) return note.archived && !note.trashed;
     if (navTab == NavTab.trash) return note.trashed;
     return !note.archived && !note.trashed;
   }).toList();
-  
+
   // Filter by search query
   if (query.isNotEmpty) {
     filtered = filtered.where((note) {
       return note.title.toLowerCase().contains(query) ||
-             note.body.toLowerCase().contains(query);
+          note.body.toLowerCase().contains(query);
     }).toList();
   }
-  
+
   // Sort
   switch (sortOption) {
     case SortOption.dateCreated:
@@ -114,7 +112,7 @@ final filteredNotesProvider = Provider<List<Note>>((ref) {
       // Keep original order (pinned first, then by id)
       break;
   }
-  
+
   return filtered;
 });
 
