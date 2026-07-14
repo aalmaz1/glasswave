@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/app_providers.dart';
 import '../utils/glass_style.dart';
 
@@ -39,24 +40,24 @@ class BottomNavigation extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _NavItem(
-                    icon: Icons.description_outlined,
-                    activeIcon: Icons.description,
+                    icon: LucideIcons.fileText,
+                    activeIcon: LucideIcons.fileText,
                     label: 'Заметки',
                     isActive: currentTab == NavTab.notes,
                     onTap: () => ref.read(navTabProvider.notifier).state = NavTab.notes,
                     showLabel: !isDesktop,
                   ),
                   _NavItem(
-                    icon: Icons.archive_outlined,
-                    activeIcon: Icons.archive,
+                    icon: LucideIcons.archive,
+                    activeIcon: LucideIcons.archive,
                     label: 'Архив',
                     isActive: currentTab == NavTab.archive,
                     onTap: () => ref.read(navTabProvider.notifier).state = NavTab.archive,
                     showLabel: !isDesktop,
                   ),
                   _NavItem(
-                    icon: Icons.delete_outline,
-                    activeIcon: Icons.delete,
+                    icon: LucideIcons.trash2,
+                    activeIcon: LucideIcons.trash2,
                     label: 'Корзина',
                     isActive: currentTab == NavTab.trash,
                     onTap: () => ref.read(navTabProvider.notifier).state = NavTab.trash,

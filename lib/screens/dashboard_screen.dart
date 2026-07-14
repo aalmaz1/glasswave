@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/app_providers.dart';
 import '../themes/app_themes.dart';
 import '../models/note.dart';
@@ -310,7 +311,7 @@ class _ReminderSheetState extends State<ReminderSheet> {
           // Title
           Row(
             children: [
-              const Icon(Icons.access_time, color: Colors.amber),
+              const Icon(LucideIcons.calendarClock, color: Colors.amber),
               const SizedBox(width: 8),
               const Text(
                 'Напоминание',
@@ -393,7 +394,7 @@ class _ReminderSheetState extends State<ReminderSheet> {
                   }
                 }
               },
-              icon: const Icon(Icons.edit_calendar, color: Colors.amber),
+              icon: const Icon(LucideIcons.calendar, color: Colors.amber),
               label: const Text('Выбрать дату',
                   style: TextStyle(color: Colors.white)),
               style: OutlinedButton.styleFrom(
@@ -413,7 +414,7 @@ class _ReminderSheetState extends State<ReminderSheet> {
                   widget.onRemove?.call();
                   Navigator.pop(context);
                 },
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                icon: const Icon(LucideIcons.trash2, color: Colors.red),
                 label: const Text('Удалить напоминание',
                     style: TextStyle(color: Colors.red)),
                 style: OutlinedButton.styleFrom(
@@ -446,7 +447,7 @@ class _QuickOption extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       onTap: onTap,
-      leading: const Icon(Icons.access_time, color: Colors.white70),
+      leading: const Icon(LucideIcons.clock, color: Colors.white70),
       title: Text(label, style: const TextStyle(color: Colors.white)),
       subtitle: Text(subtitle,
           style: const TextStyle(color: Colors.white38, fontSize: 12)),

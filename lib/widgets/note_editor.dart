@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../models/note.dart';
 import '../themes/app_themes.dart';
 import '../utils/glass_style.dart';
@@ -101,9 +102,14 @@ class _NoteEditorState extends State<NoteEditor>
           before +
           after +
           text.substring(selection.end);
-      _bodyController.selection = TextSelection.collapsed(
-        offset: selection.start + before.length,
-      );
+      // Restore cursor position synchronously after text change
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _bodyController.selection = TextSelection.collapsed(
+            offset: selection.start + before.length,
+          );
+        }
+      });
     } else {
       // Wrap selected text
       _bodyController.text = text.substring(0, selection.start) +
@@ -111,10 +117,15 @@ class _NoteEditorState extends State<NoteEditor>
           selectedText +
           after +
           text.substring(selection.end);
-      _bodyController.selection = TextSelection(
-        baseOffset: selection.start,
-        extentOffset: selection.end + before.length + after.length,
-      );
+      // Restore selection synchronously after text change
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _bodyController.selection = TextSelection(
+            baseOffset: selection.start,
+            extentOffset: selection.end + before.length + after.length,
+          );
+        }
+      });
     }
   }
 
@@ -131,9 +142,14 @@ class _NoteEditorState extends State<NoteEditor>
         ' ' +
         text.substring(currentLineStart);
 
-    _bodyController.selection = TextSelection.collapsed(
-      offset: selection.start + prefix.length + 1,
-    );
+    // Restore cursor position synchronously after text change
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _bodyController.selection = TextSelection.collapsed(
+          offset: selection.start + prefix.length + 1,
+        );
+      }
+    });
   }
 
   @override
