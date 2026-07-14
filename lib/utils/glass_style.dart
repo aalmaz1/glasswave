@@ -61,9 +61,10 @@ class GradientBorderPainter extends CustomPainter {
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(GlassStyle.borderRadius));
     
     // Градиент для рамки: white 35% → white08 40% → white02 100%
+    // Только верхняя часть (1px)
     final gradient = LinearGradient(
       begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
+      end: Alignment.topRight,
       stops: const [0.35, 0.40, 1.0],
       colors: colors ?? [
         Colors.white,
@@ -73,11 +74,44 @@ class GradientBorderPainter extends CustomPainter {
     );
     
     final paint = Paint()
-      ..shader = gradient.createShader(rect)
+      ..shader = gradient.createShader(Rect.fromLTWH(0, 0, size.width, 1))
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
     
-    canvas.drawRRect(rrect, paint);
+    // Рисуем только верхнюю линию
+    final path = Path();
+    path.moveTo(0 + GlassStyle.borderRadius, 0);
+    path.lineTo(size.width - GlassStyle.borderRadius, 0);
+    // Top-right corner
+    path.arcToPoint(
+      Offset(size.width, 0 + GlassStyle.borderRadius),
+      radius: const Radius.circular(GlassStyle.borderRadius),
+      clockwise: true,
+    );
+    // Right side (transparent)
+    path.lineTo(size.width, size.height - GlassStyle.borderRadius);
+    path.arcToPoint(
+      Offset(size.width - GlassStyle.borderRadius, size.height),
+      radius: const Radius.circular(GlassStyle.borderRadius),
+      clockwise: true,
+    );
+    // Bottom side (transparent)
+    path.lineTo(0 + GlassStyle.borderRadius, size.height);
+    path.arcToPoint(
+      Offset(0, size.height - GlassStyle.borderRadius),
+      radius: const Radius.circular(GlassStyle.borderRadius),
+      clockwise: true,
+    );
+    // Left side (transparent)
+    path.lineTo(0, 0 + GlassStyle.borderRadius);
+    path.arcToPoint(
+      Offset(0 + GlassStyle.borderRadius, 0),
+      radius: const Radius.circular(GlassStyle.borderRadius),
+      clockwise: true,
+    );
+    path.close();
+    
+    canvas.drawPath(path, paint);
   }
   
   @override

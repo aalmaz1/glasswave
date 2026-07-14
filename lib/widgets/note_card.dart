@@ -83,6 +83,7 @@ class _NoteCardState extends State<NoteCard>
     final accentColor = widget.theme
         .accentColors[widget.note.accentIdx % widget.theme.accentColors.length];
 
+    // OUTER layer: GestureDetector + Transform (NO overflow:hidden - shadow must not be clipped)
     Widget card = MouseRegion(
       onEnter: (_) => isDesktop ? _onHoverEnter() : null,
       onExit: (_) => isDesktop ? _onHoverExit() : null,
@@ -99,6 +100,7 @@ class _NoteCardState extends State<NoteCard>
               ),
             );
           },
+          // INNER layer: Container with glassmorphism + overflow:hidden for content
           child: _buildCardInner(accentColor, showActions),
         ),
       ),
@@ -109,6 +111,7 @@ class _NoteCardState extends State<NoteCard>
 
   Widget _buildCardInner(Color accentColor, bool showActions) {
     return Container(
+      // Outer container handles border and shadow (no clip)
       decoration: BoxDecoration(
         color: GlassStyle.background,
         borderRadius: BorderRadius.circular(GlassStyle.borderRadius),
@@ -119,6 +122,7 @@ class _NoteCardState extends State<NoteCard>
         boxShadow: GlassStyle.shadows,
       ),
       child: ClipRRect(
+        // Inner clip for content overflow only
         borderRadius: BorderRadius.circular(GlassStyle.borderRadius),
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(
@@ -127,7 +131,7 @@ class _NoteCardState extends State<NoteCard>
           ),
           child: Stack(
             children: [
-              // Accent gradient
+              // Accent gradient (very weak, max opacity 0.08)
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -138,7 +142,7 @@ class _NoteCardState extends State<NoteCard>
                 ),
               ),
 
-              // Holographic sheen
+              // Holographic sheen overlay
               const HolographicSheen(),
 
               // Content
@@ -187,7 +191,7 @@ class _NoteCardState extends State<NoteCard>
 
                     const SizedBox(height: 8),
 
-                    // Body text
+                    // Body text (3 lines max in grid mode)
                     Expanded(
                       child: Text(
                         widget.note.body,

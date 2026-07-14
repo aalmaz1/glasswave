@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/app_providers.dart';
 import '../utils/glass_style.dart';
 
@@ -67,14 +68,14 @@ class SearchPanel extends ConsumerWidget {
 
               const SizedBox(width: 12),
 
-              // Sort button
+              // Sort button with amber color + indicator dot
               Stack(
                 clipBehavior: Clip.none,
                 children: [
                   GlassContainer(
                     borderRadius: 50,
                     child: IconButton(
-                      icon: const Icon(Icons.tune, color: Colors.amber),
+                      icon: const Icon(LucideIcons.slidersHorizontal, color: Colors.amber),
                       onPressed: () => _showSortSheet(context, ref),
                     ),
                   ),
@@ -168,7 +169,7 @@ class SortSheet extends ConsumerWidget {
 
           // Options
           _SortOptionTile(
-            icon: Icons.shuffle_outlined,
+            icon: LucideIcons.shuffle,
             title: 'По умолчанию',
             isSelected: currentOption == SortOption.defaultOrder,
             onTap: () {
@@ -178,7 +179,7 @@ class SortSheet extends ConsumerWidget {
             },
           ),
           _SortOptionTile(
-            icon: Icons.calendar_today_outlined,
+            icon: LucideIcons.calendarDays,
             title: 'Дата создания',
             isSelected: currentOption == SortOption.dateCreated,
             onTap: () {
@@ -188,7 +189,7 @@ class SortSheet extends ConsumerWidget {
             },
           ),
           _SortOptionTile(
-            icon: Icons.refresh_outlined,
+            icon: LucideIcons.refreshCw,
             title: 'Дата изменения',
             isSelected: currentOption == SortOption.dateModified,
             onTap: () {

@@ -136,11 +136,13 @@ class HolographicSheen extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          stops: const [0.0, 0.5, 1.0],
           colors: [
             Colors.white.withValues(alpha: 0.06),
             Colors.transparent,
             Colors.white.withValues(alpha: 0.03),
           ],
+          transform: const GradientRotation(45 * 3.14159 / 180), // 45 degrees
         ),
       ),
     );
