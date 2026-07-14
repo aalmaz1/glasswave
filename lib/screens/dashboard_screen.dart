@@ -83,7 +83,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         'ЗАКРЕПЛЁННЫЕ',
                         style: TextStyle(
                           fontSize: 11,
-                          letterSpacing: 0.09.em,
+                          letterSpacing: 0.09 * 11,
                           color: Colors.white.withValues(alpha: 0.30),
                           fontWeight: FontWeight.w600,
                         ),
@@ -306,7 +306,7 @@ class _ReminderSheetState extends State<ReminderSheet> {
           // Title
           Row(
             children: [
-              const Icon(Icons.calendar_clock, color: Colors.amber),
+              const Icon(Icons.access_time, color: Colors.amber),
               const SizedBox(width: 8),
               const Text(
                 'Напоминание',

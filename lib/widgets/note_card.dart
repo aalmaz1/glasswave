@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/note.dart';
@@ -115,7 +116,7 @@ class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin
       child: ClipRRect(
         borderRadius: BorderRadius.circular(GlassStyle.borderRadius),
         child: BackdropFilter(
-          filter: ImageFilter.blur(
+          filter: ui.ImageFilter.blur(
             sigmaX: _isHovered ? 28 : GlassStyle.blurSigma,
             sigmaY: _isHovered ? 28 : GlassStyle.blurSigma,
           ),

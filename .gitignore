@@ -1,17 +1,11 @@
 ```
-# Dependencies
+# Build artifacts
+build/
 .dart_tool/
 .packages
-pubspec.lock
 
-# Build outputs
-build/
-*.apk
-*.aab
-*.app
-*.exe
-*.dll
-*.so
+# Dependencies
+pubspec.lock
 
 # Logs
 *.log
@@ -21,9 +15,9 @@ build/
 .env.local
 *.env.*
 
-# IDE
-.idea/
+# Editor
 .vscode/
+.idea/
 *.swp
 *.swo
 
@@ -33,8 +27,4 @@ Thumbs.db
 
 # Coverage
 coverage/
-*.coverage
-
-# Temporary files
-*.tmp
 ```

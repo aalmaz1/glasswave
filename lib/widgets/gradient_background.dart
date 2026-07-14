@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../themes/app_themes.dart';
@@ -104,7 +105,7 @@ class BlurCircle extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+        filter: ui.ImageFilter.blur(sigmaX: 40, sigmaY: 40),
         child: Container(
           width: radius * 2,
           height: radius * 2,
