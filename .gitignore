@@ -1,22 +1,17 @@
 ```
-# Flutter/Dart specific
+# Dependencies
 .dart_tool/
 .packages
-.pub-cache/
 pubspec.lock
 
 # Build outputs
 build/
 *.apk
 *.aab
-*.ipa
 *.app
-
-# IDE files
-.idea/
-.vscode/
-*.swp
-*.swo
+*.exe
+*.dll
+*.so
 
 # Logs
 *.log
@@ -26,11 +21,13 @@ build/
 .env.local
 *.env.*
 
-# Dependencies
-node_modules/
-vendor/
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
-# OS generated files
+# OS
 .DS_Store
 Thumbs.db
 
@@ -40,5 +37,4 @@ coverage/
 
 # Temporary files
 *.tmp
-temp/
 ```
