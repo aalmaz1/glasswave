@@ -1,9 +1,9 @@
-# Compiled and build artifacts
+```
+# Build artifacts
 *.pyc
 __pycache__/
 *.o
 *.obj
-*.class
 *.exe
 *.dll
 *.so
@@ -12,6 +12,9 @@ __pycache__/
 dist/
 build/
 target/
+coverage/
+htmlcov/
+.coverage
 
 # Dependencies
 node_modules/
@@ -19,36 +22,21 @@ venv/
 .venv/
 .env
 .env.local
-*.env.*
+.env.*
 
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-*.swo
-
-# Editors
+# Editor/IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
+*.tmp
 
 # System files
 .DS_Store
 Thumbs.db
 
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Python specific
-.mypy_cache/
-.pytest_cache/
-
-# Java/Gradle
-.gradle/
-target/
+# Logs
+*.log
 
 # Compressed files
 *.zip
@@ -73,3 +61,25 @@ target/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+
+# Python specific
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+
+# Dart/Flutter specific
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+*.g.dart
+
+# Original rules preserved
+```
