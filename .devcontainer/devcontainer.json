@@ -1,0 +1,15 @@
+{
+  "name": "Flutter with Firebase",
+  "image": "ghcr.io/cirruslabs/flutter:stable",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Dart-Code.flutter",
+        "Dart-Code.dart-code"
+      ]
+    }
+  },
+  "forwardPorts": [8080],
+  "postCreateCommand": "dart pub global activate flutterfire_cli && echo 'export PATH=\"$PATH:$HOME/.pub-cache/bin\"' >> ~/.bashrc && source ~/.bashrc",
+  "remoteUser": "root"
+}d
