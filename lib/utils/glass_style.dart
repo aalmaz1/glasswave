@@ -34,34 +34,40 @@ class GlassStyle {
   static const double hoverTranslateY = -6.0;
   static const double hoverScale = 1.02;
   
-  /// BoxShadow для стеклянных поверхностей
+  /// BoxShadow для стеклянных поверхностей + inner glow сверху
   static List<BoxShadow> get shadows => [
         BoxShadow(
           color: shadow,
           blurRadius: 40,
           offset: const Offset(0, 10),
         ),
+        // Inner glow сверху
+        BoxShadow(
+          color: innerGlow,
+          blurRadius: 20,
+          offset: const Offset(0, -5),
+          spreadRadius: -5,
+        ),
       ];
   
-  /// Gradient border painter
+  /// Gradient border painter - только верхняя 1px рамка с градиентом
   static CustomPainter gradientBorderPainter({
     List<Color>? colors,
-  }) => GradientBorderPainter(colors: colors);
+  }) => TopGradientBorderPainter(colors: colors);
 }
 
-/// CustomPainter для градиентной рамки (1px сверху)
-class GradientBorderPainter extends CustomPainter {
+/// CustomPainter для градиентной рамки (только 1px сверху)
+/// Градиент: white 35% → white08 40% → white02 100%
+class TopGradientBorderPainter extends CustomPainter {
   final List<Color>? colors;
   
-  GradientBorderPainter({this.colors});
+  TopGradientBorderPainter({this.colors});
   
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(GlassStyle.borderRadius));
     
-    // Градиент для рамки: white 35% → white08 40% → white02 100%
-    // Только верхняя часть (1px)
+    // Градиент для верхней рамки: white 35% → white08 40% → white02 100%
     final gradient = LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.topRight,
@@ -78,40 +84,94 @@ class GradientBorderPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
     
-    // Рисуем только верхнюю линию
+    // Рисуем ТОЛЬКО верхнюю линию с закруглёнными углами
     final path = Path();
-    path.moveTo(0 + GlassStyle.borderRadius, 0);
-    path.lineTo(size.width - GlassStyle.borderRadius, 0);
-    // Top-right corner
+    final radius = GlassStyle.borderRadius;
+    
+    // Начинаем слева с учётом радиуса
+    path.moveTo(radius, 0);
+    
+    // Верхняя линия до правого угла
+    path.lineTo(size.width - radius, 0);
+    
+    // Правый верхний угол (небольшая дуга для плавности)
     path.arcToPoint(
-      Offset(size.width, 0 + GlassStyle.borderRadius),
-      radius: const Radius.circular(GlassStyle.borderRadius),
+      Offset(size.width, radius),
+      radius: Radius.circular(radius),
       clockwise: true,
     );
-    // Right side (transparent)
-    path.lineTo(size.width, size.height - GlassStyle.borderRadius);
+    
+    // Не рисуем боковые и нижние грани - только верх!
+    // Но для корректного stroke нужно замкнуть путь
+    path.lineTo(size.width, size.height);
+    path.lineTo(0, size.height);
+    path.lineTo(0, radius);
     path.arcToPoint(
-      Offset(size.width - GlassStyle.borderRadius, size.height),
-      radius: const Radius.circular(GlassStyle.borderRadius),
-      clockwise: true,
-    );
-    // Bottom side (transparent)
-    path.lineTo(0 + GlassStyle.borderRadius, size.height);
-    path.arcToPoint(
-      Offset(0, size.height - GlassStyle.borderRadius),
-      radius: const Radius.circular(GlassStyle.borderRadius),
-      clockwise: true,
-    );
-    // Left side (transparent)
-    path.lineTo(0, 0 + GlassStyle.borderRadius);
-    path.arcToPoint(
-      Offset(0 + GlassStyle.borderRadius, 0),
-      radius: const Radius.circular(GlassStyle.borderRadius),
+      Offset(radius, 0),
+      radius: Radius.circular(radius),
       clockwise: true,
     );
     path.close();
     
+    // Используем clipPath чтобы закрасить только верхнюю часть
+    canvas.save();
+    // Клип для верхней 1px полосы с закруглёнными углами
+    final clipPath = Path();
+    clipPath.moveTo(radius, 0);
+    clipPath.lineTo(size.width - radius, 0);
+    clipPath.arcToPoint(
+      Offset(size.width, radius),
+      radius: Radius.circular(radius),
+      clockwise: true,
+    );
+    clipPath.lineTo(size.width, 1);
+    clipPath.lineTo(0, 1);
+    clipPath.lineTo(0, radius);
+    clipPath.arcToPoint(
+      Offset(radius, 0),
+      radius: Radius.circular(radius),
+      clockwise: true,
+    );
+    clipPath.close();
+    
+    canvas.clipPath(clipPath);
     canvas.drawPath(path, paint);
+    canvas.restore();
+  }
+  
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// CustomPainter для полной градиентной рамки (альтернатива)
+class GradientBorderPainter extends CustomPainter {
+  final List<Color>? colors;
+  
+  GradientBorderPainter({this.colors});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(GlassStyle.borderRadius));
+    
+    // Градиент для рамки: white 35% → white08 40% → white02 100%
+    final gradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      stops: const [0.35, 0.40, 1.0],
+      colors: colors ?? [
+        Colors.white,
+        Colors.white.withValues(alpha: 0.08),
+        Colors.white.withValues(alpha: 0.02),
+      ],
+    );
+    
+    final paint = Paint()
+      ..shader = gradient.createShader(rect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    
+    canvas.drawRRect(rrect, paint);
   }
   
   @override
