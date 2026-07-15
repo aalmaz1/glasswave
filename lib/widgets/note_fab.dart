@@ -34,7 +34,7 @@ class NoteFab extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.4),
+                  color: Colors.black.withOpacity(0.3),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),

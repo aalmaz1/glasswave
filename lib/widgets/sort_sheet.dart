@@ -64,7 +64,7 @@ class SortSheet extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         onSelect(index);
-        Navigator.of(context as BuildContext).pop();
+        Navigator.pop(context);
       },
       child: Container(
         padding: const EdgeInsets.all(16),
