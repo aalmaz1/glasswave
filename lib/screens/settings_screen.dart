@@ -137,7 +137,7 @@ class SettingsScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () => _confirmLogout(appState),
+                  onPressed: () => _confirmLogout(context, appState),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: BorderSide(color: Colors.redAccent.withOpacity(0.5)),
@@ -158,7 +158,7 @@ class SettingsScreen extends StatelessWidget {
     }
   }
 
-  void _confirmLogout(AppProvider appState) {
+  void _confirmLogout(BuildContext context, AppProvider appState) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
