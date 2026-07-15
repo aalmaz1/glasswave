@@ -28,7 +28,7 @@ class AppTheme {
   final String id;
   final String name;
   final String emoji;
-  final List<String> bg; // градиент фона (2 цвета hex)
+  final List<String> bg; // градиент фона (2-5 цветов hex)
   final List<Orb> orbs;
   final List<String> accents;
 
@@ -41,14 +41,25 @@ class AppTheme {
     required this.accents,
   });
 
-  LinearGradient get bgGradient => LinearGradient(
-        colors: [
-          _hexToColor(bg[0]),
-          _hexToColor(bg[1]),
-        ],
+  /// Градиент фона с поддержкой до 5 остановок (как в Figma)
+  /// Для совместимости: если 2 цвета - используется простой градиент
+  /// Если 5 цветов - используется расширенный градиент с stops
+  LinearGradient get bgGradient {
+    final colors = bg.map((c) => _hexToColor(c)).toList();
+    if (colors.length == 5) {
+      return LinearGradient(
+        colors: colors,
+        stops: [0.0, 0.28, 0.52, 0.75, 1.0],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );
+    }
+    return LinearGradient(
+      colors: colors,
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  }
 
   static Color _hexToColor(String hex) {
     hex = hex.replaceAll('#', '');
@@ -60,7 +71,7 @@ class AppTheme {
       accents.map((c) => _hexToColor(c)).toList();
 }
 
-/// Все 12 тем приложения
+/// Все 12 тем приложения (теперь 13 с Figma темой)
 class Themes {
   static const List<AppTheme> all = [
     sunsetTheme,
@@ -75,6 +86,7 @@ class Themes {
     graphiteTheme,
     midnightTheme,
     espressoTheme,
+    figmaTheme, // Новая тема из Figma
   ];
 
   static const sunsetTheme = AppTheme(
@@ -231,6 +243,21 @@ class Themes {
       Orb(color: '#795548', size: 262, top: 41, left: 51),
     ],
     accents: ['#4e342e', '#5d4037', '#795548', '#6d4c41'],
+  );
+
+  /// Тема Figma с 5-ступенчатым градиентом (как в оригинале)
+  /// rgb(19, 5, 0) -> rgb(46, 12, 0) -> rgb(74, 20, 0) -> rgb(107, 30, 0) -> rgb(138, 40, 0)
+  static const figmaTheme = AppTheme(
+    id: 'figma',
+    name: 'Figma',
+    emoji: '🎨',
+    bg: ['#130500', '#2E0C00', '#4A1400', '#6B1E00', '#8A2800'],
+    orbs: [
+      Orb(color: '#FF8C42', size: 280, top: 15, left: 20),
+      Orb(color: '#FF6B35', size: 220, top: 60, left: 70),
+      Orb(color: '#FFA07A', size: 260, top: 40, left: 50),
+    ],
+    accents: ['#FF8C42', '#FF6B35', '#FFA07A', '#F7C59F'],
   );
 
   static AppTheme getById(String id) {

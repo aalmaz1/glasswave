@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 
-/// Стеклянная поисковая строка
+/// Стеклянная поисковая строка в стиле Figma
+/// - BackdropFilter blur(24px)
+/// - Фон rgba(255, 255, 255, 0.06)
+/// - Рамка 1px solid rgba(255, 255, 255, 0.2)
+/// - Шрифт Manrope
 class GlassSearchBar extends StatelessWidget {
   final String value;
   final ValueChanged<String> onChanged;
@@ -29,7 +33,7 @@ class GlassSearchBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(50),
             border: Border.all(
               color: Colors.white.withOpacity(0.2),
-              width: 1,
+              width: 0.9,
             ),
             boxShadow: [
               BoxShadow(
@@ -48,10 +52,16 @@ class GlassSearchBar extends StatelessWidget {
                   child: TextField(
                     onChanged: onChanged,
                     controller: TextEditingController()..text = value,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Manrope',
+                    ),
                     decoration: InputDecoration(
                       hintText: 'Поиск заметок...',
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                      hintStyle: TextStyle(
+                        color: Colors.white.withOpacity(0.4),
+                        fontFamily: 'Manrope',
+                      ),
                       border: InputBorder.none,
                       prefixIcon: Icon(
                         Icons.search,
