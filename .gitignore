@@ -1,32 +1,24 @@
 ```
 # Dependencies
 .dart_tool/
-.build/
-dependencies/
+.packages
 
 # Build outputs
 build/
-*.apk
-*.aab
-*.app
-
-# Logs
-*.log
-**/logs
 
 # Environment
 .env
 .env.local
-.env.*
-config/
+*.env.*
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
+# Logs and temp files
+*.log
+*.tmp
 
-# OS
+# OS generated files
 .DS_Store
 Thumbs.db
+
+# Coverage
+coverage/
 ```
