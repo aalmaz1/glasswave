@@ -9,60 +9,63 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppProvider>(context);
-    final theme = appState.currentTheme;
+    return Consumer<AppProvider>(
+      builder: (context, appState, _) {
+        final theme = appState.currentTheme;
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Заголовок
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            child: Column(
+              children: [
+                // Заголовок
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const Text(
+                        'Настройки',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
-                  const Text(
-                    'Настройки',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w600,
+                ),
+                // Контент
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Секция Аккаунт
+                        _sectionTitle('Аккаунт'),
+                        _buildAccountSection(context, appState),
+                        const SizedBox(height: 24),
+                        // Секция Тема
+                        _sectionTitle('Цветовая тема'),
+                        _buildThemeGrid(appState),
+                        const SizedBox(height: 24),
+                        // Секция Размер шрифта
+                        _sectionTitle('Размер шрифта'),
+                        _buildFontSizeSection(appState),
+                        const SizedBox(height: 40),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-            // Контент
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Секция Аккаунт
-                    _sectionTitle('Аккаунт'),
-                    _buildAccountSection(context, appState),
-                    const SizedBox(height: 24),
-                    // Секция Тема
-                    _sectionTitle('Цветовая тема'),
-                    _buildThemeGrid(appState),
-                    const SizedBox(height: 24),
-                    // Секция Размер шрифта
-                    _sectionTitle('Размер шрифта'),
-                    _buildFontSizeSection(appState),
-                    const SizedBox(height: 40),
-                  ],
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -399,17 +402,18 @@ class _AuthPanelState extends State<_AuthPanel> with SingleTickerProviderStateMi
 
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppProvider>(context);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
-          border: Border.all(color: Colors.white.withOpacity(0.2)),
-        ),
-        child: Column(
-          children: [
+    return Consumer<AppProvider>(
+      builder: (context, appState, _) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.08),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
+            ),
+            child: Column(
+              children: [
             // Переключатель вход/регистрация
             Row(
               children: [
@@ -536,6 +540,8 @@ class _AuthPanelState extends State<_AuthPanel> with SingleTickerProviderStateMi
           ],
         ),
       ),
+    );
+      },
     );
   }
 }

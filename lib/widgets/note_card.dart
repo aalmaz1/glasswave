@@ -27,37 +27,38 @@ class NoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppProvider>(context);
-    final theme = appState.currentTheme;
-    final accentColor = theme.accentColors.isNotEmpty
-        ? theme.accentColors[note.accentIdx % theme.accentColors.length]
-        : null;
+    return Consumer<AppProvider>(
+      builder: (context, appState, _) {
+        final theme = appState.currentTheme;
+        final accentColor = theme.accentColors.isNotEmpty
+            ? theme.accentColors[note.accentIdx % theme.accentColors.length]
+            : null;
 
-    return GlassCard(
-      accentColor: accentColor,
-      onTap: onTap,
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Заголовок и кнопки действий
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return GlassCard(
+          accentColor: accentColor,
+          onTap: onTap,
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  note.title.isEmpty ? 'Без названия' : note.title,
-                  style: const TextStyle(
-                    color: G.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+              // Заголовок и кнопки действий
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      note.title.isEmpty ? 'Без названия' : note.title,
+                      style: const TextStyle(
+                        color: G.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Закрепить
@@ -179,6 +180,8 @@ class NoteCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+      },
     );
   }
 }
