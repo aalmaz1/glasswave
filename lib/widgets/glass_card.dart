@@ -154,7 +154,7 @@ class _GlassCardState extends State<GlassCard> {
                     borderRadius: BorderRadius.circular(G.radius),
                   ),
                 ),
-                // Контент с шрифтом Robito (fallback)
+                // Контент с шрифтом Roboto (fallback)
                 Padding(
                   padding: widget.padding ?? const EdgeInsets.all(20),
                   child: DefaultTextStyle(

@@ -27,84 +27,87 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppProvider>(context);
-    final theme = appState.currentTheme;
-    final fontSizeScale = appState.fontSize;
+    return Consumer<AppProvider>(
+      builder: (context, appState, _) {
+        final theme = appState.currentTheme;
+        final fontSizeScale = appState.fontSize;
 
-    if (appState.isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
+        if (appState.isLoading) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          // Основной контент
-          SafeArea(
-            child: Column(
-              children: [
-                // Поиск и кнопки
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: GlassSearchBar(
-                    value: appState.searchQuery,
-                    onChanged: appState.setSearchQuery,
-                    onSort: () => _showSortSheet(appState),
-                    onSettings: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Stack(
+            children: [
+              // Основной контент
+              SafeArea(
+                child: Column(
+                  children: [
+                    // Поиск и кнопки
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: GlassSearchBar(
+                        value: appState.searchQuery,
+                        onChanged: appState.setSearchQuery,
+                        onSort: () => _showSortSheet(appState),
+                        onSettings: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                        ),
+                      ),
                     ),
-                  ),
+                    // Список заметок
+                    Expanded(
+                      child: _buildNotesGrid(appState, fontSizeScale),
+                    ),
+                  ],
                 ),
-                // Список заметок
-                Expanded(
-                  child: _buildNotesGrid(appState, fontSizeScale),
+              ),
+              // Нижняя навигация
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: GlassBottomNav(
+                  currentIndex: appState.tabIndex,
+                  onTap: appState.setTabIndex,
                 ),
-              ],
-            ),
+              ),
+              // FAB
+              Positioned(
+                right: 20,
+                bottom: 90,
+                child: NoteFab(onPressed: () => _openEditor(null)),
+              ),
+              // Редактор
+              if (_editingNote != null)
+                NoteEditor(
+                  note: _editingNote,
+                  onSave: (note) {
+                    appState.upsertNote(note);
+                    setState(() => _editingNote = null);
+                  },
+                  onClose: () => setState(() => _editingNote = null),
+                ),
+              // Модалка напоминания
+              if (_reminderNoteId != null)
+                ReminderModal(
+                  currentReminder: appState.notes
+                      .firstWhere((n) => n.id == _reminderNoteId)
+                      .reminder,
+                  onSave: (date) {
+                    appState.setReminder(_reminderNoteId!, date);
+                    setState(() => _reminderNoteId = null);
+                  },
+                  onClose: () => setState(() => _reminderNoteId = null),
+                ),
+            ],
           ),
-          // Нижняя навигация
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: GlassBottomNav(
-              currentIndex: appState.tabIndex,
-              onTap: appState.setTabIndex,
-            ),
-          ),
-          // FAB
-          Positioned(
-            right: 20,
-            bottom: 90,
-            child: NoteFab(onPressed: () => _openEditor(null)),
-          ),
-          // Редактор
-          if (_editingNote != null)
-            NoteEditor(
-              note: _editingNote,
-              onSave: (note) {
-                appState.upsertNote(note);
-                setState(() => _editingNote = null);
-              },
-              onClose: () => setState(() => _editingNote = null),
-            ),
-          // Модалка напоминания
-          if (_reminderNoteId != null)
-            ReminderModal(
-              currentReminder: appState.notes
-                  .firstWhere((n) => n.id == _reminderNoteId)
-                  .reminder,
-              onSave: (date) {
-                appState.setReminder(_reminderNoteId!, date);
-                setState(() => _reminderNoteId = null);
-              },
-              onClose: () => setState(() => _reminderNoteId = null),
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 
