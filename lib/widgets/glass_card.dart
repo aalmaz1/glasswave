@@ -30,7 +30,7 @@ class G {
 /// - Фон rgba(255, 255, 255, 0.06)
 /// - Рамка 0.9px solid rgba(255, 255, 255, 0.2)
 /// - Анимация: translateY(-6px) scale(1.02) с cubic-bezier(0.34, 1.56, 0.64, 1)
-/// - Шрифт Manrope
+/// - Шрифт Roboto
 class GlassCard extends StatefulWidget {
   final Widget child;
   final double? width;
@@ -154,12 +154,12 @@ class _GlassCardState extends State<GlassCard> {
                     borderRadius: BorderRadius.circular(G.radius),
                   ),
                 ),
-                // Контент с шрифтом Manrope
+                // Контент с шрифтом Robito (fallback)
                 Padding(
                   padding: widget.padding ?? const EdgeInsets.all(20),
                   child: DefaultTextStyle(
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: 'Roboto' // Fallback to default font,
                       color: G.textPrimary,
                     ),
                     child: widget.child,

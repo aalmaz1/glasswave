@@ -5,7 +5,7 @@ import 'dart:ui';
 /// - BackdropFilter blur(24px)
 /// - Фон rgba(255, 255, 255, 0.06)
 /// - Рамка 1px solid rgba(255, 255, 255, 0.2)
-/// - Шрифт Manrope
+/// - Шрифт Roboto
 class GlassSearchBar extends StatelessWidget {
   final String value;
   final ValueChanged<String> onChanged;
@@ -54,13 +54,13 @@ class GlassSearchBar extends StatelessWidget {
                     controller: TextEditingController()..text = value,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontFamily: 'Manrope',
+                      fontFamily: 'Roboto' // Fallback to default font,
                     ),
                     decoration: InputDecoration(
                       hintText: 'Поиск заметок...',
                       hintStyle: TextStyle(
                         color: Colors.white.withOpacity(0.4),
-                        fontFamily: 'Manrope',
+                        fontFamily: 'Roboto' // Fallback to default font,
                       ),
                       border: InputBorder.none,
                       prefixIcon: Icon(
