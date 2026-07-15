@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:provider/provider.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../providers/app_provider.dart';
 import '../models/note.dart';
 import '../widgets/glass_card.dart';
@@ -10,6 +11,7 @@ import '../widgets/note_fab.dart';
 import '../widgets/note_editor.dart';
 import '../widgets/reminder_modal.dart';
 import '../widgets/sort_sheet.dart';
+import '../widgets/note_card.dart';
 import 'settings_screen.dart';
 
 /// Главный экран с дашбордом заметок
