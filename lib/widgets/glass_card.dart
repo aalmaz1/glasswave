@@ -159,7 +159,7 @@ class _GlassCardState extends State<GlassCard> {
                   padding: widget.padding ?? const EdgeInsets.all(20),
                   child: DefaultTextStyle(
                     style: TextStyle(
-                      fontFamily: 'Roboto' // Fallback to default font,
+                      fontFamily: 'Roboto', // Fallback to default font
                       color: G.textPrimary,
                     ),
                     child: widget.child,
