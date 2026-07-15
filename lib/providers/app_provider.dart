@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:ui' show ImageFilter;
 import '../models/user.dart';
+import '../models/note.dart';
 import '../models/theme_data.dart';
 import '../utils/storage.dart';
-import 'glass_card.dart';
 
 /// Провайдер состояния приложения
 class AppProvider extends ChangeNotifier {

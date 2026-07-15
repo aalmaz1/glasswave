@@ -46,7 +46,7 @@ class GlassSearchBar extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: TextField(
-                    value: value,
+                    controller: TextEditingController(text: value),
                     onChanged: onChanged,
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(

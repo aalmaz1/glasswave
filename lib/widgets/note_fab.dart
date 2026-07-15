@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' show ImageFilter;
 
 /// Плавающая кнопка создания заметки
 class NoteFab extends StatelessWidget {
