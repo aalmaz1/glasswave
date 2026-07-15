@@ -49,9 +49,9 @@ class SortSheet extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             // Варианты
-            _sortOption(0, 'По умолчанию', Icons.sort),
-            _sortOption(1, 'Дата создания', Icons.calendar_today),
-            _sortOption(2, 'Дата изменения', Icons.update),
+            _sortOption(context, 0, 'По умолчанию', Icons.sort),
+            _sortOption(context, 1, 'Дата создания', Icons.calendar_today),
+            _sortOption(context, 2, 'Дата изменения', Icons.update),
             const SizedBox(height: 20),
           ],
         ),
@@ -59,7 +59,7 @@ class SortSheet extends StatelessWidget {
     );
   }
 
-  Widget _sortOption(int index, String label, IconData icon) {
+  Widget _sortOption(BuildContext context, int index, String label, IconData icon) {
     final isSelected = selectedIndex == index;
     return GestureDetector(
       onTap: () {
