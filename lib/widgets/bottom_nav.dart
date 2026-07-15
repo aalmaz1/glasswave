@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' show ImageFilter;
 
 /// Нижняя навигационная панель с табами
 class GlassBottomNav extends StatelessWidget {
