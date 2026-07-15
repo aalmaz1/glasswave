@@ -1,85 +1,40 @@
 ```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
-dist/
-build/
-target/
+# Flutter/Dart
+.dart_tool/
+.build/
+coverage/
+*.iws
+*.dart.js
+*.js
+*.g.dart
+*.freezed.dart
 
 # Dependencies
-.venv/
-venv/
-node_modules/
-.julia/
-zig*/
-.dart_tool/
 .pub/
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
+build/
 
 # Environment
 .env
 .env.local
 .env.*
 
-# Editors
+# Logs
+*.log
+**/logs
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Python specific
-*.pyc
-__pycache__/
-*.pyo
-*.pyd
-.Python
-*.so
-*.egg-info/
-.eggs/
-
-# Dart/Flutter specific
-.dart_tool/
-.pub/
-build/
-*.g.dart
-*.freezed.dart
-
-# Compressed files
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
+*~
 ```

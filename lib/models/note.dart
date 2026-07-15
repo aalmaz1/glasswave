@@ -1,105 +1,83 @@
-import 'package:hive/hive.dart';
+import 'dart:convert';
 
-part 'note.g.dart';
-
-@HiveType(typeId: 0)
-class Note extends HiveObject {
-  @HiveField(0)
-  final int id;
-
-  @HiveField(1)
+/// Модель заметки с поддержкой всех функций приложения
+class Note {
+  final String id;
   final String title;
-
-  @HiveField(2)
   final String body;
-
-  @HiveField(3)
   final DateTime updatedAt;
-
-  @HiveField(4)
-  final int accentIdx;
-
-  @HiveField(5)
+  final DateTime createdAt;
+  final int accentIdx; // индекс в массиве accents текущей темы
   final bool pinned;
-
-  @HiveField(6)
   final bool archived;
-
-  @HiveField(7)
   final bool trashed;
-
-  @HiveField(8)
   final DateTime? reminder;
-
-  @HiveField(9)
-  final String userEmail;
 
   Note({
     required this.id,
-    required this.title,
-    required this.body,
-    required this.updatedAt,
-    required this.accentIdx,
+    this.title = '',
+    this.body = '',
+    DateTime? updatedAt,
+    DateTime? createdAt,
+    this.accentIdx = 0,
     this.pinned = false,
     this.archived = false,
     this.trashed = false,
     this.reminder,
-    this.userEmail = '',
-  });
+  })  : updatedAt = updatedAt ?? DateTime.now(),
+        createdAt = createdAt ?? DateTime.now();
 
   Note copyWith({
-    int? id,
+    String? id,
     String? title,
     String? body,
     DateTime? updatedAt,
+    DateTime? createdAt,
     int? accentIdx,
     bool? pinned,
     bool? archived,
     bool? trashed,
     DateTime? reminder,
-    String? userEmail,
   }) {
     return Note(
       id: id ?? this.id,
       title: title ?? this.title,
       body: body ?? this.body,
       updatedAt: updatedAt ?? this.updatedAt,
+      createdAt: createdAt ?? this.createdAt,
       accentIdx: accentIdx ?? this.accentIdx,
       pinned: pinned ?? this.pinned,
       archived: archived ?? this.archived,
       trashed: trashed ?? this.trashed,
       reminder: reminder ?? this.reminder,
-      userEmail: userEmail ?? this.userEmail,
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'body': body,
-      'updatedAt': updatedAt.toIso8601String(),
-      'accentIdx': accentIdx,
-      'pinned': pinned,
-      'archived': archived,
-      'trashed': trashed,
-      'reminder': reminder?.toIso8601String(),
-      'userEmail': userEmail,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'body': body,
+        'updatedAt': updatedAt.toIso8601String(),
+        'createdAt': createdAt.toIso8601String(),
+        'accentIdx': accentIdx,
+        'pinned': pinned,
+        'archived': archived,
+        'trashed': trashed,
+        'reminder': reminder?.toIso8601String(),
+      };
 
-  factory Note.fromJson(Map<String, dynamic> json) {
-    return Note(
-      id: json['id'],
-      title: json['title'],
-      body: json['body'],
-      updatedAt: DateTime.parse(json['updatedAt']),
-      accentIdx: json['accentIdx'],
-      pinned: json['pinned'] ?? false,
-      archived: json['archived'] ?? false,
-      trashed: json['trashed'] ?? false,
-      reminder: json['reminder'] != null ? DateTime.parse(json['reminder']) : null,
-      userEmail: json['userEmail'] ?? '',
-    );
-  }
+  factory Note.fromJson(Map<String, dynamic> json) => Note(
+        id: json['id'] as String,
+        title: json['title'] as String? ?? '',
+        body: json['body'] as String? ?? '',
+        updatedAt: DateTime.parse(json['updatedAt'] as String),
+        createdAt: DateTime.parse(json['createdAt'] as String),
+        accentIdx: json['accentIdx'] as int? ?? 0,
+        pinned: json['pinned'] as bool? ?? false,
+        archived: json['archived'] as bool? ?? false,
+        trashed: json['trashed'] as bool? ?? false,
+        reminder: json['reminder'] != null
+            ? DateTime.parse(json['reminder'] as String)
+            : null,
+      );
 }
