@@ -29,6 +29,8 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
+      /* Softer background to reduce visual overexposure */
+      background-color: #0a0a0a;
     }
     flutter-view, flt-glass-pane {
       display: block !important;
@@ -42,6 +44,12 @@
     flt-scene-host {
       pointer-events: auto !important;
     }
+    /* Improve font rendering for better readability */
+    body {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
   </style>
 </head>
 <body>
@@ -49,25 +57,43 @@
     // Suppress console spam from Flutter web initialization
     const originalWarn = console.warn;
     const originalError = console.error;
+    const originalLog = console.log;
+    
+    // Filter verbose Flutter web logs while preserving important messages
     console.warn = function(...args) {
       const msg = args[0]?.toString() || '';
       // Filter out known Flutter web initialization warnings
       if (msg.includes('PointerEvent') || 
           msg.includes('platform views') || 
-          msg.includes('experimental')) {
+          msg.includes('experimental') ||
+          msg.includes('deprecated')) {
         return;
       }
       originalWarn.apply(console, args);
     };
+    
     console.error = function(...args) {
       const msg = args[0]?.toString() || '';
       // Filter out known Flutter web initialization errors that are harmless
       if (msg.includes('Failed to load') || 
           msg.includes('404') ||
-          msg.includes('CanvasKit')) {
+          msg.includes('CanvasKit') ||
+          msg.includes('AssetManifest')) {
         return;
       }
       originalError.apply(console, args);
+    };
+    
+    // Reduce verbose logging during development
+    console.log = function(...args) {
+      const msg = args[0]?.toString() || '';
+      // Filter repetitive frame timing and renderer logs
+      if (msg.includes('Frame timing') ||
+          msg.includes('Renderer') ||
+          msg.includes('initialization')) {
+        return;
+      }
+      originalLog.apply(console, args);
     };
   </script>
   <!--

@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:provider/provider.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../providers/app_provider.dart';
 import '../models/note.dart';
 import '../widgets/glass_card.dart';
-import '../widgets/note_card.dart';
 import '../widgets/search_bar_widget.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/note_fab.dart';

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'providers/app_provider.dart';
 import 'models/theme_data.dart';
 import 'screens/dashboard_screen.dart';
+import 'widgets/glass_card.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,9 +34,32 @@ class NoovaNotesApp extends StatelessWidget {
           title: 'Noova Notes',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
+            useMaterial3: true,
             brightness: Brightness.dark,
             primarySwatch: Colors.blue,
             fontFamily: 'Roboto', // Fallback to default font for web compatibility
+            scaffoldBackgroundColor: Colors.transparent,
+            colorScheme: ColorScheme.dark(
+              primary: Colors.blueAccent,
+              secondary: Colors.blueAccent.withOpacity(0.7),
+              surface: Colors.white.withOpacity(0.06),
+              background: const Color(0xFF0a0a0a),
+              onPrimary: Colors.white,
+              onSecondary: Colors.white,
+              onSurface: G.textPrimary,
+              onBackground: G.textPrimary,
+            ),
+            textTheme: const TextTheme(
+              bodyLarge: TextStyle(color: G.textPrimary),
+              bodyMedium: TextStyle(color: G.textPrimary),
+              bodySmall: TextStyle(color: G.textSecondary),
+              titleLarge: TextStyle(color: G.textPrimary),
+              titleMedium: TextStyle(color: G.textPrimary),
+              titleSmall: TextStyle(color: G.textSecondary),
+              labelLarge: TextStyle(color: G.textPrimary),
+              labelMedium: TextStyle(color: G.textSecondary),
+              labelSmall: TextStyle(color: G.textMuted),
+            ),
           ),
           home: GlassBackground(
             theme: theme,
