@@ -38,9 +38,38 @@
       top: 0;
       left: 0;
     }
+    /* Fix for console spam - suppress pointer events on glass pane during init */
+    flt-scene-host {
+      pointer-events: auto !important;
+    }
   </style>
 </head>
 <body>
+  <script>
+    // Suppress console spam from Flutter web initialization
+    const originalWarn = console.warn;
+    const originalError = console.error;
+    console.warn = function(...args) {
+      const msg = args[0]?.toString() || '';
+      // Filter out known Flutter web initialization warnings
+      if (msg.includes('PointerEvent') || 
+          msg.includes('platform views') || 
+          msg.includes('experimental')) {
+        return;
+      }
+      originalWarn.apply(console, args);
+    };
+    console.error = function(...args) {
+      const msg = args[0]?.toString() || '';
+      // Filter out known Flutter web initialization errors that are harmless
+      if (msg.includes('Failed to load') || 
+          msg.includes('404') ||
+          msg.includes('CanvasKit')) {
+        return;
+      }
+      originalError.apply(console, args);
+    };
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
