@@ -35,7 +35,7 @@ class NoovaNotesApp extends StatelessWidget {
           theme: ThemeData(
             brightness: Brightness.dark,
             primarySwatch: Colors.blue,
-            fontFamily: 'Roboto',
+            fontFamily: 'Manrope',
           ),
           home: GlassBackground(
             theme: theme,

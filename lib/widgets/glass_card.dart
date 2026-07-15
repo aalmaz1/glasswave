@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 
-/// Дизайн-токены для стеклянных элементов
+/// Дизайн-токены для стеклянных элементов (согласно Figma)
 class G {
   static const bg = Color.fromRGBO(255, 255, 255, 0.06);
   static const bgHov = Color.fromRGBO(255, 255, 255, 0.10);
@@ -25,6 +25,12 @@ class G {
 }
 
 /// Стеклянная карточка с эффектом при наведении
+/// Точное соответствие Figma:
+/// - BackdropFilter blur(24px)
+/// - Фон rgba(255, 255, 255, 0.06)
+/// - Рамка 0.9px solid rgba(255, 255, 255, 0.2)
+/// - Анимация: translateY(-6px) scale(1.02) с cubic-bezier(0.34, 1.56, 0.64, 1)
+/// - Шрифт Manrope
 class GlassCard extends StatefulWidget {
   final Widget child;
   final double? width;
@@ -63,7 +69,8 @@ class _GlassCardState extends State<GlassCard> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: const Duration(milliseconds: 300),
+          curve: Cubic(0.34, 1.56, 0.64, 1), // cubic-bezier из CSS
           margin: widget.margin,
           transform: _isHovered
               ? (Matrix4.identity()..translate(0, -6)..scale(1.02))
@@ -72,19 +79,19 @@ class _GlassCardState extends State<GlassCard> {
             borderRadius: BorderRadius.circular(G.radius),
             child: Stack(
               children: [
-                // Размытие фона
+                // Размытие фона (sigma 24px как в Figma)
                 BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                   child: Container(),
                 ),
-                // Фоновый цвет (меняется при наведении)
+                // Фоновый цвет: rgba(255, 255, 255, 0.06)
                 Container(
                   decoration: BoxDecoration(
                     color: _isHovered ? G.bgHov : G.bg,
                     borderRadius: BorderRadius.circular(G.radius),
                   ),
                 ),
-                // Акцентный слой
+                // Акцентный слой (опционально)
                 if (widget.accentColor != null)
                   Container(
                     decoration: BoxDecoration(
@@ -100,7 +107,7 @@ class _GlassCardState extends State<GlassCard> {
                       borderRadius: BorderRadius.circular(G.radius),
                     ),
                   ),
-                // Слой стеклянного кольца
+                // Слой "стеклянного кольца" - градиент от верхнего левого к нижнему правому
                 Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -115,7 +122,7 @@ class _GlassCardState extends State<GlassCard> {
                     borderRadius: BorderRadius.circular(G.radius),
                   ),
                 ),
-                // Слой отблеска
+                // Слой общего отблеска
                 Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -130,27 +137,33 @@ class _GlassCardState extends State<GlassCard> {
                     borderRadius: BorderRadius.circular(G.radius),
                   ),
                 ),
-                // Рамка (меняется при наведении)
+                // Рамка: 0.9px solid rgba(255, 255, 255, 0.2)
                 Container(
                   decoration: BoxDecoration(
                     border: Border.all(
                       color: _isHovered ? G.borderHov : G.border,
-                      width: 1,
+                      width: 0.9,
                     ),
                     borderRadius: BorderRadius.circular(G.radius),
                   ),
                 ),
-                // Тень (меняется при наведении)
+                // Тень
                 Container(
                   decoration: BoxDecoration(
                     boxShadow: [_isHovered ? G.shadowHov : G.shadow],
                     borderRadius: BorderRadius.circular(G.radius),
                   ),
                 ),
-                // Контент
+                // Контент с шрифтом Manrope
                 Padding(
                   padding: widget.padding ?? const EdgeInsets.all(20),
-                  child: widget.child,
+                  child: DefaultTextStyle(
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      color: G.textPrimary,
+                    ),
+                    child: widget.child,
+                  ),
                 ),
               ],
             ),
