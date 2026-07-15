@@ -46,7 +46,7 @@ class SettingsScreen extends StatelessWidget {
                   children: [
                     // Секция Аккаунт
                     _sectionTitle('Аккаунт'),
-                    _buildAccountSection(appState),
+                    _buildAccountSection(context, appState),
                     const SizedBox(height: 24),
                     // Секция Тема
                     _sectionTitle('Цветовая тема'),
@@ -80,7 +80,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAccountSection(AppProvider appState) {
+  Widget _buildAccountSection(BuildContext context, AppProvider appState) {
     if (appState.currentUser != null) {
       // Авторизован
       return ClipRRect(
