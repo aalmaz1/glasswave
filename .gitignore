@@ -1,60 +1,25 @@
 ```
-# Build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
-*.class
-*.exe
-*.dll
-*.so
-*.a
-*.out
-
 # Dependencies
-node_modules/
-venv/
-.venv/
+.dart_tool/
+.packages
+.pub/
+pubspec.lock
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Environment
 .env
 .env.local
-.env.*
+*.env.*
 
-# IDE and editor files
+# Editors
 .vscode/
 .idea/
-*.swp
-*.swo
-*.tmp
 
-# System files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Distribution / packaging
-dist/
+# Build outputs
 build/
-*.tar.gz
-*.zip
-
-# Testing
-.mypy_cache/
-.pytest_cache/
-
-# Gradle
-.gradle/
-target/
-
-# Julia
-julia-*/
-
-# Zig
-zig*/
+dist/
 ```
