@@ -181,7 +181,5 @@ class NoteCard extends StatelessWidget {
         ],
       ),
     );
-      },
-    );
   }
 }

@@ -1,62 +1,70 @@
 ```
 # Build artifacts
-/build/
-/dist/
-*.apk
-*.aab
-*.app
+*.class
+*.o
+*.obj
+*.out
 *.exe
 *.dll
 *.so
-*.dylib
-
-# Flutter/Dart specific
-.dart_tool/
-.packages
-*.g.dart
-*.freezed.dart
-*.config.dart
+*.a
 
 # Dependencies
-pubspec.lock
+**/node_modules/
+**/venv/
+**/env/
+**/.venv/
+**/__pycache__/
+**/.mypy_cache/
+**/.pytest_cache/
+**/dist/
+**/build/
+**/target/
+**/.gradle/
+
+# Editors/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# System
+.DS_Store
+Thumbs.db
+.env
+.env.local
+*.env.*
 
 # Logs
 *.log
-**/logs
 
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Coverage
+coverage/
+htmlcov/
+.coverage
 
-# iOS
-**/ios/**
-!ios/**/*
-Pods/
-ios/Pods/
-ios/.symlinks/
-*.xcodeproj/
-*.xcworkspace/
-
-# Android
-**/android/**
-!android/**/*
-android/app/build/
-android/.gradle/
-android/local.properties
-.gradle/
-
-# Web
-**/web/**
-
-# VS Code
-.vscode/
-
-# macOS
-.DS_Store
-
-# Windows
-Thumbs.db
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 ```
