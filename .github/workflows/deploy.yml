@@ -6,10 +6,6 @@ on:
       - main
   workflow_dispatch:
 
-permissions: 
-   contents: read
-   deployments: write
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -17,17 +13,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - name: Setup Node
+        uses: actions/setup-node@4
         with:
-          channel: 'stable'
-          cache: true
+          node-version: 20
+          cache: 'npm'
 
       - name: Install dependencies
-        run: flutter pub get
+        run: npm install
 
       - name: Build Web
-        run: flutter build web --release
+        run: npm run build
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
@@ -35,6 +31,6 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: glasswave # You can change this to your desired project name
-          directory: build/web
+          directory: dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           command: pages deploy build/web --project-name=glasswave
