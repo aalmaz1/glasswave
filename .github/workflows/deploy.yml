@@ -37,3 +37,4 @@ jobs:
           projectName: glasswave # You can change this to your desired project name
           directory: build/web
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          command: pages deploy build/web --project-name=glasswave
