@@ -9,6 +9,9 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -29,7 +32,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: glasswave # You can change this to your desired project name
+          projectName: glasswave
           directory: dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          command: pages deploy build/web --project-name=glasswave
