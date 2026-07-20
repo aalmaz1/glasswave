@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "62843359036",
+    "project_id": "glasswave-4f5da",
+    "storage_bucket": "glasswave-4f5da.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:62843359036:android:4b670117f4c9819e8d9839",
+        "android_client_info": {
+          "package_name": "com.almaz.glasswave"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCHQID-TUZJNt6uRZu9L0C8y7xmsJyuLRs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:62843359036:android:5638838f8eed814b8d9839",
+        "android_client_info": {
+          "package_name": "com.glasswave.glasswave"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCHQID-TUZJNt6uRZu9L0C8y7xmsJyuLRs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
