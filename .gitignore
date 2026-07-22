@@ -1,34 +1,38 @@
-```
-# Build artifacts
+# Examples 1:
+(empty)
+
+# Example 2 (Project with artifacts):
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
 dist/
 build/
-*.js.map
-*.min.js
-
-# Flutter/Dart
-.dart_tool/
-.flutter-plugins
-.flutter-plugin-dependencies
-**/ios/.generated/
-**/android/.generated/
-
+target/
+# Dependencies
+.venv/
+venv/
+node_modules/
+.mypy_cache/
+.pytest_cache/
 # Logs and temp files
 *.log
 *.tmp
 *.swp
-
 # Environment
 .env
 .env.local
 *.env.*
-
 # Editors
 .vscode/
 .idea/
-*.swp
-*.swo
-
 # OS generated files
 .DS_Store
 Thumbs.db
-```
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+# Original rules preserved
+*.log
