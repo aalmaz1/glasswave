@@ -932,7 +932,6 @@ function BottomNav({tab,setTab,isMobile}:{tab:Tab;setTab:(t:Tab)=>void;isMobile:
               color:active?G.textPrimary:G.textMuted,position:"relative",transition:"color 0.2s",
             }}>
               <Icon size={20} strokeWidth={active?2.2:1.5}/>
-              {!isMobile&&<span style={{fontSize:"0.62rem",fontWeight:active?600:400,letterSpacing:"0.03em"}}>{label}</span>}
               {active&&<div style={{position:"absolute",bottom:-2,left:"50%",transform:"translateX(-50%)",width:18,height:2,borderRadius:2,background:"rgba(255,255,255,0.70)"}}/>}
             </button>
           );
@@ -1206,7 +1205,7 @@ function SettingsScreen({themeId,setThemeId,fontSz,setFontSz,onBack,currentUser,
 
       {/* ── Themes ── */}
       <SLabel Icon={Palette} label="Цветовая тема"/>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(175px,1fr))",gap:12,marginBottom:36}}>
+      <div style={{display:"flex",flexWrap:"wrap",gap:10,marginBottom:36}}>
         {THEMES.map(t=>{
           const active=t.id===themeId;
           return(
@@ -1227,9 +1226,8 @@ function SettingsScreen({themeId,setThemeId,fontSz,setFontSz,onBack,currentUser,
                   <Check size={12} color="#111" strokeWidth={2.5}/>
                 </div>}
               </div>
-              <div style={{padding:"8px 12px 10px",display:"flex",alignItems:"center",gap:7}}>
-                <span style={{fontSize:"1rem"}}>{t.emoji}</span>
-                <span style={{fontWeight:600,fontSize:"0.79rem",color:G.textPrimary,textAlign:"left"}}>{t.name}</span>
+              <div style={{padding:"10px 14px 12px",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <span style={{fontSize:"1.25rem"}}>{t.emoji}</span>
               </div>
             </button>
           );
