@@ -312,9 +312,7 @@ type Note = {
 };
 type Screen    = "dashboard" | "settings";
 type Tab       = "all" | "archive" | "trash";
-type FontSz    = "sm" | "md" | "lg";
 type SortOrder = "default" | "created" | "updated";
-const FONT_SCALE: Record<FontSz,number> = {sm:0.875,md:1,lg:1.125};
 
 /* ════════════════════════════════════════════════════════════════════
    AUTH  (localStorage-backed, no server required)
@@ -348,10 +346,10 @@ function lsSaveNotes(email: string, notes: Note[]) {
   localStorage.setItem(LS_NOTES(email), JSON.stringify(notes));
 }
 
-function lsGetPrefs(email: string): { themeId?: ThemeId; fontSz?: FontSz } {
+function lsGetPrefs(email: string): { themeId?: ThemeId } {
   try { return JSON.parse(localStorage.getItem(LS_PREFS(email)) || "{}"); } catch { return {}; }
 }
-function lsSavePrefs(email: string, p: { themeId: ThemeId; fontSz: FontSz }) {
+function lsSavePrefs(email: string, p: { themeId: ThemeId }) {
   localStorage.setItem(LS_PREFS(email), JSON.stringify(p));
 }
 
@@ -425,7 +423,6 @@ export default function App(){
   const [themeId, setThemeIdRaw]  = useState<ThemeId>(initPrefs.themeId ?? "sunset");
   const [screen,  setScreen]   = useState<Screen>("dashboard");
   const [tab,     setTab]      = useState<Tab>("all");
-  const [fontSz,  setFontSzRaw]   = useState<FontSz>(initPrefs.fontSz ?? "md");
   const [notes,   setNotesRaw]    = useState<Note[]>(initNotes);
   const [editing, setEditing]  = useState<Note|null>(null);
   const [creating,setCreating] = useState(false);
@@ -443,7 +440,6 @@ export default function App(){
   const isMobile = width < 768;
   const isTablet = width >= 768 && width < 1280;
   const theme    = THEMES.find(t=>t.id===themeId)!;
-  const scale    = FONT_SCALE[fontSz];
 
   /* Persist notes whenever they change */
   const setNotes = (fn: Note[] | ((p:Note[])=>Note[])) => {
@@ -456,18 +452,13 @@ export default function App(){
 
   const setThemeId = (id: ThemeId) => {
     setThemeIdRaw(id);
-    if (currentUser) lsSavePrefs(currentUser.email, { themeId: id, fontSz });
-  };
-  const setFontSz = (f: FontSz) => {
-    setFontSzRaw(f);
-    if (currentUser) lsSavePrefs(currentUser.email, { themeId, fontSz: f });
+    if (currentUser) lsSavePrefs(currentUser.email, { themeId: id });
   };
 
   const handleLogin = (user: AuthUser) => {
     setCurrentUser(user);
     const prefs = lsGetPrefs(user.email);
     if (prefs.themeId) setThemeIdRaw(prefs.themeId);
-    if (prefs.fontSz)  setFontSzRaw(prefs.fontSz);
     const saved = lsGetNotes(user.email);
     setNotesRaw(saved ?? SEED);
   };
@@ -476,7 +467,6 @@ export default function App(){
     authLogout();
     setCurrentUser(null);
     setThemeIdRaw("sunset");
-    setFontSzRaw("md");
     setNotesRaw(SEED);
   };
 
@@ -555,7 +545,7 @@ export default function App(){
       fontFamily:"'Manrope','Inter',sans-serif",
       background:theme.bg,
       minHeight:"100vh",position:"relative",overflow:"hidden",
-      fontSize:`${scale}rem`,
+      fontSize:"1rem",
     }}>
       <style>{CSS}</style>
 
@@ -586,7 +576,6 @@ export default function App(){
           }}>
           <SettingsScreen
             themeId={themeId} setThemeId={setThemeId}
-            fontSz={fontSz} setFontSz={setFontSz}
             onBack={()=>setScreen("dashboard")}
             currentUser={currentUser}
             onLogin={handleLogin}
@@ -1177,9 +1166,8 @@ function ReminderModal({note,onSave,onClose}:{
 /* ════════════════════════════════════════════════════════════════════
    SETTINGS
    ════════════════════════════════════════════════════════════════════ */
-function SettingsScreen({themeId,setThemeId,fontSz,setFontSz,onBack,currentUser,onLogin,onLogout}:{
+function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout}:{
   themeId:ThemeId;setThemeId:(id:ThemeId)=>void;
-  fontSz:FontSz;setFontSz:(f:FontSz)=>void;
   onBack:()=>void;
   currentUser:AuthUser|null;
   onLogin:(u:AuthUser)=>void;
@@ -1234,22 +1222,6 @@ function SettingsScreen({themeId,setThemeId,fontSz,setFontSz,onBack,currentUser,
         })}
       </div>
 
-      {/* ── Font size ── */}
-      <SLabel Icon={Type} label="Размер шрифта"/>
-      <div style={{display:"flex",gap:10}}>
-        {([["sm","Маленький"],["md","Средний"],["lg","Большой"]] as [FontSz,string][]).map(([id,label])=>{
-          const active=fontSz===id;
-          return(
-            <button key={id} onClick={()=>setFontSz(id)} style={{
-              ...glassBase(16),padding:"9px 22px",borderRadius:14,
-              border:active?`1px solid rgba(255,255,255,0.40)`:`1px solid ${G.border}`,
-              cursor:"pointer",fontFamily:"inherit",fontSize:"0.84rem",fontWeight:active?600:400,
-              background:active?G.bgHov:G.bg,color:active?G.textPrimary:G.textSecondary,transition:"all 0.2s",
-            }}>{label}</button>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 
