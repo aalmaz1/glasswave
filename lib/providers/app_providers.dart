@@ -77,7 +77,7 @@ class ThemeNotifier extends StateNotifier<AppPrefs> {
   final PersistenceService _service;
   final String? _email;
 
-  ThemeNotifier(this._service, this._email) : super(AppPrefs(themeId: ThemeId.warmSunset, language: 'ru')) {
+  ThemeNotifier(this._service, this._email) : super(AppPrefs(themeId: ThemeId.sunset, language: 'ru')) {
     if (_email != null) {
       _loadPrefs();
     }
@@ -88,9 +88,10 @@ class ThemeNotifier extends StateNotifier<AppPrefs> {
     final raw = _service.getPrefs(_email);
     if (raw.isEmpty) return;
 
-    final themeId = ThemeId.values.any((t) => t.name == raw['themeId'])
-        ? ThemeId.values.firstWhere((t) => t.name == raw['themeId'])
-        : ThemeId.warmSunset;
+    final themeIdStr = raw['themeId'] as String?;
+    final themeId = themeIdStr != null && ThemeId.values.any((t) => t.name == themeIdStr)
+        ? ThemeId.values.firstWhere((t) => t.name == themeIdStr)
+        : ThemeId.sunset;
     final language = raw['language'] ?? 'ru';
 
     state = AppPrefs(themeId: themeId, language: language);

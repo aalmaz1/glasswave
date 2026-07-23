@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 enum ThemeId {
-  warmSunset, arctic, neon, nordic, forest, silk, flare, abyss, ruby, slate, matcha, sahara
+  sunset, ice, mono, cyber, aurora, rose, cosmos, forest,
+  obsidian, graphite, midnight, espresso,
 }
 
 class OrbData {
@@ -15,16 +16,12 @@ class OrbData {
 
 class AppThemeData {
   final ThemeId id;
-  final String name;
-  final String emoji;
   final LinearGradient bg;
   final List<OrbData> orbs;
   final List<Color> accents;
 
   AppThemeData({
     required this.id,
-    required this.name,
-    required this.emoji,
     required this.bg,
     required this.orbs,
     required this.accents,
@@ -33,208 +30,220 @@ class AppThemeData {
 
 final List<AppThemeData> allThemes = [
   AppThemeData(
-    id: ThemeId.warmSunset,
-    name: "Warm Sunset",
-    emoji: "🌅",
+    id: ThemeId.sunset,
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFFFF8C42), Color(0xFFFF6B6B), Color(0xFF9B59B6)],
+      colors: [Color(0xFF130500), Color(0xFF2E0C00), Color(0xFF4A1400), Color(0xFF6B1E00), Color(0xFF8A2800)],
+      stops: [0.0, 0.28, 0.52, 0.75, 1.0],
     ),
     orbs: [
-      OrbData(color: const Color(0x50FF8C42), size: 700, top: -0.2, left: -0.1),
-      OrbData(color: const Color(0x40FF6B6B), size: 500, top: 0.5, left: 0.6),
-      OrbData(color: const Color(0x309B59B6), size: 450, top: 0.7, left: 0.2),
+      OrbData(color: const Color(0x38FF6E14), size: 680, top: -0.18, left: -0.10),
+      OrbData(color: const Color(0x28C83200), size: 520, top: 0.38, left: 0.58),
+      OrbData(color: const Color(0x19FFA01E), size: 400, top: 0.72, left: 0.05),
+      OrbData(color: const Color(0x17B42800), size: 280, top: 0.12, left: 0.72),
     ],
     accents: [
-      const Color(0xFFFF8C42), const Color(0xFFFF6B6B), const Color(0xFF9B59B6),
+      const Color(0x17FF9632), const Color(0x14FF5A1E), const Color(0x12F0BE3C), const Color(0x14D2460A),
     ],
   ),
   AppThemeData(
-    id: ThemeId.arctic,
-    name: "Arctic Frost",
-    emoji: "❄️",
+    id: ThemeId.ice,
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFFF0F4F8), Color(0xFFD9E2EC), Color(0xFFBCCCDC)],
+      colors: [Color(0xFF00080F), Color(0xFF001525), Color(0xFF002440), Color(0xFF003658), Color(0xFF004870)],
+      stops: [0.0, 0.30, 0.58, 0.80, 1.0],
     ),
     orbs: [
-      OrbData(color: const Color(0x40B0D0FF), size: 600, top: -0.1, left: -0.1),
-      OrbData(color: const Color(0x30FFFFFF), size: 500, top: 0.4, left: 0.7),
+      OrbData(color: const Color(0x2E00B4E6), size: 620, top: -0.12, left: -0.08),
+      OrbData(color: const Color(0x230078BE), size: 500, top: 0.40, left: 0.62),
+      OrbData(color: const Color(0x173CD2DC), size: 380, top: 0.68, left: 0.04),
+      OrbData(color: const Color(0x1464B4FF), size: 260, top: 0.15, left: 0.70),
     ],
     accents: [
-      const Color(0xFF102A43), const Color(0xFF243B53), const Color(0xFF486581),
+      const Color(0x1428C8FF), const Color(0x1400B4C8), const Color(0x1250AAFF), const Color(0x140096D2),
     ],
   ),
   AppThemeData(
-    id: ThemeId.neon,
-    name: "Neon Tokyo",
-    emoji: "🌆",
+    id: ThemeId.mono,
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF0D0221), Color(0xFF0F084B), Color(0xFF000000)],
+      colors: [Color(0xFF0E0E10), Color(0xFF141416), Color(0xFF1A1A1C), Color(0xFF111113)],
+      stops: [0.0, 0.35, 0.65, 1.0],
     ),
     orbs: [
-      OrbData(color: const Color(0x50FF00FF), size: 600, top: -0.1, left: -0.1),
-      OrbData(color: const Color(0x4000FFFF), size: 550, top: 0.4, left: 0.6),
+      OrbData(color: const Color(0x12C8C8DC), size: 700, top: -0.15, left: -0.08),
+      OrbData(color: const Color(0x0DA0A0BE), size: 520, top: 0.42, left: 0.60),
+      OrbData(color: const Color(0x0A646EB4), size: 360, top: 0.70, left: 0.05),
     ],
     accents: [
-      const Color(0xFFFF00FF), const Color(0xFF00FFFF), const Color(0xFFBD00FF),
+      const Color(0x12DCDCEF), const Color(0x0F96A0FF), const Color(0x0DFF96C8), const Color(0x0FBEBED2),
     ],
   ),
   AppThemeData(
-    id: ThemeId.nordic,
-    name: "Nordic Night",
-    emoji: "🏔️",
+    id: ThemeId.cyber,
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF1B262C), Color(0xFF0F4C75), Color(0xFF000000)],
+      colors: [Color(0xFF001212), Color(0xFF002828), Color(0xFF004040), Color(0xFF003535), Color(0xFF380A20)],
+      stops: [0.0, 0.30, 0.55, 0.70, 1.0],
     ),
     orbs: [
-      OrbData(color: const Color(0x303282B8), size: 650, top: -0.15, left: -0.05),
-      OrbData(color: const Color(0x20BBE1FA), size: 400, top: 0.6, left: 0.5),
+      OrbData(color: const Color(0x3300DCC8), size: 600, top: -0.12, left: -0.07),
+      OrbData(color: const Color(0x2EC81E5A), size: 540, top: 0.38, left: 0.58),
+      OrbData(color: const Color(0x1900B4AA), size: 380, top: 0.72, left: 0.05),
+      OrbData(color: const Color(0x17A01450), size: 280, top: 0.10, left: 0.70),
     ],
     accents: [
-      const Color(0xFF3282B8), const Color(0xFFBBE1FA), const Color(0xFF0F4C75),
+      const Color(0x1400E6D2), const Color(0x14D2286E), const Color(0x1200C8BE), const Color(0x12B41E64),
+    ],
+  ),
+  AppThemeData(
+    id: ThemeId.aurora,
+    bg: const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFF010806), Color(0xFF031A0E), Color(0xFF051828), Color(0xFF090B22), Color(0xFF06041A)],
+      stops: [0.0, 0.28, 0.55, 0.80, 1.0],
+    ),
+    orbs: [
+      OrbData(color: const Color(0x2E00F078), size: 660, top: -0.16, left: -0.09),
+      OrbData(color: const Color(0x333C1EE6), size: 560, top: 0.36, left: 0.56),
+      OrbData(color: const Color(0x1C00BEAA), size: 400, top: 0.70, left: 0.03),
+      OrbData(color: const Color(0x177800FF), size: 320, top: 0.08, left: 0.68),
+      OrbData(color: const Color(0x1200FFA0), size: 240, top: 0.55, left: 0.20),
+    ],
+    accents: [
+      const Color(0x1200FF82), const Color(0x125032FF), const Color(0x1200D2B4), const Color(0x0F64FFBE),
+    ],
+  ),
+  AppThemeData(
+    id: ThemeId.rose,
+    bg: const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFF0A0005), Color(0xFF180008), Color(0xFF260010), Color(0xFF180018), Color(0xFF0E000C)],
+      stops: [0.0, 0.32, 0.60, 0.82, 1.0],
+    ),
+    orbs: [
+      OrbData(color: const Color(0x38E60050), size: 620, top: -0.14, left: -0.08),
+      OrbData(color: const Color(0x2B9600C8), size: 520, top: 0.38, left: 0.60),
+      OrbData(color: const Color(0x19FF3C78), size: 380, top: 0.68, left: 0.04),
+      OrbData(color: const Color(0x147800B4), size: 300, top: 0.15, left: 0.70),
+    ],
+    accents: [
+      const Color(0x14FF326E), const Color(0x14D20096), const Color(0x12BE00FF), const Color(0x12FF64AA),
+    ],
+  ),
+  AppThemeData(
+    id: ThemeId.cosmos,
+    bg: const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFF020008), Color(0xFF08001E), Color(0xFF110030), Color(0xFF08001A), Color(0xFF030010)],
+      stops: [0.0, 0.32, 0.60, 0.82, 1.0],
+    ),
+    orbs: [
+      OrbData(color: const Color(0x336E00FF), size: 640, top: -0.15, left: -0.08),
+      OrbData(color: const Color(0x293C00D2), size: 520, top: 0.40, left: 0.58),
+      OrbData(color: const Color(0x17B43CFF), size: 380, top: 0.72, left: 0.06),
+      OrbData(color: const Color(0x0FFF78FF), size: 280, top: 0.18, left: 0.72),
+      OrbData(color: const Color(0x0F5000C8), size: 220, top: 0.50, left: 0.28),
+    ],
+    accents: [
+      const Color(0x148232FF), const Color(0x12BE46FF), const Color(0x0FFF82FF), const Color(0x145A00D2),
     ],
   ),
   AppThemeData(
     id: ThemeId.forest,
-    name: "Emerald Forest",
-    emoji: "🌲",
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF040D12), Color(0xFF183D3D), Color(0xFF000000)],
+      colors: [Color(0xFF010602), Color(0xFF030E05), Color(0xFF061808), Color(0xFF081E0A), Color(0xFF040C06)],
+      stops: [0.0, 0.30, 0.58, 0.80, 1.0],
     ),
     orbs: [
-      OrbData(color: const Color(0x305C8374), size: 620, top: -0.1, left: -0.05),
-      OrbData(color: const Color(0x2093B1A6), size: 450, top: 0.5, left: 0.6),
+      OrbData(color: const Color(0x2B00BE37), size: 620, top: -0.13, left: -0.07),
+      OrbData(color: const Color(0x21008223), size: 500, top: 0.40, left: 0.62),
+      OrbData(color: const Color(0x1428D246), size: 380, top: 0.70, left: 0.05),
+      OrbData(color: const Color(0x0FA0FF50), size: 260, top: 0.14, left: 0.68),
     ],
     accents: [
-      const Color(0xFF5C8374), const Color(0xFF93B1A6), const Color(0xFF040D12),
+      const Color(0x1200D24B), const Color(0x1232BE3C), const Color(0x0F82FF46), const Color(0x12009637),
     ],
   ),
   AppThemeData(
-    id: ThemeId.silk,
-    name: "Lavender Silk",
-    emoji: "🪻",
+    id: ThemeId.obsidian,
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF2D033B), Color(0xFF810CA8), Color(0xFF000000)],
+      colors: [Color(0xFF08080C), Color(0xFF0C0C12), Color(0xFF090B10), Color(0xFF07070A)],
+      stops: [0.0, 0.35, 0.65, 1.0],
     ),
     orbs: [
-      OrbData(color: const Color(0x40C147E9), size: 600, top: -0.12, left: -0.08),
-      OrbData(color: const Color(0x30E5B8F4), size: 400, top: 0.6, left: 0.6),
+      OrbData(color: const Color(0x38283C8C), size: 800, top: -0.25, left: -0.15),
+      OrbData(color: const Color(0x29142864), size: 620, top: 0.45, left: 0.50),
+      OrbData(color: const Color(0x193C50A0), size: 420, top: 0.75, left: -0.05),
+      OrbData(color: const Color(0x1F001E50), size: 300, top: 0.05, left: 0.65),
     ],
     accents: [
-      const Color(0xFFC147E9), const Color(0xFFE5B8F4), const Color(0xFF810CA8),
+      const Color(0x0F3C50C8), const Color(0x0F283CB4), const Color(0x0D5064DC), const Color(0x0F1E32A0),
     ],
   ),
   AppThemeData(
-    id: ThemeId.flare,
-    name: "Solar Flare",
-    emoji: "☀️",
+    id: ThemeId.graphite,
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF240B36), Color(0xFFC31432), Color(0xFF000000)],
+      colors: [Color(0xFF111113), Color(0xFF161618), Color(0xFF191919), Color(0xFF111112)],
+      stops: [0.0, 0.38, 0.62, 1.0],
     ),
     orbs: [
-      OrbData(color: const Color(0x40FF4B2B), size: 620, top: -0.15, left: -0.1),
-      OrbData(color: const Color(0x30FF416C), size: 500, top: 0.4, left: 0.65),
+      OrbData(color: const Color(0x19B4B9D2), size: 750, top: -0.20, left: -0.12),
+      OrbData(color: const Color(0x128C91AF), size: 560, top: 0.42, left: 0.52),
+      OrbData(color: const Color(0x0D646996), size: 380, top: 0.70, left: -0.04),
+      OrbData(color: const Color(0x0AC8C3DC), size: 280, top: 0.10, left: 0.68),
     ],
     accents: [
-      const Color(0xFFFF4B2B), const Color(0xFFFF416C), const Color(0xFFC31432),
+      const Color(0x0FD2D7EB), const Color(0x0FA0A5C8), const Color(0x0D8287B9), const Color(0x0DB9BED7),
     ],
   ),
   AppThemeData(
-    id: ThemeId.abyss,
-    name: "Ocean Abyss",
-    emoji: "🌊",
+    id: ThemeId.midnight,
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
+      colors: [Color(0xFF040610), Color(0xFF080C1C), Color(0xFF0C1028), Color(0xFF070A1A), Color(0xFF040610)],
+      stops: [0.0, 0.32, 0.60, 0.82, 1.0],
     ),
     orbs: [
-      OrbData(color: const Color(0x4000C9FF), size: 640, top: -0.15, left: -0.05),
-      OrbData(color: const Color(0x3092FE9D), size: 450, top: 0.6, left: 0.6),
+      OrbData(color: const Color(0x401E32A0), size: 720, top: -0.20, left: -0.12),
+      OrbData(color: const Color(0x2E142378), size: 560, top: 0.42, left: 0.54),
+      OrbData(color: const Color(0x193246BE), size: 400, top: 0.72, left: 0.04),
+      OrbData(color: const Color(0x1F0F1964), size: 300, top: 0.08, left: 0.66),
     ],
     accents: [
-      const Color(0xFF00C9FF), const Color(0xFF92FE9D), const Color(0xFF203A43),
+      const Color(0x12506EFF), const Color(0x123C5AE6), const Color(0x0F3250D2), const Color(0x0F6482FF),
     ],
   ),
   AppThemeData(
-    id: ThemeId.ruby,
-    name: "Ruby Wine",
-    emoji: "🍷",
+    id: ThemeId.espresso,
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF1A0000), Color(0xFF4A0000), Color(0xFF000000)],
+      colors: [Color(0xFF0E0804), Color(0xFF160C05), Color(0xFF1C1008), Color(0xFF140B06), Color(0xFF0D0703)],
+      stops: [0.0, 0.32, 0.60, 0.82, 1.0],
     ),
     orbs: [
-      OrbData(color: const Color(0x40FF0000), size: 600, top: -0.1, left: -0.08),
-      OrbData(color: const Color(0x308B0000), size: 480, top: 0.5, left: 0.6),
+      OrbData(color: const Color(0x38A0500A), size: 700, top: -0.18, left: -0.10),
+      OrbData(color: const Color(0x29783705), size: 540, top: 0.42, left: 0.54),
+      OrbData(color: const Color(0x14C87814), size: 380, top: 0.70, left: 0.04),
+      OrbData(color: const Color(0x19642D00), size: 280, top: 0.10, left: 0.68),
     ],
     accents: [
-      const Color(0xFFFF0000), const Color(0xFF8B0000), const Color(0xFF4A0000),
-    ],
-  ),
-  AppThemeData(
-    id: ThemeId.slate,
-    name: "Slate Grey",
-    emoji: "🩶",
-    bg: const LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF232526), Color(0xFF414345), Color(0xFF000000)],
-    ),
-    orbs: [
-      OrbData(color: const Color(0x20FFFFFF), size: 700, top: -0.2, left: -0.1),
-      OrbData(color: const Color(0x10BDC3C7), size: 500, top: 0.45, left: 0.55),
-    ],
-    accents: [
-      const Color(0xFFBDC3C7), const Color(0xFF2C3E50), const Color(0xFF414345),
-    ],
-  ),
-  AppThemeData(
-    id: ThemeId.matcha,
-    name: "Matcha Tea",
-    emoji: "🍵",
-    bg: const LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF134E4A), Color(0xFF0F766E), Color(0xFF115E59)],
-    ),
-    orbs: [
-      OrbData(color: const Color(0x302DD4BF), size: 600, top: -0.1, left: -0.05),
-      OrbData(color: const Color(0x20CCFBF1), size: 400, top: 0.6, left: 0.6),
-    ],
-    accents: [
-      const Color(0xFF2DD4BF), const Color(0xFFCCFBF1), const Color(0xFF0F766E),
-    ],
-  ),
-  AppThemeData(
-    id: ThemeId.sahara,
-    name: "Sahara Gold",
-    emoji: "🏜️",
-    bg: const LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF422006), Color(0xFF713F12), Color(0xFF451A03)],
-    ),
-    orbs: [
-      OrbData(color: const Color(0x40FACC15), size: 620, top: -0.12, left: -0.08),
-      OrbData(color: const Color(0x30FEF08A), size: 450, top: 0.5, left: 0.62),
-    ],
-    accents: [
-      const Color(0xFFFACC15), const Color(0xFFFEF08A), const Color(0xFF713F12),
+      const Color(0x12D2963C), const Color(0x12BE7323), const Color(0x0FE6AA50), const Color(0x0FAA5F19),
     ],
   ),
 ];

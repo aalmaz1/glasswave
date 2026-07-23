@@ -31,8 +31,117 @@
 
   <title>glasswave</title>
   <link rel="manifest" href="manifest.json">
+  
+  <!-- Стили для кнопки установки -->
+  <style>
+    #install-button {
+      display: none; /* Скрыта по умолчанию */
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: #0175C2;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 9999;
+      transition: transform 0.2s, background-color 0.2s;
+    }
+    #install-button:hover {
+      background-color: #025a94;
+      transform: scale(1.05);
+    }
+    #install-button.visible {
+      display: block;
+      animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+      from {
+        transform: translateY(100px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+  </style>
+  
+  <script>
+    let deferredPrompt;
+    
+    // Обработка события beforeinstallprompt
+    window.addEventListener('beforeinstallprompt', (e) => {
+      console.log('Событие beforeinstallprompt сработало');
+      // Предотвращаем автоматическое отображение мини-инфобара в Chrome 67+
+      e.preventDefault();
+      // Сохраняем событие для последующего использования
+      deferredPrompt = e;
+      // Показываем кнопку установки
+      const installButton = document.getElementById('install-button');
+      if (installButton) {
+        installButton.classList.add('visible');
+      }
+    });
+    
+    // Обработка успешной установки
+    window.addEventListener('appinstalled', () => {
+      console.log('Приложение успешно установлено');
+      // Скрываем кнопку после установки
+      const installButton = document.getElementById('install-button');
+      if (installButton) {
+        installButton.classList.remove('visible');
+      }
+      deferredPrompt = null;
+    });
+    
+    // Регистрация Service Worker для поддержки PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./flutter_service_worker.js')
+          .then((registration) => {
+            console.log('Service Worker зарегистрирован:', registration.scope);
+          })
+          .catch((error) => {
+            console.log('Ошибка регистрации Service Worker:', error);
+          });
+      });
+    }
+  </script>
 </head>
 <body>
+  <!-- Кнопка установки приложения -->
+  <button id="install-button">📲 Установить приложение</button>
+  
+  <script>
+    // Обработчик клика по кнопке установки
+    document.getElementById('install-button').addEventListener('click', async () => {
+      if (!deferredPrompt) {
+        console.log('Событие установки недоступно');
+        return;
+      }
+      
+      // Показываем нативный диалог установки
+      deferredPrompt.prompt();
+      
+      // Ждем результата выбора пользователя
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`Пользователь выбрал: ${outcome}`);
+      
+      // Очищаем отложенное событие
+      deferredPrompt = null;
+      
+      // Скрываем кнопку
+      const installButton = document.getElementById('install-button');
+      if (installButton) {
+        installButton.classList.remove('visible');
+      }
+    });
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
