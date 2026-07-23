@@ -1221,6 +1221,7 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout}
           );
         })}
       </div>
+    </div>
 
   );
 }
