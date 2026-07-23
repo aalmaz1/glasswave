@@ -164,7 +164,7 @@ class SettingsScreen extends ConsumerWidget {
   void _logout(BuildContext ctx, WidgetRef ref) {
     ref.read(notesProvider.notifier).clearNotes();
     ref.read(authProvider.notifier).logout();
-    ref.read(themeProvider.notifier).setTheme(ThemeId.warmSunset);
+    ref.read(themeProvider.notifier).setTheme(ThemeId.sunset);
     ref.read(themeProvider.notifier).setLanguage('ru');
     EasyLocalization.of(ctx)!.setLocale(const Locale('ru'));
     _seedNotes(ref);
@@ -207,69 +207,42 @@ class SettingsScreen extends ConsumerWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(18),
-              child: Column(
+              child: Stack(
                 children: [
-                  Expanded(
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: t.bg,
+                    ),
                     child: Stack(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: t.bg,
-                          ),
-                          child: Stack(
-                            children: t.orbs.take(2).map((orb) {
-                              return Positioned(
-                                top: 20 + (orb.top * 40),
-                                left: 20 + (orb.left * 40),
-                                child: Container(
-                                  width: 60,
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: RadialGradient(
-                                      colors: [orb.color, Colors.transparent],
-                                      stops: const [0.0, 0.7],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                        if (active)
-                          const Positioned(
-                            top: 8,
-                            right: 8,
-                            child: CircleAvatar(
-                              radius: 10,
-                              backgroundColor: Colors.white,
-                              child: Icon(LucideIcons.check, size: 12, color: Colors.black),
+                      children: t.orbs.take(2).map((orb) {
+                        return Positioned(
+                          top: 20 + (orb.top * 40),
+                          left: 20 + (orb.left * 40),
+                          child: Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: [orb.color, Colors.transparent],
+                                stops: const [0.0, 0.7],
+                              ),
                             ),
                           ),
-                      ],
+                        );
+                      }).toList(),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                    child: Row(
-                      children: [
-                        Text(t.emoji, style: const TextStyle(fontSize: 16)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            t.name,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: active ? FontWeight.bold : FontWeight.normal,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                  if (active)
+                    const Positioned(
+                      top: 8,
+                      right: 8,
+                      child: CircleAvatar(
+                        radius: 10,
+                        backgroundColor: Colors.white,
+                        child: Icon(LucideIcons.check, size: 12, color: Colors.black),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

@@ -1,38 +1,49 @@
-# Examples 1:
-(empty)
-
-# Example 2 (Project with artifacts):
-# Compiled and build artifacts
-*.pyc
-__pycache__/
+```
+# Build artifacts
 *.o
 *.obj
-dist/
-build/
-target/
+*.out
+*.dll
+*.so
+*.a
+*.class
+*.pyc
+__pycache__/
+
 # Dependencies
-.venv/
-venv/
 node_modules/
-.mypy_cache/
-.pytest_cache/
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-# Environment
+venv/
+.venv/
 .env
 .env.local
 *.env.*
-# Editors
+
+# IDE and editor files
 .vscode/
 .idea/
-# OS generated files
-.DS_Store
-Thumbs.db
+*.swp
+*.swo
+*.tmp
+
+# Logs
+*.log
+
 # Coverage reports
 coverage/
 htmlcov/
 .coverage
-# Original rules preserved
-*.log
+
+# Distribution packages
+dist/
+build/
+target/
+.gradle/
+
+# Python specific
+.mypy_cache/
+.pytest_cache/
+
+# System files
+.DS_Store
+Thumbs.db
+```
