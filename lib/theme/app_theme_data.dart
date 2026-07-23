@@ -16,16 +16,12 @@ class OrbData {
 
 class AppThemeData {
   final ThemeId id;
-  final String name;
-  final String emoji;
   final LinearGradient bg;
   final List<OrbData> orbs;
   final List<Color> accents;
 
   AppThemeData({
     required this.id,
-    required this.name,
-    required this.emoji,
     required this.bg,
     required this.orbs,
     required this.accents,
@@ -35,8 +31,6 @@ class AppThemeData {
 final List<AppThemeData> allThemes = [
   AppThemeData(
     id: ThemeId.sunset,
-    name: "Тёплый закат",
-    emoji: "🌅",
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -55,8 +49,6 @@ final List<AppThemeData> allThemes = [
   ),
   AppThemeData(
     id: ThemeId.ice,
-    name: "Ледяная свежесть",
-    emoji: "🧊",
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -75,8 +67,6 @@ final List<AppThemeData> allThemes = [
   ),
   AppThemeData(
     id: ThemeId.mono,
-    name: "Монохром",
-    emoji: "🪨",
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -94,8 +84,6 @@ final List<AppThemeData> allThemes = [
   ),
   AppThemeData(
     id: ThemeId.cyber,
-    name: "Кибер-закат",
-    emoji: "🌺",
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -114,8 +102,6 @@ final List<AppThemeData> allThemes = [
   ),
   AppThemeData(
     id: ThemeId.aurora,
-    name: "Северное сияние",
-    emoji: "🌌",
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -135,8 +121,6 @@ final List<AppThemeData> allThemes = [
   ),
   AppThemeData(
     id: ThemeId.rose,
-    name: "Полночная роза",
-    emoji: "🥀",
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -155,8 +139,6 @@ final List<AppThemeData> allThemes = [
   ),
   AppThemeData(
     id: ThemeId.cosmos,
-    name: "Глубокий космос",
-    emoji: "🔭",
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -176,8 +158,6 @@ final List<AppThemeData> allThemes = [
   ),
   AppThemeData(
     id: ThemeId.forest,
-    name: "Тёмный лес",
-    emoji: "🌲",
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -196,8 +176,6 @@ final List<AppThemeData> allThemes = [
   ),
   AppThemeData(
     id: ThemeId.obsidian,
-    name: "Обсидиан",
-    emoji: "🪬",
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -216,8 +194,6 @@ final List<AppThemeData> allThemes = [
   ),
   AppThemeData(
     id: ThemeId.graphite,
-    name: "Графит",
-    emoji: "🩶",
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -236,8 +212,6 @@ final List<AppThemeData> allThemes = [
   ),
   AppThemeData(
     id: ThemeId.midnight,
-    name: "Полночь",
-    emoji: "🌑",
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -256,8 +230,6 @@ final List<AppThemeData> allThemes = [
   ),
   AppThemeData(
     id: ThemeId.espresso,
-    name: "Эспрессо",
-    emoji: "☕",
     bg: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
