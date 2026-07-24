@@ -8,6 +8,7 @@ import {
   SlidersHorizontal, CalendarDays, RefreshCw, Shuffle,
 } from "lucide-react";
 import { RichTextEditor } from "./components/RichTextEditor";
+import { useTheme, type ThemeId } from "./hooks/useTheme";
 
 /* ════════════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -428,11 +429,11 @@ function useWidth(){
    ════════════════════════════════════════════════════════════════════ */
 export default function App(){
   const initUser = authGetMe();
-  const initPrefs = initUser ? lsGetPrefs(initUser.email) : {};
   const initNotes = initUser ? (lsGetNotes(initUser.email) ?? SEED) : SEED;
 
   const [currentUser, setCurrentUser] = useState<AuthUser|null>(initUser);
-  const [themeId, setThemeIdRaw]  = useState<ThemeId>(initPrefs.themeId ?? "sunset");
+  // Используем хук useTheme для управления темой с учётом статуса авторизации
+  const [themeId, setThemeId] = useTheme(currentUser, "sunset");
   const [screen,  setScreen]   = useState<Screen>("dashboard");
   const [tab,     setTab]      = useState<Tab>("all");
   const [notes,   setNotesRaw]    = useState<Note[]>(initNotes);
@@ -460,15 +461,9 @@ export default function App(){
     });
   };
 
-  const setThemeId = (id: ThemeId) => {
-    setThemeIdRaw(id);
-    if (currentUser) lsSavePrefs(currentUser.email, { themeId: id });
-  };
-
   const handleLogin = (user: AuthUser) => {
     setCurrentUser(user);
-    const prefs = lsGetPrefs(user.email);
-    if (prefs.themeId) setThemeIdRaw(prefs.themeId);
+    // Тема будет обновлена автоматически через useEffect в useTheme
     const saved = lsGetNotes(user.email);
     setNotesRaw(saved ?? SEED);
   };
@@ -476,7 +471,7 @@ export default function App(){
   const handleLogout = () => {
     authLogout();
     setCurrentUser(null);
-    setThemeIdRaw("sunset");
+    // Тема будет обновлена автоматически через useEffect в useTheme
     setNotesRaw(SEED);
   };
 
