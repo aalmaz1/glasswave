@@ -7,6 +7,7 @@ import {
   Pin, PinOff, Shield, Bell, BellRing, CalendarClock,
   SlidersHorizontal, CalendarDays, RefreshCw, Shuffle,
 } from "lucide-react";
+import { RichTextEditor } from "./components/RichTextEditor";
 
 /* ════════════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -434,8 +435,6 @@ export default function App(){
   const [sort,    setSort]     = useState<SortOrder>("default");
   const [showSort,setShowSort] = useState(false);
 
-  const bodyRef  = useRef<HTMLTextAreaElement>(null);
-  const selRef   = useRef<{start:number;end:number}>({start:0,end:0});
   const width    = useWidth();
   const isMobile = width < 768;
   const isTablet = width >= 768 && width < 1280;
@@ -485,38 +484,6 @@ export default function App(){
     closeEd();
   };
 
-  /* ── Format insertion ──
-     flushSync forces React to commit the new textarea value to the DOM
-     synchronously before we call setSelectionRange — otherwise React 18's
-     async scheduler may not have updated textarea.value yet.              */
-  const insertFmt=(pre:string,post="",linePrefix=false)=>{
-    const ta=bodyRef.current; if(!ta)return;
-    const s=selRef.current.start;
-    const e=selRef.current.end;
-    const val=draftB;
-
-    if(linePrefix){
-      const lineStart=val.lastIndexOf("\n",s-1)+1;
-      const alreadyHas=val.slice(lineStart).startsWith(pre);
-      let newVal:string; let newCursor:number;
-      if(alreadyHas){
-        newVal=val.slice(0,lineStart)+val.slice(lineStart+pre.length);
-        newCursor=Math.max(s-pre.length,lineStart);
-      } else {
-        newVal=val.slice(0,lineStart)+pre+val.slice(lineStart);
-        newCursor=s+pre.length;
-      }
-      flushSync(()=>setDraftB(newVal));
-      ta.focus(); ta.setSelectionRange(newCursor,newCursor);
-    } else {
-      const sel=val.slice(s,e);
-      const newVal=val.slice(0,s)+pre+sel+post+val.slice(e);
-      flushSync(()=>setDraftB(newVal));
-      const ns=s+pre.length;
-      const ne=ns+sel.length;
-      ta.focus(); ta.setSelectionRange(ns,ne);
-    }
-  };
 
   const mutNote=(id:number,patch:Partial<Note>)=>setNotes(p=>p.map(n=>n.id===id?{...n,...patch}:n));
 
@@ -659,8 +626,7 @@ export default function App(){
         <EditorModal
           creating={creating} title={draftT} body={draftB}
           onTitle={setDraftT} onBody={setDraftB}
-          bodyRef={bodyRef} selRef={selRef}
-          onClose={closeEd} onSave={save} onFmt={insertFmt}
+          onClose={closeEd} onSave={save}
           isMobile={isMobile} isTablet={isTablet}
         />
       )}
@@ -1377,13 +1343,10 @@ function SLabel({Icon,label}:{Icon:React.FC<{size?:number;color?:string}>;label:
 /* ════════════════════════════════════════════════════════════════════
    EDITOR MODAL
    ════════════════════════════════════════════════════════════════════ */
-function EditorModal({creating,title,body,onTitle,onBody,bodyRef,selRef,onClose,onSave,onFmt,isMobile,isTablet}:{
+function EditorModal({creating,title,body,onTitle,onBody,onClose,onSave,isMobile,isTablet}:{
   creating:boolean;title:string;body:string;
   onTitle:(v:string)=>void;onBody:(v:string)=>void;
-  bodyRef:React.RefObject<HTMLTextAreaElement>;
-  selRef:React.MutableRefObject<{start:number;end:number}>;
   onClose:()=>void;onSave:()=>void;
-  onFmt:(pre:string,post?:string,linePrefix?:boolean)=>void;
   isMobile:boolean;isTablet:boolean;
 }){
   useEffect(()=>{
@@ -1394,25 +1357,13 @@ function EditorModal({creating,title,body,onTitle,onBody,bodyRef,selRef,onClose,
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
   },[onSave,onClose]);
 
-  const trackSel=()=>{
-    const ta=bodyRef.current;if(!ta)return;
-    selRef.current={start:ta.selectionStart,end:ta.selectionEnd};
-  };
-
-  const wc=body.trim().split(/\s+/).filter(Boolean).length;
+  // Подсчёт слов (без HTML-тегов)
+  const stripHtml = (html: string) => html.replace(/<[^>]*>/g, ' ');
+  const wc = stripHtml(body).trim().split(/\s+/).filter(Boolean).length;
   const today=new Date().toLocaleDateString("ru-RU",{day:"numeric",month:"long",year:"numeric"});
   const mW=isMobile?"100%":isTablet?"82%":"62%";
   const mH=isMobile?"100%":"88vh";
   const br=isMobile?0:G.radius+4;
-
-  /* Format actions — onMouseDown prevents textarea blur so selRef stays valid */
-  const fmtActions:[string,string,string,boolean][]=[
-    ["B","**","**",false],
-    ["I","_","_",false],
-    ["UL","- ","",true],
-    ["OL","1. ","",true],
-    ["H1","# ","",true],
-  ];
 
   return(
     <div
@@ -1462,40 +1413,11 @@ function EditorModal({creating,title,body,onTitle,onBody,bodyRef,selRef,onClose,
           </div>
 
           <div className="scroll-host" style={{flex:1,overflowY:"auto",padding:"16px 24px"}}>
-            <textarea
-              ref={bodyRef} value={body}
-              onChange={e=>{ onBody(e.target.value); trackSel(); }}
-              onSelect={trackSel} onKeyUp={trackSel} onClick={trackSel}
+            <RichTextEditor
+              content={body}
+              onChange={onBody}
               placeholder="Начните писать..."
-              style={{width:"100%",minHeight:220,background:"transparent",border:"none",outline:"none",resize:"none",
-                fontFamily:"'Inter',sans-serif",fontWeight:400,fontSize:"1rem",lineHeight:1.75,color:G.textSecondary}}
             />
-          </div>
-
-          {/* Format toolbar */}
-          <div style={{display:"flex",alignItems:"center",gap:4,padding:"10px 20px",
-            borderTop:"1px solid rgba(255,255,255,0.06)",background:"rgba(0,0,0,0.12)"}}>
-            {fmtActions.map(([label,pre,post,lp])=>(
-              <button
-                key={label}
-                className="fmt-btn"
-                /* onMouseDown prevents blur so textarea keeps its selection range */
-                onMouseDown={e=>e.preventDefault()}
-                onClick={()=>onFmt(pre,post,lp)}
-              >
-                {label}
-              </button>
-            ))}
-            <button
-              className="fmt-btn"
-              onMouseDown={e=>e.preventDefault()}
-              onClick={()=>onFmt("[","](url)")}
-              style={{display:"flex",alignItems:"center",justifyContent:"center"}}
-            >
-              <Link2 size={14}/>
-            </button>
-            <div style={{flex:1}}/>
-            {!isMobile&&<span style={{fontSize:"0.63rem",color:"rgba(255,255,255,0.16)",fontFamily:"monospace"}}>⌘S · Esc</span>}
           </div>
         </div>
       </div>
