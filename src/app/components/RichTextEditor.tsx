@@ -161,6 +161,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         heading: {
           levels: [1, 2, 3],
         },
+        underline: false,
       }),
       Underline,
     ],
