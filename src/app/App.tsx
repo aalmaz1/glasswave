@@ -279,6 +279,17 @@ const CSS = `
   }
   .modal-in{animation:modalIn 0.30s cubic-bezier(0.34,1.46,0.64,1) both;}
 
+  /* Mobile viewport fix - prevent UI from going behind browser chrome */
+  @supports (height: 100dvh) {
+    .modal-mobile-safe { height: 92dvh; }
+  }
+  @media (max-width: 767px) {
+    .modal-overlay {
+      padding-bottom: env(safe-area-inset-bottom, 12px);
+      padding-top: env(safe-area-inset-top, 12px);
+    }
+  }
+
   .section-label{
     font-size:0.68rem;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;
     color:rgba(255,255,255,0.30);margin:0 0 12px 4px;
@@ -870,7 +881,7 @@ function BottomNav({tab,setTab,isMobile}:{tab:Tab;setTab:(t:Tab)=>void;isMobile:
     ["all",FileText,"Заметки"],["archive",Archive,"Архив"],["trash",Trash2,"Корзина"],
   ];
   return(
-    <div style={{position:"absolute",bottom:24,left:"50%",transform:"translateX(-50%)",width:isMobile?"calc(100% - 32px)":"56%",minWidth:260,maxWidth:420}}>
+    <div style={{position:"fixed",bottom:isMobile?"calc(12px + env(safe-area-inset-bottom, 0px))":24,left:"50%",transform:"translateX(-50%)",width:isMobile?"calc(100% - 32px)":"56%",minWidth:260,maxWidth:420,zIndex:40}}>
       <div style={{...glassBase(28),borderRadius:30,padding:"10px 8px",
         display:"flex",alignItems:"center",justifyContent:"space-around",position:"relative"}}>
         <div style={{position:"absolute",inset:0,borderRadius:"inherit",pointerEvents:"none",zIndex:10,padding:1,
@@ -905,7 +916,7 @@ function FabBtn({onClick,isMobile}:{onClick:()=>void;isMobile:boolean}){
     <button onClick={onClick} style={{
       ...glassBase(16),
       position:"fixed",
-      bottom:isMobile?88:32,
+      bottom:isMobile?"calc(76px + env(safe-area-inset-bottom, 0px))":32,
       right:isMobile?20:32,
       width:sz,height:sz,
       borderRadius:16,border:"none",cursor:"pointer",
@@ -1362,16 +1373,18 @@ function EditorModal({creating,title,body,onTitle,onBody,onClose,onSave,isMobile
   const wc = stripHtml(body).trim().split(/\s+/).filter(Boolean).length;
   const today=new Date().toLocaleDateString("ru-RU",{day:"numeric",month:"long",year:"numeric"});
   const mW=isMobile?"100%":isTablet?"82%":"62%";
-  const mH=isMobile?"100%":"88vh";
+  const mH=isMobile?"92dvh":"88vh";
   const br=isMobile?0:G.radius+4;
+  const mobileBottom=isMobile?12:0;
 
   return(
     <div
+      className="modal-overlay"
       style={{position:"fixed",inset:0,zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",
-        background:G.overlay,backdropFilter:isMobile?"none":"blur(2px)",padding:isMobile?0:24}}
+        background:G.overlay,backdropFilter:isMobile?"none":"blur(2px)",padding:isMobile?mobileBottom:24}}
       onClick={e=>{if(e.target===e.currentTarget)onClose();}}
     >
-      <div className="modal-in" style={{
+      <div className="modal-in modal-mobile-safe" style={{
         ...glassBase(32),width:mW,maxWidth:isMobile?"100%":isTablet?760:720,height:mH,
         borderRadius:br,border:`1px solid rgba(255,255,255,0.28)`,
         boxShadow:"0 32px 80px rgba(0,0,0,0.65),inset 0 1px 0 rgba(255,255,255,0.22),inset 0 -1px 0 rgba(0,0,0,0.20)",
