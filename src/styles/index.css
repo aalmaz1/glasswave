@@ -1,3 +1,225 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+/* ════════════════════════════════════════════════════════════════════
+   Rich Text Editor (Tiptap) Styles — Glassmorphism, Google Keep style
+   ════════════════════════════════════════════════════════════════════ */
+
+.rich-text-editor-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Панель инструментов — glassmorphism, появляется при фокусе */
+.rich-text-toolbar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0 0 16px 16px;
+  flex-wrap: wrap;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.25s ease, transform 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Показываем панель при фокусе редактора */
+.rich-text-editor-container:focus-within .rich-text-toolbar {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  background: rgba(255, 255, 255, 0.10);
+  border-top-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Кнопки панели инструментов */
+.rich-text-toolbar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  padding: 0;
+}
+
+.rich-text-toolbar button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.rich-text-toolbar button:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.20);
+  transform: scale(0.95);
+}
+
+/* Активное состояние кнопки (форматирование применено) */
+.rich-text-toolbar button.is-active {
+  background: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+}
+
+.rich-text-toolbar button:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+/* Содержимое редактора */
+.rich-text-content {
+  flex: 1;
+  width: 100%;
+  min-height: 220px;
+  padding: 4px 0 60px 0; /* Отступ снизу для панели инструментов */
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.75);
+  overflow-y: auto;
+}
+
+.rich-text-content:focus {
+  outline: none;
+}
+
+/* Стили внутри редактора */
+.rich-text-content p {
+  margin: 0 0 12px 0;
+}
+
+.rich-text-content h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0 0 16px 0;
+  letter-spacing: -0.02em;
+}
+
+.rich-text-content h2 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.90);
+  margin: 0 0 14px 0;
+  letter-spacing: -0.015em;
+}
+
+.rich-text-content h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 12px 0;
+}
+
+.rich-text-content strong {
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.rich-text-content em {
+  font-style: italic;
+}
+
+.rich-text-content u {
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.rich-text-content s {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.rich-text-content ul,
+.rich-text-content ol {
+  margin: 0 0 12px 0;
+  padding-left: 24px;
+}
+
+.rich-text-content li {
+  margin: 0 0 6px 0;
+}
+
+.rich-text-content blockquote {
+  margin: 0 0 16px 0;
+  padding: 12px 16px;
+  border-left: 3px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 0 8px 8px 0;
+  color: rgba(255, 255, 255, 0.70);
+  font-style: italic;
+}
+
+.rich-text-content pre {
+  margin: 0 0 16px 0;
+  padding: 14px 18px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.85);
+  overflow-x: auto;
+}
+
+.rich-text-content code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.875rem;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.rich-text-content pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.rich-text-content hr {
+  margin: 20px 0;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.rich-text-content a {
+  color: rgba(100, 180, 255, 0.9);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(100, 180, 255, 0.4);
+  transition: all 0.18s ease;
+}
+
+.rich-text-content a:hover {
+  color: rgba(140, 210, 255, 1);
+  border-bottom-color: rgba(140, 210, 255, 0.7);
+}
+
+/* Placeholder */
+.rich-text-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: rgba(255, 255, 255, 0.30);
+  pointer-events: none;
+  height: 0;
+}
+
