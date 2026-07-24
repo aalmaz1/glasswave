@@ -291,6 +291,25 @@ const CSS = `
     }
   }
 
+  /* Glassmorphism modal rounding - applies to all devices */
+  .modal-in.modal-mobile-safe {
+    border-radius: 24px !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  }
+
+  /* Ensure child layers inherit the border radius */
+  .modal-in.modal-mobile-safe > div {
+    border-radius: inherit;
+  }
+
+  /* Mobile adjustment: slightly smaller radius for compact screens */
+  @media (max-width: 767px) {
+    .modal-in.modal-mobile-safe {
+      border-radius: 20px !important;
+    }
+  }
+
   .section-label{
     font-size:0.68rem;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;
     color:rgba(255,255,255,0.30);margin:0 0 12px 4px;
@@ -1369,7 +1388,7 @@ function EditorModal({creating,title,body,onTitle,onBody,onClose,onSave,isMobile
   const today=new Date().toLocaleDateString("ru-RU",{day:"numeric",month:"long",year:"numeric"});
   const mW=isMobile?"100%":isTablet?"82%":"62%";
   const mH=isMobile?"92dvh":"88vh";
-  const br=isMobile?0:G.radius+4;
+  const br = G.radius + 4; // Единый радиус для всех устройств (24px)
   const mobileBottom=isMobile?12:0;
 
   return(
