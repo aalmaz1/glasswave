@@ -291,22 +291,50 @@ const CSS = `
     }
   }
 
-  /* Glassmorphism modal rounding - applies to all devices */
-  .modal-in.modal-mobile-safe {
+  /* Glassmorphism modal rounding - Universal fix with high specificity */
+  .modal-in.modal-mobile-safe,
+  div.modal-in.modal-mobile-safe,
+  .modal-overlay .modal-in.modal-mobile-safe {
     border-radius: 24px !important;
     overflow: hidden !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    -webkit-border-radius: 24px !important; /* Safari/iOS support */
   }
 
   /* Ensure child layers inherit the border radius */
-  .modal-in.modal-mobile-safe > div {
-    border-radius: inherit;
+  .modal-in.modal-mobile-safe > div,
+  .modal-in.modal-mobile-safe > * {
+    border-radius: inherit !important;
+    overflow: hidden !important;
   }
 
-  /* Mobile adjustment: slightly smaller radius for compact screens */
+  /* Mobile-specific override: Force smaller radius but KEEP it rounded */
   @media (max-width: 767px) {
-    .modal-in.modal-mobile-safe {
+    .modal-in.modal-mobile-safe,
+    div.modal-in.modal-mobile-safe,
+    .modal-overlay .modal-in.modal-mobile-safe {
       border-radius: 20px !important;
+      -webkit-border-radius: 20px !important;
+      /* Explicitly remove any potential 0 radius overrides */
+      border-top-left-radius: 20px !important;
+      border-top-right-radius: 20px !important;
+      border-bottom-left-radius: 20px !important;
+      border-bottom-right-radius: 20px !important;
+    }
+    
+    /* Fix for potential full-screen mobile modals that might reset radius */
+    .modal-in.modal-mobile-safe[style*="border-radius"],
+    .modal-in.modal-mobile-safe[style*="radius"] {
+      border-radius: 20px !important;
+    }
+  }
+
+  /* Extra safety: Target any element that might be forcing square corners on mobile */
+  @media (max-width: 767px) {
+    .modal-in[class*="mobile"],
+    .modal-in[class*="safe"] {
+      border-radius: 20px !important;
+      overflow: hidden !important;
     }
   }
 
@@ -1388,7 +1416,8 @@ function EditorModal({creating,title,body,onTitle,onBody,onClose,onSave,isMobile
   const today=new Date().toLocaleDateString("ru-RU",{day:"numeric",month:"long",year:"numeric"});
   const mW=isMobile?"100%":isTablet?"82%":"62%";
   const mH=isMobile?"92dvh":"88vh";
-  const br = G.radius + 4; // Единый радиус для всех устройств (24px)
+  // Force border radius on all devices including mobile (CSS may be overridden by inline styles)
+  const br = isMobile ? 20 : (G.radius + 4); // 20px on mobile, 24px on desktop/tablet
   const mobileBottom=isMobile?12:0;
 
   return(
@@ -1400,7 +1429,7 @@ function EditorModal({creating,title,body,onTitle,onBody,onClose,onSave,isMobile
     >
       <div className="modal-in modal-mobile-safe" style={{
         ...glassBase(32),width:mW,maxWidth:isMobile?"100%":isTablet?760:720,height:mH,
-        borderRadius:br,border:`1px solid rgba(255,255,255,0.28)`,
+        borderRadius: br + "px",border:`1px solid rgba(255,255,255,0.28)`,
         boxShadow:"0 32px 80px rgba(0,0,0,0.65),inset 0 1px 0 rgba(255,255,255,0.22),inset 0 -1px 0 rgba(0,0,0,0.20)",
         display:"flex",flexDirection:"column",overflow:"hidden",position:"relative",
       }}>
