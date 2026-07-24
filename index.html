@@ -1,22 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>glasswawedemo</title>
+    <meta name="description" content="This web application enables users to create, edit, and manage notes with a modern, visually appealing interface, enhancing productivity and ease of use." />
+    <meta name="robots" content="noindex, nofollow" />
+    <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+    
+    <!-- Theme initialization script - runs before React loads to prevent flash -->
+    <script>
+      (function() {
+        const LS_GUEST_THEME = "noova_guest_theme";
+        const RANDOM_THEME_CANDIDATES = ["sunset", "ice", "mono", "cyber", "aurora", "rose", "cosmos", "forest"];
+        
+        // Check if user is logged in
+        const currentUser = JSON.parse(localStorage.getItem("noova_me") || "null");
+        let themeId = "sunset";
+        
+        if (currentUser && currentUser.email) {
+          // Logged in user - load their preference
+          try {
+            const prefs = JSON.parse(localStorage.getItem("noova_prefs_" + currentUser.email) || "{}");
+            if (prefs.themeId) {
+              themeId = prefs.themeId;
+            }
+          } catch (e) {}
+        } else {
+          // Guest - load saved guest theme or pick random
+          try {
+            const savedGuestTheme = localStorage.getItem(LS_GUEST_THEME);
+            if (savedGuestTheme && RANDOM_THEME_CANDIDATES.includes(savedGuestTheme)) {
+              themeId = savedGuestTheme;
+            } else {
+              themeId = RANDOM_THEME_CANDIDATES[Math.floor(Math.random() * RANDOM_THEME_CANDIDATES.length)];
+              localStorage.setItem(LS_GUEST_THEME, themeId);
+            }
+          } catch (e) {
+            themeId = RANDOM_THEME_CANDIDATES[Math.floor(Math.random() * RANDOM_THEME_CANDIDATES.length)];
+            localStorage.setItem(LS_GUEST_THEME, themeId);
+          }
+        }
+        
+        document.documentElement.setAttribute('data-theme', themeId);
+      })();
+    </script>
+    
+  </head>
 
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>glasswawedemo</title>
-      <meta name="description" content="This web application enables users to create, edit, and organize notes with a modern, visually appealing interface, enhancing productivity and ease of use." />
-      <meta name="robots" content="noindex, nofollow" />
-      <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
-      
-    </head>
-
-    <body>
-      
-      <div id="root"></div>
-      <script type="module" src="/src/main.tsx"></script>
-      
-    </body>
-  </html>
-  
+  <body>
+    
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    
+  </body>
+</html>
