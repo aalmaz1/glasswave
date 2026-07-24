@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { flushSync } from "react-dom";
 import {
   Plus, Archive, Trash2, FileText, Link2,
@@ -366,81 +366,163 @@ const CSS = `
    TYPES
    ════════════════════════════════════════════════════════════════════ */
 type Note = {
+  firestoreId?: string;
   id:number; title:string; body:string; updatedAt:Date;
   accentIdx:number; pinned:boolean; archived:boolean; trashed:boolean;
   reminder:Date|null;
+};
+
+type FirestoreNote = {
+  ownerUid:string;
+  id:number;
+  title:string;
+  body:string;
+  accentIdx:number;
+  pinned:boolean;
+  archived:boolean;
+  trashed:boolean;
+  updatedAt:any;
+  reminder:any;
 };
 type Screen    = "dashboard" | "settings";
 type Tab       = "all" | "archive" | "trash";
 type SortOrder = "default" | "created" | "updated";
 
-/* ════════════════════════════════════════════════════════════════════
-   AUTH  (localStorage-backed, no server required)
-   ════════════════════════════════════════════════════════════════════ */
-type AuthUser = { email: string; name: string };
-type StoredUser = { email: string; name: string; pw: string }; // pw = btoa(password)
+type AuthUser = { uid:string; email:string; name:string };
+type UserProfile = { name:string; themeId?: ThemeId };
 
-const LS_USERS  = "noova_users";
-const LS_NOTES  = (email: string) => `noova_notes_${email}`;
-const LS_PREFS  = (email: string) => `noova_prefs_${email}`;
-const LS_ME     = "noova_me";
+const USERS_COLLECTION = "users";
+const NOTES_COLLECTION = "notes";
+const NOTES_PAGE_SIZE = 12;
+const DEFAULT_THEME: ThemeId = "sunset";
 
-function lsGetUsers(): StoredUser[] {
-  try { return JSON.parse(localStorage.getItem(LS_USERS) || "[]"); } catch { return []; }
-}
-function lsSaveUsers(u: StoredUser[]) { localStorage.setItem(LS_USERS, JSON.stringify(u)); }
-
-function lsGetNotes(email: string): Note[] | null {
-  try {
-    const raw = localStorage.getItem(LS_NOTES(email));
-    if (!raw) return null;
-    const arr = JSON.parse(raw);
-    return arr.map((n: Note) => ({
-      ...n,
-      updatedAt: new Date(n.updatedAt),
-      reminder: n.reminder ? new Date(n.reminder) : null,
-    }));
-  } catch { return null; }
-}
-function lsSaveNotes(email: string, notes: Note[]) {
-  localStorage.setItem(LS_NOTES(email), JSON.stringify(notes));
+async function createUserProfile(uid:string, email:string, name:string) {
+  await setDoc(doc(db, USERS_COLLECTION, uid), {
+    email,
+    name,
+    themeId: DEFAULT_THEME,
+    createdAt: serverTimestamp(),
+  });
 }
 
-function lsGetPrefs(email: string): { themeId?: ThemeId } {
-  try { return JSON.parse(localStorage.getItem(LS_PREFS(email)) || "{}"); } catch { return {}; }
-}
-function lsSavePrefs(email: string, p: { themeId: ThemeId }) {
-  localStorage.setItem(LS_PREFS(email), JSON.stringify(p));
+async function getUserProfile(uid:string): Promise<UserProfile | null> {
+  const snap = await getDoc(doc(db, USERS_COLLECTION, uid));
+  if (!snap.exists()) return null;
+  return snap.data() as UserProfile;
 }
 
-function authRegister(email: string, name: string, pw: string): string | null {
+async function setUserTheme(uid:string, themeId:ThemeId) {
+  await setDoc(doc(db, USERS_COLLECTION, uid), { themeId }, { merge: true });
+}
+
+function noteFromFirestore(data: FirestoreNote & { firestoreId:string }): Note {
+  const toDate = (value:any) => {
+    if (!value) return null;
+    if (typeof value.toDate === "function") return value.toDate();
+    if (value instanceof Date) return value;
+    return new Date(value);
+  };
+
+  return {
+    firestoreId: data.firestoreId,
+    id: Number(data.id ?? Date.now()),
+    title: String(data.title ?? ""),
+    body: String(data.body ?? ""),
+    accentIdx: Number(data.accentIdx ?? 0),
+    pinned: Boolean(data.pinned),
+    archived: Boolean(data.archived),
+    trashed: Boolean(data.trashed),
+    updatedAt: toDate(data.updatedAt) ?? new Date(),
+    reminder: toDate(data.reminder),
+  };
+}
+
+function buildNotesQuery(ownerUid: string, limitSize:number) {
+  return query(
+    collection(db, NOTES_COLLECTION),
+    where("ownerUid", "==", ownerUid),
+    orderBy("updatedAt", "desc"),
+    limit(limitSize)
+  );
+}
+
+async function writeNoteToFirestore(note: Note, ownerUid: string) {
+  const payload = {
+    ownerUid,
+    id: note.id,
+    title: note.title,
+    body: note.body,
+    accentIdx: note.accentIdx,
+    pinned: note.pinned,
+    archived: note.archived,
+    trashed: note.trashed,
+    updatedAt: serverTimestamp(),
+    reminder: note.reminder ? note.reminder : null,
+  };
+
+  if (note.firestoreId) {
+    await updateDoc(doc(db, NOTES_COLLECTION, note.firestoreId), payload);
+    return note.firestoreId;
+  }
+
+  const ref = await addDoc(collection(db, NOTES_COLLECTION), payload);
+  return ref.id;
+}
+
+async function deleteNoteFromFirestore(note: Note) {
+  if (!note.firestoreId) return;
+  await deleteDoc(doc(db, NOTES_COLLECTION, note.firestoreId));
+}
+
+async function patchNoteInFirestore(note: Note, patch: Partial<Note>, ownerUid: string) {
+  if (!note.firestoreId) {
+    return writeNoteToFirestore({ ...note, ...patch }, ownerUid);
+  }
+
+  const payload: any = {
+    updatedAt: serverTimestamp(),
+  };
+  if (patch.title !== undefined) payload.title = patch.title;
+  if (patch.body !== undefined) payload.body = patch.body;
+  if (patch.accentIdx !== undefined) payload.accentIdx = patch.accentIdx;
+  if (patch.pinned !== undefined) payload.pinned = patch.pinned;
+  if (patch.archived !== undefined) payload.archived = patch.archived;
+  if (patch.trashed !== undefined) payload.trashed = patch.trashed;
+  if (patch.reminder !== undefined) payload.reminder = patch.reminder ?? null;
+
+  await updateDoc(doc(db, NOTES_COLLECTION, note.firestoreId), payload);
+  return note.firestoreId;
+}
+
+async function authRegister(email: string, name: string, pw: string): Promise<string | null> {
   email = email.trim().toLowerCase();
   if (!email.includes("@")) return "Введите корректный email";
-  if (name.trim().length < 2)  return "Имя должно быть не короче 2 символов";
-  if (pw.length < 6)           return "Пароль должен быть не менее 6 символов";
-  const users = lsGetUsers();
-  if (users.find(u => u.email === email)) return "Аккаунт с таким email уже существует";
-  users.push({ email, name: name.trim(), pw: btoa(pw) });
-  lsSaveUsers(users);
-  localStorage.setItem(LS_ME, JSON.stringify({ email, name: name.trim() }));
-  return null;
+  if (name.trim().length < 2) return "Имя должно быть не короче 2 символов";
+  if (pw.length < 6) return "Пароль должен быть не менее 6 символов";
+  try {
+    const credential = await createUserWithEmailAndPassword(auth, email, pw);
+    const user = credential.user;
+    await updateProfile(user, { displayName: name.trim() });
+    await createUserProfile(user.uid, email, name.trim());
+    return null;
+  } catch (err:any) {
+    return err.message || "Ошибка регистрации";
+  }
 }
 
-function authLogin(email: string, pw: string): string | null {
+async function authLogin(email: string, pw: string): Promise<string | null> {
   email = email.trim().toLowerCase();
-  const users = lsGetUsers();
-  const u = users.find(u => u.email === email);
-  if (!u) return "Аккаунт не найден";
-  if (u.pw !== btoa(pw)) return "Неверный пароль";
-  localStorage.setItem(LS_ME, JSON.stringify({ email: u.email, name: u.name }));
-  return null;
+  try {
+    await signInWithEmailAndPassword(auth, email, pw);
+    return null;
+  } catch (err:any) {
+    return err.message || "Ошибка входа";
+  }
 }
 
-function authGetMe(): AuthUser | null {
-  try { return JSON.parse(localStorage.getItem(LS_ME) || "null"); } catch { return null; }
+async function authLogout() {
+  await signOut(auth);
 }
-
-function authLogout() { localStorage.removeItem(LS_ME); }
 
 /* ════════════════════════════════════════════════════════════════════
    SEED DATA
@@ -483,7 +565,6 @@ export default function App(){
   const [themeId, setThemeId] = useTheme(currentUser, "sunset");
   const [screen,  setScreen]   = useState<Screen>("dashboard");
   const [tab,     setTab]      = useState<Tab>("all");
-  const [notes,   setNotesRaw]    = useState<Note[]>(initNotes);
   const [editing, setEditing]  = useState<Note|null>(null);
   const [creating,setCreating] = useState(false);
   const [draftT,  setDraftT]   = useState("");
@@ -493,20 +574,69 @@ export default function App(){
   const [reminderNoteId, setReminderNoteId] = useState<number|null>(null);
   const [sort,    setSort]     = useState<SortOrder>("default");
   const [showSort,setShowSort] = useState(false);
+  const [page, setPage] = useState(1);
 
   const width    = useWidth();
   const isMobile = width < 768;
   const isTablet = width >= 768 && width < 1280;
   const theme    = THEMES.find(t=>t.id===themeId)!;
 
-  /* Persist notes whenever they change */
-  const setNotes = (fn: Note[] | ((p:Note[])=>Note[])) => {
-    setNotesRaw(prev => {
-      const next = typeof fn === "function" ? fn(prev) : fn;
-      if (currentUser) lsSaveNotes(currentUser.email, next);
-      return next;
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setCurrentUser(null);
+        setThemeIdRaw(DEFAULT_THEME);
+        setPage(1);
+        return;
+      }
+
+      const nextUser: AuthUser = {
+        uid: user.uid,
+        email: user.email ?? "",
+        name: user.displayName ?? "",
+      };
+
+      setCurrentUser(nextUser);
+
+      const profile = await getUserProfile(user.uid);
+      if (profile && profile.themeId) {
+        setThemeIdRaw(profile.themeId);
+      } else {
+        setThemeIdRaw(DEFAULT_THEME);
+      }
     });
-  };
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) {
+      setPage(1);
+    }
+  }, [currentUser]);
+
+  const pageLimit = page * NOTES_PAGE_SIZE + 1;
+  const notesQuery = useMemo(
+    () => currentUser ? buildNotesQuery(currentUser.uid, pageLimit) : null,
+    [currentUser, pageLimit]
+  );
+
+  const { data: firestoreNotes, loading: notesLoading } = useFirestoreQuery<FirestoreNote[]>(
+    () => notesQuery,
+    [notesQuery]
+  );
+
+  const allNotes: Note[] = currentUser
+    ? (firestoreNotes?.map(note => noteFromFirestore(note as FirestoreNote & { firestoreId: string })) ?? [])
+    : SEED;
+
+  const notes: Note[] = currentUser
+    ? allNotes.slice(0, page * NOTES_PAGE_SIZE)
+    : SEED;
+
+  const hasMoreNotes = Boolean(currentUser && allNotes.length > page * NOTES_PAGE_SIZE);
+
+  const loadMoreNotes = () => setPage((prev) => prev + 1);
 
   const handleLogin = (user: AuthUser) => {
     setCurrentUser(user);
@@ -516,7 +646,7 @@ export default function App(){
   };
 
   const handleLogout = () => {
-    authLogout();
+    authLogout().catch(() => {});
     setCurrentUser(null);
     // Тема будет обновлена автоматически через useEffect в useTheme
     setNotesRaw(SEED);
@@ -526,19 +656,43 @@ export default function App(){
   const openNew   = ()=>{ setEditing(null); setCreating(true); setDraftT(""); setDraftB(""); };
   const closeEd   = ()=>{ setEditing(null); setCreating(false); };
 
-  const save=()=>{
+  const save=async()=>{
     if(!draftT.trim()&&!draftB.trim()){closeEd();return;}
-    if(creating){
-      setNotes(p=>[{id:Date.now(),title:draftT||"Без названия",body:draftB,updatedAt:new Date(),
-        accentIdx:Math.floor(Math.random()*theme.accents.length),pinned:false,archived:false,trashed:false},...p]);
-    } else if(editing){
-      setNotes(p=>p.map(n=>n.id===editing.id?{...n,title:draftT||"Без названия",body:draftB,updatedAt:new Date()}:n));
-    }
+    if(!currentUser){closeEd();return;}
+
+    const notePayload: Note = {
+      firestoreId: editing?.firestoreId,
+      id: editing?.id ?? Date.now(),
+      title: draftT || "Без названия",
+      body: draftB,
+      updatedAt: new Date(),
+      accentIdx: editing?.accentIdx ?? Math.floor(Math.random()*theme.accents.length),
+      pinned: editing?.pinned ?? false,
+      archived: editing?.archived ?? false,
+      trashed: editing?.trashed ?? false,
+      reminder: editing?.reminder ?? null,
+    };
+
+    await writeNoteToFirestore(notePayload, currentUser.uid);
     closeEd();
   };
 
 
-  const mutNote=(id:number,patch:Partial<Note>)=>setNotes(p=>p.map(n=>n.id===id?{...n,...patch}:n));
+  const mutNote = async (id:number, patch:Partial<Note>) => {
+    if (!currentUser) return;
+    const note = notes.find(n => n.id === id);
+    if (!note) return;
+    await patchNoteInFirestore(note, patch, currentUser.uid);
+  };
+
+  const deleteOrRestoreNote = async (note: Note) => {
+    if (!currentUser || !note.firestoreId) return;
+    if (tab === "trash" && note.trashed) {
+      await deleteNoteFromFirestore(note);
+      return;
+    }
+    await patchNoteInFirestore(note, { trashed: !note.trashed, archived: false }, currentUser.uid);
+  };
 
   const base = notes.filter(n=>{
     if(tab==="all")     return !n.archived&&!n.trashed;
@@ -630,18 +784,34 @@ export default function App(){
               }}
               onScroll={e=>setScrollY((e.target as HTMLDivElement).scrollTop)}
             >
-              {base.length===0?(
+              {currentUser && notesLoading ? (
+                <LoadingState />
+              ) : base.length===0 ? (
                 <EmptyState tab={tab} search={search}/>
-              ):(
-                <GridView
-                  pinned={pinned} unpinned={unpinned} cols={cols}
-                  theme={theme} isMobile={isMobile} isTablet={isTablet} tab={tab}
-                  onOpen={openEdit}
-                  onPin={n=>mutNote(n.id,{pinned:!n.pinned})}
-                  onArchive={n=>mutNote(n.id,{archived:!n.archived})}
-                  onTrash={n=>mutNote(n.id,{trashed:!n.trashed,archived:false})}
-                  onReminder={n=>setReminderNoteId(n.id)}
-                />
+              ) : (
+                <>
+                  <GridView
+                    pinned={pinned} unpinned={unpinned} cols={cols}
+                    theme={theme} isMobile={isMobile} isTablet={isTablet} tab={tab}
+                    onOpen={openEdit}
+                    onPin={n=>mutNote(n.id,{pinned:!n.pinned})}
+                    onArchive={n=>mutNote(n.id,{archived:!n.archived})}
+                    onTrash={deleteOrRestoreNote}
+                    onReminder={n=>setReminderNoteId(n.id)}
+                  />
+                  {hasMoreNotes && (
+                    <div style={{display:"flex",justifyContent:"center",marginTop:24}}>
+                      <button
+                        onClick={loadMoreNotes}
+                        style={{
+                          ...glassBase(16),padding:"12px 18px",borderRadius:16,border:"none",
+                          color:G.textPrimary,background:"rgba(255,255,255,0.10)",cursor:"pointer",
+                          fontFamily:"inherit",fontSize:"0.92rem",
+                        }}
+                      >Показать ещё</button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -911,6 +1081,20 @@ function EmptyState({tab,search}:{tab:Tab;search:string}){
       <p style={{color:G.textMuted,fontSize:"0.84rem",letterSpacing:"0.02em",margin:0}}>
         {search?"Ничего не найдено":tab==="all"?"Заметок пока нет":tab==="archive"?"Архив пуст":"Корзина пуста"}
       </p>
+    </div>
+  );
+}
+
+function LoadingState(){
+  return(
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:240}}>
+      <div style={{...glassBase(16),padding:"22px 26px",textAlign:"center"}}>
+        <div style={{marginBottom:14,fontSize:"0.95rem",fontWeight:700,color:G.textPrimary}}>Загрузка заметок...</div>
+        <div style={{height:4,width:180,background:"rgba(255,255,255,0.10)",borderRadius:999,overflow:"hidden"}}>
+          <div style={{width:80,height:4,background:"rgba(255,200,60,0.90)",animation:"loadingBar 1.2s ease-in-out infinite"}}/>
+        </div>
+      </div>
+      <style>{`@keyframes loadingBar{0%{transform:translateX(-100%);}50%{transform:translateX(0%);}100%{transform:translateX(100%);}}`}</style>
     </div>
   );
 }
@@ -1285,18 +1469,30 @@ function AuthPanel({onLogin}:{onLogin:(u:AuthUser)=>void}){
   const [err,    setErr]    = useState("");
   const [ok,     setOk]     = useState(false);
 
-  const submit = () => {
+  const submit = async () => {
     setErr(""); setOk(false);
     if (mode === "register") {
-      const e = authRegister(email, name, pw);
-      if (e) { setErr(e); return; }
+      const error = await authRegister(email, name, pw);
+      if (error) {
+        setErr(error);
+        return;
+      }
       setOk(true);
-      setTimeout(()=>onLogin({ email: email.trim().toLowerCase(), name: name.trim() }), 600);
-    } else {
-      const e = authLogin(email, pw);
-      if (e) { setErr(e); return; }
-      const me = authGetMe()!;
-      onLogin(me);
+      const user = auth.currentUser;
+      if (user && user.email) {
+        onLogin({ uid: user.uid, email: user.email, name: user.displayName ?? name.trim() });
+      }
+      return;
+    }
+
+    const error = await authLogin(email, pw);
+    if (error) {
+      setErr(error);
+      return;
+    }
+    const user = auth.currentUser;
+    if (user && user.email) {
+      onLogin({ uid: user.uid, email: user.email, name: user.displayName ?? "" });
     }
   };
 
