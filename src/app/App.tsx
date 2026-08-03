@@ -591,6 +591,15 @@ function fmtDate(d:Date){
   return d.toLocaleDateString("ru-RU",{month:"short",day:"numeric"});
 }
 
+function stripHtml(html: string): string {
+  if (!html) return "";
+  return html
+    .replace(/<\/p>|<\/h[1-6]>|<\/li>|<\/div>|<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\n+/g, '\n')
+    .trim();
+}
+
 function useWidth(){
   const [w,setW]=useState(typeof window!=="undefined"?window.innerWidth:1280);
   useEffect(()=>{const h=()=>setW(window.innerWidth);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
@@ -791,7 +800,7 @@ export default function App(){
     return n.trashed;
   }).filter(n=>!search||
     n.title.toLowerCase().includes(search.toLowerCase())||
-    n.body.toLowerCase().includes(search.toLowerCase())
+    stripHtml(n.body).toLowerCase().includes(search.toLowerCase())
   );
 
   const sorted = [...base].sort((a,b)=>{
@@ -1098,7 +1107,7 @@ function NoteCard({note,theme,isMobile,isTablet,tab,masonry,onOpen,onPin,onArchi
             ...(masonry?{}:{display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}),
             paddingBottom:12,
           }}>
-            {note.body}
+            {stripHtml(note.body)}
           </p>
 
           {/* Reminder badge — always visible when set */}
@@ -1701,7 +1710,6 @@ function EditorModal({creating,title,body,onTitle,onBody,onClose,onSave,isMobile
   },[onSave,onClose]);
 
   // Подсчёт слов (без HTML-тегов)
-  const stripHtml = (html: string) => html.replace(/<[^>]*>/g, ' ');
   const wc = stripHtml(body).trim().split(/\s+/).filter(Boolean).length;
   const today=new Date().toLocaleDateString("ru-RU",{day:"numeric",month:"long",year:"numeric"});
   const mW=isMobile?"100%":isTablet?"82%":"62%";
