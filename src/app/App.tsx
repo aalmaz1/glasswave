@@ -673,7 +673,7 @@ async function deleteCurrentAccount(password: string): Promise<string | null> {
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   SEED DATA
+   SEED DATA & RSS FEED
    ════════════════════════════════════════════════════════════════════ */
 const SEED: Note[] = [
   {id:1,title:"Product Roadmap Q3",  body:"Launch mobile redesign by August 15. Milestones: design handoff Jul 20, beta Aug 1, soft launch Aug 10. Coordinate with Elena on onboarding flow.",updatedAt:new Date("2026-07-11T14:30:00"),accentIdx:0,pinned:true, archived:false,trashed:false,reminder:null},
@@ -685,6 +685,108 @@ const SEED: Note[] = [
   {id:7,title:"CSS Deep Dive",       body:"backdrop-filter needs -webkit- in Safari. Container queries: broad support now. @layer controls specificity cleanly.",                                updatedAt:new Date("2026-07-05T16:50:00"),accentIdx:2,pinned:false,archived:false,trashed:false,reminder:null},
   {id:8,title:"Kyoto Itinerary",     body:"Day 1: Fushimi Inari at dawn, Nishiki Market. Day 2: Arashiyama, Tenryu-ji. Day 3: Philosopher's Path, Nanzen-ji.",                                 updatedAt:new Date("2026-07-04T10:10:00"),accentIdx:3,pinned:false,archived:true, trashed:false,reminder:null},
 ];
+
+function getFallbackNotes(): Note[] {
+  return SEED.map(n => ({ ...n }));
+}
+
+function parseRSS(xmlString: string): Note[] {
+  try {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+    const items = xmlDoc.querySelectorAll("item");
+    const notes: Note[] = [];
+
+    items.forEach((item, index) => {
+      const titleEl = item.querySelector("title");
+      const title = titleEl?.textContent?.trim() || "Без заголовка";
+
+      const descEl = item.querySelector("description");
+      let content = "";
+      if (descEl?.textContent) {
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = descEl.textContent;
+        content = tempDiv.textContent?.trim() || "";
+      }
+
+      const dateEl = item.querySelector("pubDate");
+      const dateStr = dateEl?.textContent?.trim() || "";
+      const parsedDate = dateStr ? new Date(dateStr) : new Date();
+      const updatedAt = isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+
+      notes.push({
+        id: Date.now() + index,
+        title,
+        body: content,
+        updatedAt,
+        accentIdx: index % 4,
+        pinned: false,
+        archived: false,
+        trashed: false,
+        reminder: null,
+      });
+    });
+
+    return notes;
+  } catch (error) {
+    console.error("Ошибка парсинга RSS:", error);
+    return [];
+  }
+}
+
+async function loadRssNotes(): Promise<Note[] | null> {
+  const RSS_URL = 'https://feeds.feedburner.com/rsscna/engnews/';
+  const PROXY_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(RSS_URL)}`;
+
+  try {
+    const response = await fetch(PROXY_URL);
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.contents) {
+        const notes = parseRSS(data.contents);
+        if (notes.length > 0) {
+          return notes;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки RSS через allorigins:', error);
+  }
+
+  // Запасной прокси (rss2json)
+  try {
+    const RSS2JSON_URL = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_URL)}`;
+    const response = await fetch(RSS2JSON_URL);
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.status === 'ok' && Array.isArray(data.items) && data.items.length > 0) {
+        const notes: Note[] = data.items.map((item: any, index: number) => {
+          const tempDiv = document.createElement("div");
+          tempDiv.innerHTML = item.description || "";
+          const content = tempDiv.textContent?.trim() || "";
+          const date = item.pubDate ? new Date(item.pubDate) : new Date();
+          const updatedAt = isNaN(date.getTime()) ? new Date() : date;
+          return {
+            id: Date.now() + index,
+            title: item.title?.trim() || "Без заголовка",
+            body: content,
+            updatedAt,
+            accentIdx: index % 4,
+            pinned: false,
+            archived: false,
+            trashed: false,
+            reminder: null,
+          };
+        });
+        return notes;
+      }
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки RSS через rss2json:', error);
+  }
+
+  return null;
+}
 
 function fmtDate(d:Date){
   const h=(Date.now()-d.getTime())/3600000;
@@ -735,15 +837,34 @@ export default function App(){
   const [showSort,setShowSort] = useState(false);
   const [page, setPage] = useState(1);
   // Гостевой режим: без входа в аккаунт заметки живут в локальном состоянии,
-  // чтобы закрепить / архивировать / удалить / напоминание работали и без Firebase.
-  const [localNotes, setLocalNotes] = useState<Note[]>(() =>
-    SEED.map(n => ({ ...n }))
-  );
+  // загружаются из RSS или старого демо-набора (fallback).
+  const [localNotes, setLocalNotes] = useState<Note[]>(getFallbackNotes);
+  const [rssLoading, setRssLoading] = useState<boolean>(false);
 
   const width    = useWidth();
   const isMobile = width < 768;
   const isTablet = width >= 768 && width < 1280;
   const theme    = THEMES.find(t=>t.id===themeId)!;
+
+  useEffect(() => {
+    if (!currentUser) {
+      let isMounted = true;
+      setRssLoading(true);
+      loadRssNotes().then((fetchedNotes) => {
+        if (isMounted) {
+          if (fetchedNotes && fetchedNotes.length > 0) {
+            setLocalNotes(fetchedNotes);
+          } else {
+            setLocalNotes(getFallbackNotes());
+          }
+          setRssLoading(false);
+        }
+      });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -1019,7 +1140,7 @@ export default function App(){
               }}
               onScroll={e=>setScrollY((e.target as HTMLDivElement).scrollTop)}
             >
-              {currentUser && notesLoading ? (
+              {(currentUser && notesLoading) || (!currentUser && rssLoading) ? (
                 <LoadingState />
               ) : base.length===0 ? (
                 <EmptyState tab={tab} search={search}/>
