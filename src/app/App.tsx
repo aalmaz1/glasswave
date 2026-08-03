@@ -16,7 +16,6 @@ import {
   doc,
   getDoc,
   limit,
-  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -463,8 +462,9 @@ function noteFromFirestore(data: FirestoreNote & { firestoreId:string }): Note {
 function buildNotesQuery(ownerUid: string, limitSize:number) {
   return query(
     collection(db, NOTES_COLLECTION),
+    // Keeping this query to a single field avoids requiring a composite
+    // Firestore index (ownerUid + updatedAt) for every new deployment.
     where("ownerUid", "==", ownerUid),
-    orderBy("updatedAt", "desc"),
     limit(limitSize)
   );
 }
@@ -528,18 +528,40 @@ async function authRegister(email: string, name: string, pw: string): Promise<st
     await updateProfile(user, { displayName: name.trim() });
     await createUserProfile(user.uid, email, name.trim());
     return null;
-  } catch (err:any) {
-    return err.message || "Ошибка регистрации";
+  } catch (err: any) {
+    return firebaseAuthErrorMessage(err);
+  }
+}
+
+function firebaseAuthErrorMessage(err: any): string {
+  switch (err?.code) {
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "Неверный email или пароль";
+    case "auth/email-already-in-use":
+      return "Этот email уже зарегистрирован";
+    case "auth/invalid-email":
+      return "Введите корректный email";
+    case "auth/weak-password":
+      return "Пароль должен быть не менее 6 символов";
+    case "auth/operation-not-allowed":
+      return "В Firebase не включён вход по email и паролю";
+    case "auth/too-many-requests":
+      return "Слишком много попыток. Повторите позже";
+    default:
+      return "Не удалось выполнить вход. Повторите попытку";
   }
 }
 
 async function authLogin(email: string, pw: string): Promise<string | null> {
   email = email.trim().toLowerCase();
+  if (!email || !pw) return "Введите email и пароль";
   try {
     await signInWithEmailAndPassword(auth, email, pw);
     return null;
-  } catch (err:any) {
-    return err.message || "Ошибка входа";
+  } catch (err: any) {
+    return firebaseAuthErrorMessage(err);
   }
 }
 
@@ -626,10 +648,14 @@ export default function App(){
 
       setCurrentUser(nextUser);
 
-      const profile = await getUserProfile(user.uid);
-      if (profile && profile.themeId) {
-        setThemeId(profile.themeId);
-      } else {
+      // A Firestore rules error must not turn a successful Auth login into an
+      // unhandled promise rejection. The user can still use the app while the
+      // Firebase rules are corrected.
+      try {
+        const profile = await getUserProfile(user.uid);
+        setThemeId(profile?.themeId ?? DEFAULT_THEME);
+      } catch (error) {
+        console.warn("Could not load the Firebase user profile.", error);
         setThemeId(DEFAULT_THEME);
       }
     });
@@ -674,6 +700,16 @@ export default function App(){
   const handleLogout = () => {
     authLogout().catch(() => {});
     setCurrentUser(null);
+  };
+
+  const updateTheme = (id: ThemeId) => {
+    setThemeId(id); // keeps the current device responsive and available offline
+    if (currentUser) {
+      // Persist the same choice in Firestore so it survives F5 and other devices.
+      setUserTheme(currentUser.uid, id).catch(error => {
+        console.warn("Could not save the Firebase theme preference.", error);
+      });
+    }
   };
 
   const openEdit  = (n:Note)=>{ setEditing(n); setCreating(false); setDraftT(n.title); setDraftB(n.body); };
@@ -805,7 +841,7 @@ export default function App(){
             padding:isMobile?"0 16px":isTablet?"0 28px":"0 44px",
           }}>
           <SettingsScreen
-            themeId={themeId} setThemeId={setThemeId}
+            themeId={themeId} setThemeId={updateTheme}
             onBack={()=>setScreen("dashboard")}
             currentUser={currentUser}
             onLogin={handleLogin}
@@ -1576,7 +1612,10 @@ function AuthPanel({onLogin}:{onLogin:(u:AuthUser)=>void}){
         ))}
       </div>
 
-      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      <form
+        onSubmit={event => { event.preventDefault(); void submit(); }}
+        style={{display:"flex",flexDirection:"column",gap:12}}
+      >
         {mode==="register"&&(
           <input
             value={name} onChange={e=>setName(e.target.value)}
@@ -1592,7 +1631,6 @@ function AuthPanel({onLogin}:{onLogin:(u:AuthUser)=>void}){
           style={inputStyle}
           onFocus={e=>(e.target.style.borderColor="rgba(255,255,255,0.40)")}
           onBlur={e=>(e.target.style.borderColor=G.border)}
-          onKeyDown={e=>e.key==="Enter"&&submit()}
         />
         <div style={{position:"relative"}}>
           <input
@@ -1601,9 +1639,10 @@ function AuthPanel({onLogin}:{onLogin:(u:AuthUser)=>void}){
             style={{...inputStyle,paddingRight:42}}
             onFocus={e=>(e.target.style.borderColor="rgba(255,255,255,0.40)")}
             onBlur={e=>(e.target.style.borderColor=G.border)}
-            onKeyDown={e=>e.key==="Enter"&&submit()}
           />
           <button
+            type="button"
+            aria-label={showPw ? "Скрыть пароль" : "Показать пароль"}
             onMouseDown={e=>e.preventDefault()}
             onClick={()=>setShowPw(p=>!p)}
             style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",
@@ -1616,7 +1655,7 @@ function AuthPanel({onLogin}:{onLogin:(u:AuthUser)=>void}){
         {err&&<p style={{margin:0,fontSize:"0.78rem",color:"rgba(255,100,100,0.90)",padding:"0 2px"}}>{err}</p>}
         {ok &&<p style={{margin:0,fontSize:"0.78rem",color:"rgba(80,220,120,0.90)",padding:"0 2px"}}>Аккаунт создан! Входим…</p>}
 
-        <button onClick={submit} style={{
+        <button type="submit" style={{
           marginTop:4,padding:"12px 0",borderRadius:14,border:"none",cursor:"pointer",
           background:"rgba(255,255,255,0.12)",fontFamily:"inherit",fontSize:"0.88rem",fontWeight:700,
           color:G.textPrimary,transition:"background 0.2s,box-shadow 0.2s",
@@ -1627,7 +1666,7 @@ function AuthPanel({onLogin}:{onLogin:(u:AuthUser)=>void}){
         >
           {mode==="login"?"Войти":"Зарегистрироваться"}
         </button>
-      </div>
+      </form>
 
       <p style={{margin:"14px 0 0",fontSize:"0.72rem",color:G.textMuted,textAlign:"center",lineHeight:1.6}}>
         Данные хранятся локально в вашем браузере.<br/>Заметки автоматически синхронизируются между сессиями.
