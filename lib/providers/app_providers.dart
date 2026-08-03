@@ -54,6 +54,18 @@ class AuthNotifier extends StateNotifier<AppUser?> {
     return null;
   }
 
+  Future<String?> deleteAccount(String password) async {
+    final user = state;
+    if (user == null) return 'Сессия завершена. Войдите снова.';
+    final users = await _service.getUsers();
+    final record = users[user.email.toLowerCase()];
+    if (record == null || record['pw'] != password) return 'Неверный пароль.';
+    await _service.deleteUser(user.email);
+    await _service.setMe(null);
+    state = null;
+    return null;
+  }
+
   Future<void> logout() async {
     state = null;
     await _service.setMe(null);

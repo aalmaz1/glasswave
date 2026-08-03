@@ -13,6 +13,14 @@ class PersistenceService {
   static String _prefsKey(String email) => 'noova_prefs_$email';
 
   // Auth
+  Future<void> deleteUser(String email) async {
+    final users = await getUsers();
+    users.remove(email.toLowerCase());
+    await _prefs.setString(_usersKey, json.encode(users));
+    await _prefs.remove(_notesKey(email));
+    await _prefs.remove(_prefsKey(email));
+  }
+
   Future<void> saveUser(String email, String name, String password) async {
     final users = await getUsers();
     users[email.toLowerCase()] = {'name': name, 'pw': password};

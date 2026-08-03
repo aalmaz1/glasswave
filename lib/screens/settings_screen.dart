@@ -57,6 +57,10 @@ class SettingsScreen extends ConsumerWidget {
                     _sectionLabel(LucideIcons.languages, tr('settings_lang')),
                     const SizedBox(height: 12),
                     _buildLanguageSelector(context, ref),
+                    if (user != null) ...[
+                      const SizedBox(height: 20),
+                      _buildDangerZone(context, ref),
+                    ],
                     const SizedBox(height: 100),
                   ],
                 ),
@@ -271,12 +275,67 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               _langButton(context, ref, 'ru', '🇷🇺 Русский'),
               const SizedBox(width: 12),
+              _langButton(context, ref, 'en', '🇬🇧 English'),
+              const SizedBox(width: 12),
               _langButton(context, ref, 'ko', '🇰🇷 한국어'),
             ],
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildDangerZone(BuildContext context, WidgetRef ref) {
+    return GlassContainer(
+      borderRadius: 18,
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr('delete_account'), style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text(tr('delete_account_desc'), style: const TextStyle(color: Colors.white60, fontSize: 12, height: 1.45)),
+            ]),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton(
+            onPressed: () => _confirmDelete(context, ref),
+            style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent, side: const BorderSide(color: Colors.redAccent)),
+            child: Text(tr('delete_account')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController();
+    final password = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(tr('delete_account_title')),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(tr('delete_account_warning')),
+          const SizedBox(height: 12),
+          TextField(controller: controller, obscureText: true, autofocus: true, decoration: InputDecoration(labelText: tr('password'))),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(tr('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text), child: Text(tr('delete_forever'))),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (password == null || password.isEmpty || !context.mounted) return;
+    final error = await ref.read(authProvider.notifier).deleteAccount(password);
+    if (!context.mounted) return;
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    } else {
+      Navigator.of(context).pop();
+    }
   }
 
   Widget _langButton(BuildContext context, WidgetRef ref, String langCode, String label) {
