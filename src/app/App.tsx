@@ -14,7 +14,9 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   limit,
+  writeBatch,
   query,
   serverTimestamp,
   setDoc,
@@ -23,7 +25,10 @@ import {
 } from "firebase/firestore";
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
+  EmailAuthProvider,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
@@ -568,6 +573,55 @@ async function authLogout() {
   await signOut(auth);
 }
 
+/**
+ * Removes data owned by the current user before deleting their Firebase Auth
+ * identity. Firestore security rules only permit an owner to remove these
+ * documents, so this must happen while their authenticated session is valid.
+ */
+async function deleteCurrentAccount(password: string): Promise<string | null> {
+  const user = auth.currentUser;
+  if (!user || !user.email) return "Сессия уже завершена. Войдите снова и повторите попытку.";
+  if (!password) return "Введите пароль для подтверждения.";
+
+  try {
+    // Firebase requires a recent sign-in for this sensitive operation. Asking
+    // for the password also makes the destructive action intentional.
+    const credential = EmailAuthProvider.credential(user.email, password);
+    await reauthenticateWithCredential(user, credential);
+
+    const notesSnapshot = await getDocs(
+      query(collection(db, NOTES_COLLECTION), where("ownerUid", "==", user.uid))
+    );
+    // A Firestore batch can contain no more than 500 writes. Keep a margin so
+    // this continues to work if related account records are added later.
+    for (let start = 0; start < notesSnapshot.docs.length; start += 450) {
+      const batch = writeBatch(db);
+      notesSnapshot.docs.slice(start, start + 450).forEach(note => batch.delete(note.ref));
+      await batch.commit();
+    }
+
+    // Profile preferences are user data too; delete them rather than leaving
+    // an orphaned document behind after the Auth identity is removed.
+    await deleteDoc(doc(db, USERS_COLLECTION, user.uid));
+    await deleteUser(user);
+    return null;
+  } catch (error: any) {
+    console.error("Could not delete account.", error);
+    switch (error?.code) {
+      case "auth/invalid-credential":
+      case "auth/wrong-password":
+        return "Неверный пароль. Аккаунт не был удалён.";
+      case "auth/requires-recent-login":
+        return "Войдите в аккаунт заново и повторите попытку.";
+      case "permission-denied":
+      case "firestore/permission-denied":
+        return "Не удалось удалить данные аккаунта. Проверьте права Firebase и повторите попытку.";
+      default:
+        return "Не удалось удалить аккаунт. Повторите попытку позже.";
+    }
+  }
+}
+
 /* ════════════════════════════════════════════════════════════════════
    SEED DATA
    ════════════════════════════════════════════════════════════════════ */
@@ -708,6 +762,21 @@ export default function App(){
   const handleLogout = () => {
     authLogout().catch(() => {});
     setCurrentUser(null);
+  };
+
+  const handleDeleteAccount = async (password: string): Promise<string | null> => {
+    const error = await deleteCurrentAccount(password);
+    if (!error) {
+      // deleteUser() also triggers onAuthStateChanged, but reset immediately so
+      // no account data remains visible while that observer updates.
+      setCurrentUser(null);
+      setThemeId(DEFAULT_THEME);
+      setScreen("dashboard");
+      setEditing(null);
+      setCreating(false);
+      setPage(1);
+    }
+    return error;
   };
 
   const updateTheme = (id: ThemeId) => {
@@ -854,6 +923,7 @@ export default function App(){
             currentUser={currentUser}
             onLogin={handleLogin}
             onLogout={handleLogout}
+            onDeleteAccount={handleDeleteAccount}
           />
           </div>
         ):(
@@ -1469,13 +1539,16 @@ function ReminderModal({note,onSave,onClose}:{
 /* ════════════════════════════════════════════════════════════════════
    SETTINGS
    ════════════════════════════════════════════════════════════════════ */
-function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout}:{
+function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,onDeleteAccount}:{
   themeId:ThemeId;setThemeId:(id:ThemeId)=>void;
   onBack:()=>void;
   currentUser:AuthUser|null;
   onLogin:(u:AuthUser)=>void;
   onLogout:()=>void;
+  onDeleteAccount:(password:string)=>Promise<string|null>;
 }){
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
   return(
     <div style={{paddingBottom:64}}>
       <div style={{display:"flex",alignItems:"center",gap:14,paddingTop:28,paddingBottom:28}}>
@@ -1524,8 +1597,125 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout}
           );
         })}
       </div>
+
+      {currentUser && (
+        <>
+          <SLabel Icon={Trash2} label="Опасная зона"/>
+          <div style={{
+            ...glassBase(20), padding:"18px 20px", borderRadius:18,
+            border:"1px solid rgba(255,100,100,0.28)",
+            background:"rgba(145,20,35,0.13)",
+          }}>
+            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:16}}>
+              <div>
+                <p style={{margin:0,fontWeight:700,fontSize:"0.92rem",color:"rgba(255,190,190,0.98)"}}>Удалить аккаунт</p>
+                <p style={{margin:"5px 0 0",fontSize:"0.76rem",lineHeight:1.55,color:"rgba(255,220,220,0.62)"}}>
+                  Будут безвозвратно удалены профиль, настройки и все заметки.
+                </p>
+              </div>
+              <button onClick={()=>setDeleteDialogOpen(true)} style={{
+                padding:"9px 12px", borderRadius:10, flexShrink:0,
+                border:"1px solid rgba(255,105,105,0.55)", background:"rgba(230,55,65,0.20)",
+                color:"rgba(255,210,210,0.98)", cursor:"pointer", fontFamily:"inherit",
+                fontSize:"0.76rem", fontWeight:700,
+              }}>Удалить</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {deleteDialogOpen && currentUser && (
+        <DeleteAccountModal
+          email={currentUser.email}
+          onClose={()=>setDeleteDialogOpen(false)}
+          onDelete={onDeleteAccount}
+        />
+      )}
     </div>
 
+  );
+}
+
+/* ── Account deletion confirmation ── */
+function DeleteAccountModal({email,onClose,onDelete}:{
+  email:string;
+  onClose:()=>void;
+  onDelete:(password:string)=>Promise<string|null>;
+}){
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  const submit = async () => {
+    if (!password) {
+      setError("Введите пароль для подтверждения.");
+      return;
+    }
+    setError("");
+    setDeleting(true);
+    const result = await onDelete(password);
+    setDeleting(false);
+    if (result) setError(result);
+  };
+
+  return (
+    <div
+      role="presentation"
+      onMouseDown={event=>{if (event.target === event.currentTarget && !deleting) onClose();}}
+      style={{position:"fixed",inset:0,zIndex:70,display:"flex",alignItems:"center",justifyContent:"center",
+        padding:20,background:"rgba(0,0,0,0.68)",backdropFilter:"blur(5px)"}}
+    >
+      <div role="dialog" aria-modal="true" aria-labelledby="delete-account-title" className="modal-in" style={{
+        ...glassBase(28),width:"100%",maxWidth:420,borderRadius:22,overflow:"hidden",
+        border:"1px solid rgba(255,115,115,0.38)",boxShadow:"0 28px 80px rgba(0,0,0,0.70)",
+      }}>
+        <div style={{padding:"22px 22px 20px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <div style={{width:34,height:34,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(235,55,65,0.18)"}}>
+                <Trash2 size={17} color="rgba(255,145,145,0.95)"/>
+              </div>
+              <h2 id="delete-account-title" style={{margin:0,fontSize:"1rem",fontWeight:700,color:"rgba(255,215,215,0.98)"}}>Удалить аккаунт?</h2>
+            </div>
+            <button type="button" onClick={onClose} disabled={deleting} aria-label="Закрыть" style={{background:"transparent",border:"none",padding:4,cursor:deleting?"not-allowed":"pointer",lineHeight:0}}>
+              <X size={18} color={G.textSecondary}/>
+            </button>
+          </div>
+          <p style={{margin:"0 0 18px",fontSize:"0.82rem",lineHeight:1.6,color:G.textSecondary}}>
+            Это действие необратимо: профиль, настройки и все заметки для <strong style={{color:G.textPrimary}}>{email}</strong> будут удалены.
+          </p>
+          <label htmlFor="delete-account-password" style={{display:"block",marginBottom:7,fontSize:"0.72rem",fontWeight:700,color:"rgba(255,220,220,0.78)"}}>
+            Подтвердите пароль
+          </label>
+          <div style={{position:"relative"}}>
+            <input
+              id="delete-account-password"
+              type={showPassword?"text":"password"}
+              value={password}
+              autoComplete="current-password"
+              autoFocus
+              disabled={deleting}
+              onChange={event=>{setPassword(event.target.value); setError("");}}
+              onKeyDown={event=>{if (event.key === "Enter") void submit();}}
+              placeholder="Ваш пароль"
+              style={{width:"100%",padding:"11px 42px 11px 13px",borderRadius:12,outline:"none",fontFamily:"inherit",fontSize:"0.86rem",
+                color:G.textPrimary,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,160,160,0.30)"}}
+            />
+            <button type="button" aria-label={showPassword?"Скрыть пароль":"Показать пароль"} onClick={()=>setShowPassword(value=>!value)} disabled={deleting} style={{position:"absolute",right:11,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",cursor:"pointer",lineHeight:0,padding:2}}>
+              {showPassword ? <EyeOff size={16} color={G.textMuted}/> : <Eye size={16} color={G.textMuted}/>}
+            </button>
+          </div>
+          {error && <p role="alert" style={{margin:"9px 0 0",fontSize:"0.75rem",lineHeight:1.45,color:"rgba(255,145,145,0.96)"}}>{error}</p>}
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:22}}>
+            <button type="button" onClick={onClose} disabled={deleting} style={{padding:"10px 14px",borderRadius:11,border:`1px solid ${G.border}`,background:"rgba(255,255,255,0.05)",color:G.textSecondary,cursor:deleting?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"0.8rem",fontWeight:600}}>Отмена</button>
+            <button type="button" onClick={()=>void submit()} disabled={deleting || !password} style={{padding:"10px 14px",borderRadius:11,border:"1px solid rgba(255,105,105,0.55)",background:deleting||!password?"rgba(180,50,55,0.18)":"rgba(225,55,65,0.42)",color:"white",cursor:deleting||!password?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"0.8rem",fontWeight:700}}>
+              {deleting ? "Удаляем…" : "Удалить навсегда"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
