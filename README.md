@@ -1,11 +1,24 @@
+# GlassWave
 
-  # Dashboard and Note Editor
+GlassWave — заметки в стиле glassmorphism.
 
-  This is a code bundle for Dashboard and Note Editor. The original project is available at https://www.figma.com/design/oqC3kGANoRipNBiXgX2FhI/Dashboard-and-Note-Editor.
+## Структура репозитория
 
-  ## Running the code
+- `src/` — веб-приложение (React + Vite + Firebase)
+- `lib/` — приложение на Flutter (мобильные и десктопные платформы)
+- `android/`, `ios/`, `linux/`, `macos/`, `windows/` — платформенные обёртки Flutter
 
-  Run `npm i` to install the dependencies.
+## Веб-версия (React)
 
-  Run `npm run dev` to start the development server.
-  
+```bash
+npm install
+npm run dev      # режим разработки
+npm run build    # сборка в dist/
+```
+
+## Flutter-версия
+
+```bash
+flutter pub get
+flutter run
+```
