@@ -1,14 +1,13 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { flushSync } from "react-dom";
+import { useState, useEffect, useMemo } from "react";
 import {
-  Plus, Archive, Trash2, FileText, Link2,
+  Plus, Archive, Trash2, FileText,
   X, Hash, Clock, Check, User, LogOut,
-  Settings, ChevronLeft, Type, Palette, Eye, EyeOff,
+  Settings, ChevronLeft, Eye, EyeOff,
   Pin, PinOff, Shield, Bell, BellRing, CalendarClock,
-  SlidersHorizontal, CalendarDays, RefreshCw, Shuffle,
+  SlidersHorizontal,
 } from "lucide-react";
 import { RichTextEditor } from "./components/RichTextEditor";
-import { useTheme, type ThemeId } from "./hooks/useTheme";
+import { useTheme } from "./hooks/useTheme";
 import {
   addDoc,
   collection,
