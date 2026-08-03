@@ -16,7 +16,6 @@ import {
   doc,
   getDoc,
   limit,
-  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -463,8 +462,9 @@ function noteFromFirestore(data: FirestoreNote & { firestoreId:string }): Note {
 function buildNotesQuery(ownerUid: string, limitSize:number) {
   return query(
     collection(db, NOTES_COLLECTION),
+    // Keeping this query to a single field avoids requiring a composite
+    // Firestore index (ownerUid + updatedAt) for every new deployment.
     where("ownerUid", "==", ownerUid),
-    orderBy("updatedAt", "desc"),
     limit(limitSize)
   );
 }
@@ -702,6 +702,16 @@ export default function App(){
     setCurrentUser(null);
   };
 
+  const updateTheme = (id: ThemeId) => {
+    setThemeId(id); // keeps the current device responsive and available offline
+    if (currentUser) {
+      // Persist the same choice in Firestore so it survives F5 and other devices.
+      setUserTheme(currentUser.uid, id).catch(error => {
+        console.warn("Could not save the Firebase theme preference.", error);
+      });
+    }
+  };
+
   const openEdit  = (n:Note)=>{ setEditing(n); setCreating(false); setDraftT(n.title); setDraftB(n.body); };
   const openNew   = ()=>{ setEditing(null); setCreating(true); setDraftT(""); setDraftB(""); };
   const closeEd   = ()=>{ setEditing(null); setCreating(false); };
@@ -831,7 +841,7 @@ export default function App(){
             padding:isMobile?"0 16px":isTablet?"0 28px":"0 44px",
           }}>
           <SettingsScreen
-            themeId={themeId} setThemeId={setThemeId}
+            themeId={themeId} setThemeId={updateTheme}
             onBack={()=>setScreen("dashboard")}
             currentUser={currentUser}
             onLogin={handleLogin}
