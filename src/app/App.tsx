@@ -9,6 +9,29 @@ import {
 } from "lucide-react";
 import { RichTextEditor } from "./components/RichTextEditor";
 import { useTheme, type ThemeId } from "./hooks/useTheme";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  limit,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+} from "firebase/auth";
+import { auth, db } from "../firebase";
+import { useFirestoreQuery } from "../hooks/useFirestoreQuery";
 
 /* ════════════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -557,10 +580,10 @@ function useWidth(){
    ROOT
    ════════════════════════════════════════════════════════════════════ */
 export default function App(){
-  const initUser = authGetMe();
-  const initNotes = initUser ? (lsGetNotes(initUser.email) ?? SEED) : SEED;
-
-  const [currentUser, setCurrentUser] = useState<AuthUser|null>(initUser);
+  // Firebase restores a persisted session asynchronously through
+  // onAuthStateChanged below. Do not read the removed local auth helpers here:
+  // doing so caused the app to fail before React could render.
+  const [currentUser, setCurrentUser] = useState<AuthUser|null>(null);
   // Используем хук useTheme для управления темой с учётом статуса авторизации
   const [themeId, setThemeId] = useTheme(currentUser, "sunset");
   const [screen,  setScreen]   = useState<Screen>("dashboard");
@@ -585,7 +608,7 @@ export default function App(){
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         setCurrentUser(null);
-        setThemeIdRaw(DEFAULT_THEME);
+        setThemeId(DEFAULT_THEME);
         setPage(1);
         return;
       }
@@ -600,9 +623,9 @@ export default function App(){
 
       const profile = await getUserProfile(user.uid);
       if (profile && profile.themeId) {
-        setThemeIdRaw(profile.themeId);
+        setThemeId(profile.themeId);
       } else {
-        setThemeIdRaw(DEFAULT_THEME);
+        setThemeId(DEFAULT_THEME);
       }
     });
 
@@ -639,17 +662,13 @@ export default function App(){
   const loadMoreNotes = () => setPage((prev) => prev + 1);
 
   const handleLogin = (user: AuthUser) => {
+    // Keep the UI responsive while Firebase emits the authoritative auth event.
     setCurrentUser(user);
-    // Тема будет обновлена автоматически через useEffect в useTheme
-    const saved = lsGetNotes(user.email);
-    setNotesRaw(saved ?? SEED);
   };
 
   const handleLogout = () => {
     authLogout().catch(() => {});
     setCurrentUser(null);
-    // Тема будет обновлена автоматически через useEffect в useTheme
-    setNotesRaw(SEED);
   };
 
   const openEdit  = (n:Note)=>{ setEditing(n); setCreating(false); setDraftT(n.title); setDraftB(n.body); };
