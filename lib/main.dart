@@ -19,7 +19,7 @@ void main() async {
         sharedPrefsProvider.overrideWithValue(prefs),
       ],
       child: EasyLocalization(
-        supportedLocales: const [Locale('ru'), Locale('ko')],
+        supportedLocales: const [Locale('ru'), Locale('en'), Locale('ko')],
         path: 'assets/translations',
         fallbackLocale: const Locale('ru'),
         child: const GlassWaveApp(),

@@ -4,7 +4,7 @@ import {
   X, Hash, Clock, Check, User, LogOut,
   Settings, ChevronLeft, Eye, EyeOff,
   Pin, PinOff, Shield, Bell, BellRing, CalendarClock,
-  SlidersHorizontal, Palette, Shuffle, CalendarDays, RefreshCw,
+  SlidersHorizontal, Palette, Shuffle, CalendarDays, RefreshCw, Languages as LanguagesIcon,
 } from "lucide-react";
 import { RichTextEditor } from "./components/RichTextEditor";
 import { useTheme } from "./hooks/useTheme";
@@ -416,6 +416,56 @@ type SortOrder = "default" | "created" | "updated";
 
 type AuthUser = { uid:string; email:string; name:string };
 type UserProfile = { name:string; themeId?: ThemeId };
+type Language = "ru" | "en" | "ko";
+type Translation = {
+  settings: string; account: string; theme: string; language: string;
+  danger: string; deleteAccount: string; deleteDescription: string;
+  deleteConfirmTitle: string; deleteWarning: string; confirmPassword: string;
+  passwordPlaceholder: string; cancel: string; deleteForever: string;
+  deleting: string; synced: string; logout: string; selectLanguage: string;
+};
+
+const TRANSLATIONS: Record<Language, Translation> = {
+  ru: {
+    settings:"Настройки", account:"Аккаунт", theme:"Цветовая тема", language:"Язык интерфейса",
+    danger:"Опасная зона", deleteAccount:"Удалить аккаунт",
+    deleteDescription:"Будут безвозвратно удалены профиль, настройки и все заметки.",
+    deleteConfirmTitle:"Удалить аккаунт?", deleteWarning:"Это действие необратимо: профиль, настройки и все заметки для",
+    confirmPassword:"Подтвердите пароль", passwordPlaceholder:"Ваш пароль", cancel:"Отмена",
+    deleteForever:"Удалить навсегда", deleting:"Удаляем…", synced:"Синхронизировано", logout:"Выйти",
+    selectLanguage:"Выберите язык интерфейса",
+  },
+  en: {
+    settings:"Settings", account:"Account", theme:"Color theme", language:"Interface language",
+    danger:"Danger zone", deleteAccount:"Delete account",
+    deleteDescription:"Your profile, preferences, and all notes will be permanently deleted.",
+    deleteConfirmTitle:"Delete account?", deleteWarning:"This action is irreversible: the profile, preferences, and all notes for",
+    confirmPassword:"Confirm your password", passwordPlaceholder:"Your password", cancel:"Cancel",
+    deleteForever:"Delete permanently", deleting:"Deleting…", synced:"Synced", logout:"Log out",
+    selectLanguage:"Choose interface language",
+  },
+  ko: {
+    settings:"설정", account:"계정", theme:"색상 테마", language:"인터페이스 언어",
+    danger:"위험 영역", deleteAccount:"계정 삭제",
+    deleteDescription:"프로필, 환경설정 및 모든 노트가 영구적으로 삭제됩니다.",
+    deleteConfirmTitle:"계정을 삭제하시겠습니까?", deleteWarning:"이 작업은 되돌릴 수 없습니다. 다음 계정의 프로필, 환경설정 및 모든 노트가 삭제됩니다:",
+    confirmPassword:"비밀번호 확인", passwordPlaceholder:"비밀번호", cancel:"취소",
+    deleteForever:"영구 삭제", deleting:"삭제 중…", synced:"동기화됨", logout:"로그아웃",
+    selectLanguage:"인터페이스 언어 선택",
+  },
+};
+
+const LANGUAGE_OPTIONS: { code: Language; nativeName: string }[] = [
+  { code:"ru", nativeName:"Русский" },
+  { code:"en", nativeName:"English" },
+  { code:"ko", nativeName:"한국어" },
+];
+
+function getInitialLanguage(): Language {
+  if (typeof window === "undefined") return "ru";
+  const saved = window.localStorage.getItem("preferred-lang");
+  return saved === "en" || saved === "ko" || saved === "ru" ? saved : "ru";
+}
 
 const USERS_COLLECTION = "users";
 const NOTES_COLLECTION = "notes";
@@ -671,6 +721,8 @@ export default function App(){
   // Используем хук useTheme для управления темой с учётом статуса авторизации
   const [themeId, setThemeId] = useTheme(currentUser, "sunset");
   const [screen,  setScreen]   = useState<Screen>("dashboard");
+  const [language, setLanguageState] = useState<Language>(getInitialLanguage);
+  const t = TRANSLATIONS[language];
   const [tab,     setTab]      = useState<Tab>("all");
   const [editing, setEditing]  = useState<Note|null>(null);
   const [creating,setCreating] = useState(false);
@@ -753,6 +805,16 @@ export default function App(){
   const hasMoreNotes = Boolean(currentUser && allNotes.length > page * NOTES_PAGE_SIZE);
 
   const loadMoreNotes = () => setPage((prev) => prev + 1);
+
+  const setLanguage = (next: Language) => {
+    setLanguageState(next);
+    window.localStorage.setItem("preferred-lang", next);
+    document.documentElement.lang = next;
+  };
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   const handleLogin = (user: AuthUser) => {
     // Keep the UI responsive while Firebase emits the authoritative auth event.
@@ -924,6 +986,9 @@ export default function App(){
             onLogin={handleLogin}
             onLogout={handleLogout}
             onDeleteAccount={handleDeleteAccount}
+            language={language}
+            onLanguageChange={setLanguage}
+            translations={t}
           />
           </div>
         ):(
@@ -1539,15 +1604,19 @@ function ReminderModal({note,onSave,onClose}:{
 /* ════════════════════════════════════════════════════════════════════
    SETTINGS
    ════════════════════════════════════════════════════════════════════ */
-function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,onDeleteAccount}:{
+function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,onDeleteAccount,language,onLanguageChange,translations}:{
   themeId:ThemeId;setThemeId:(id:ThemeId)=>void;
   onBack:()=>void;
   currentUser:AuthUser|null;
   onLogin:(u:AuthUser)=>void;
   onLogout:()=>void;
   onDeleteAccount:(password:string)=>Promise<string|null>;
+  language:Language;
+  onLanguageChange:(language:Language)=>void;
+  translations:Translation;
 }){
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const t = translations;
 
   return(
     <div style={{paddingBottom:64}}>
@@ -1555,20 +1624,20 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
         <button onClick={onBack} style={{...glassBase(16),width:38,height:38,borderRadius:12,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
           <ChevronLeft size={18} color={G.textSecondary}/>
         </button>
-        <h1 style={{fontWeight:700,fontSize:"1.3rem",color:G.textPrimary,margin:0,letterSpacing:"-0.02em"}}>Настройки</h1>
+        <h1 style={{fontWeight:700,fontSize:"1.3rem",color:G.textPrimary,margin:0,letterSpacing:"-0.02em"}}>{t.settings}</h1>
       </div>
 
       {/* ── Account ── */}
-      <SLabel Icon={User} label="Аккаунт"/>
+      <SLabel Icon={User} label={t.account}/>
       <div style={{marginBottom:36}}>
         {currentUser
-          ? <AccountCard user={currentUser} onLogout={onLogout}/>
+          ? <AccountCard user={currentUser} onLogout={onLogout} translations={t}/>
           : <AuthPanel onLogin={onLogin}/>
         }
       </div>
 
       {/* ── Themes ── */}
-      <SLabel Icon={Palette} label="Цветовая тема"/>
+      <SLabel Icon={Palette} label={t.theme}/>
       <div style={{display:"flex",flexWrap:"wrap",gap:10,marginBottom:36}}>
         {THEMES.map(t=>{
           const active=t.id===themeId;
@@ -1598,9 +1667,22 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
         })}
       </div>
 
+      <SLabel Icon={LanguagesIcon} label={t.language}/>
+      <div style={{marginBottom:36}}>
+        <label htmlFor="lang-select" style={{display:"block",marginBottom:8,fontSize:"0.76rem",color:G.textSecondary}}>{t.selectLanguage}</label>
+        <select
+          id="lang-select"
+          value={language}
+          onChange={event=>onLanguageChange(event.target.value as Language)}
+          style={{width:"100%",padding:"12px 14px",borderRadius:12,border:`1px solid ${G.border}`,background:"rgba(255,255,255,0.06)",color:G.textPrimary,fontFamily:"inherit",fontSize:"0.86rem",outline:"none",colorScheme:"dark"}}
+        >
+          {LANGUAGE_OPTIONS.map(option=><option key={option.code} value={option.code} style={{background:"#17171d"}}>{option.nativeName}</option>)}
+        </select>
+      </div>
+
       {currentUser && (
         <>
-          <SLabel Icon={Trash2} label="Опасная зона"/>
+          <SLabel Icon={Trash2} label={t.danger}/>
           <div style={{
             ...glassBase(20), padding:"18px 20px", borderRadius:18,
             border:"1px solid rgba(255,100,100,0.28)",
@@ -1608,9 +1690,9 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
           }}>
             <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:16}}>
               <div>
-                <p style={{margin:0,fontWeight:700,fontSize:"0.92rem",color:"rgba(255,190,190,0.98)"}}>Удалить аккаунт</p>
+                <p style={{margin:0,fontWeight:700,fontSize:"0.92rem",color:"rgba(255,190,190,0.98)"}}>{t.deleteAccount}</p>
                 <p style={{margin:"5px 0 0",fontSize:"0.76rem",lineHeight:1.55,color:"rgba(255,220,220,0.62)"}}>
-                  Будут безвозвратно удалены профиль, настройки и все заметки.
+                  {t.deleteDescription}
                 </p>
               </div>
               <button onClick={()=>setDeleteDialogOpen(true)} style={{
@@ -1618,7 +1700,7 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
                 border:"1px solid rgba(255,105,105,0.55)", background:"rgba(230,55,65,0.20)",
                 color:"rgba(255,210,210,0.98)", cursor:"pointer", fontFamily:"inherit",
                 fontSize:"0.76rem", fontWeight:700,
-              }}>Удалить</button>
+              }}>{t.deleteAccount}</button>
             </div>
           </div>
         </>
@@ -1629,6 +1711,7 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
           email={currentUser.email}
           onClose={()=>setDeleteDialogOpen(false)}
           onDelete={onDeleteAccount}
+          translations={t}
         />
       )}
     </div>
@@ -1636,12 +1719,20 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
   );
 }
 
+function languageSuffix(t: Translation): string {
+  if (t === TRANSLATIONS.en) return " will be deleted.";
+  if (t === TRANSLATIONS.ko) return " 계정이 삭제됩니다.";
+  return " будут удалены.";
+}
+
 /* ── Account deletion confirmation ── */
-function DeleteAccountModal({email,onClose,onDelete}:{
+function DeleteAccountModal({email,onClose,onDelete,translations}:{
   email:string;
   onClose:()=>void;
   onDelete:(password:string)=>Promise<string|null>;
+  translations:Translation;
 }){
+  const t = translations;
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -1676,17 +1767,17 @@ function DeleteAccountModal({email,onClose,onDelete}:{
               <div style={{width:34,height:34,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(235,55,65,0.18)"}}>
                 <Trash2 size={17} color="rgba(255,145,145,0.95)"/>
               </div>
-              <h2 id="delete-account-title" style={{margin:0,fontSize:"1rem",fontWeight:700,color:"rgba(255,215,215,0.98)"}}>Удалить аккаунт?</h2>
+              <h2 id="delete-account-title" style={{margin:0,fontSize:"1rem",fontWeight:700,color:"rgba(255,215,215,0.98)"}}>{t.deleteConfirmTitle}</h2>
             </div>
             <button type="button" onClick={onClose} disabled={deleting} aria-label="Закрыть" style={{background:"transparent",border:"none",padding:4,cursor:deleting?"not-allowed":"pointer",lineHeight:0}}>
               <X size={18} color={G.textSecondary}/>
             </button>
           </div>
           <p style={{margin:"0 0 18px",fontSize:"0.82rem",lineHeight:1.6,color:G.textSecondary}}>
-            Это действие необратимо: профиль, настройки и все заметки для <strong style={{color:G.textPrimary}}>{email}</strong> будут удалены.
+            {t.deleteWarning} <strong style={{color:G.textPrimary}}>{email}</strong>{languageSuffix(t)}
           </p>
           <label htmlFor="delete-account-password" style={{display:"block",marginBottom:7,fontSize:"0.72rem",fontWeight:700,color:"rgba(255,220,220,0.78)"}}>
-            Подтвердите пароль
+            {t.confirmPassword}
           </label>
           <div style={{position:"relative"}}>
             <input
@@ -1698,7 +1789,7 @@ function DeleteAccountModal({email,onClose,onDelete}:{
               disabled={deleting}
               onChange={event=>{setPassword(event.target.value); setError("");}}
               onKeyDown={event=>{if (event.key === "Enter") void submit();}}
-              placeholder="Ваш пароль"
+              placeholder={t.passwordPlaceholder}
               style={{width:"100%",padding:"11px 42px 11px 13px",borderRadius:12,outline:"none",fontFamily:"inherit",fontSize:"0.86rem",
                 color:G.textPrimary,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,160,160,0.30)"}}
             />
@@ -1708,9 +1799,9 @@ function DeleteAccountModal({email,onClose,onDelete}:{
           </div>
           {error && <p role="alert" style={{margin:"9px 0 0",fontSize:"0.75rem",lineHeight:1.45,color:"rgba(255,145,145,0.96)"}}>{error}</p>}
           <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:22}}>
-            <button type="button" onClick={onClose} disabled={deleting} style={{padding:"10px 14px",borderRadius:11,border:`1px solid ${G.border}`,background:"rgba(255,255,255,0.05)",color:G.textSecondary,cursor:deleting?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"0.8rem",fontWeight:600}}>Отмена</button>
+            <button type="button" onClick={onClose} disabled={deleting} style={{padding:"10px 14px",borderRadius:11,border:`1px solid ${G.border}`,background:"rgba(255,255,255,0.05)",color:G.textSecondary,cursor:deleting?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"0.8rem",fontWeight:600}}>{t.cancel}</button>
             <button type="button" onClick={()=>void submit()} disabled={deleting || !password} style={{padding:"10px 14px",borderRadius:11,border:"1px solid rgba(255,105,105,0.55)",background:deleting||!password?"rgba(180,50,55,0.18)":"rgba(225,55,65,0.42)",color:"white",cursor:deleting||!password?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"0.8rem",fontWeight:700}}>
-              {deleting ? "Удаляем…" : "Удалить навсегда"}
+              {deleting ? t.deleting : t.deleteForever}
             </button>
           </div>
         </div>
@@ -1720,7 +1811,8 @@ function DeleteAccountModal({email,onClose,onDelete}:{
 }
 
 /* ── Logged-in account card ── */
-function AccountCard({user,onLogout}:{user:AuthUser;onLogout:()=>void}){
+function AccountCard({user,onLogout,translations}:{user:AuthUser;onLogout:()=>void;translations:Translation}){
+  const t = translations;
   return(
     <div style={{...glassBase(20),padding:"18px 20px",display:"flex",alignItems:"center",gap:16,borderRadius:18}}>
       <div style={{width:44,height:44,borderRadius:"50%",background:"rgba(255,255,255,0.12)",
@@ -1737,9 +1829,9 @@ function AccountCard({user,onLogout}:{user:AuthUser;onLogout:()=>void}){
         fontSize:"0.68rem",color:G.textMuted,background:"rgba(0,200,80,0.10)",
         border:"1px solid rgba(0,200,80,0.20)",borderRadius:8,padding:"4px 8px"}}>
         <Shield size={10} color="rgba(0,220,100,0.80)"/>
-        <span style={{color:"rgba(0,220,100,0.80)"}}>Синхронизировано</span>
+        <span style={{color:"rgba(0,220,100,0.80)"}}>{t.synced}</span>
       </div>
-      <button onClick={onLogout} title="Выйти" style={{
+      <button onClick={onLogout} title={t.logout} style={{
         ...glassBase(12),width:36,height:36,borderRadius:10,border:"none",cursor:"pointer",
         display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
       }}>

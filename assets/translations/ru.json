@@ -70,5 +70,15 @@
   "auth_err_generic": "Ошибка аутентификации",
   "language_ru": "Русский",
   "language_ko": "한국어",
-  "language": "Язык интерфейса"
+  "language": "Язык интерфейса",
+  "language_en": "English",
+  "delete_account": "Удалить аккаунт",
+  "danger_zone": "Опасная зона",
+  "delete_account_desc": "Будут безвозвратно удалены профиль, настройки и все заметки.",
+  "delete_account_title": "Удалить аккаунт?",
+  "delete_account_warning": "Это действие необратимо. Введите пароль, чтобы удалить аккаунт",
+  "password": "Пароль",
+  "cancel": "Отмена",
+  "delete_forever": "Удалить навсегда",
+  "deleting": "Удаляем…"
 }
