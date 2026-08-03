@@ -4,7 +4,7 @@ import {
   X, Hash, Clock, Check, User, LogOut,
   Settings, ChevronLeft, Eye, EyeOff,
   Pin, PinOff, Shield, Bell, BellRing, CalendarClock,
-  SlidersHorizontal,
+  SlidersHorizontal, Palette, Shuffle, CalendarDays, RefreshCw,
 } from "lucide-react";
 import { RichTextEditor } from "./components/RichTextEditor";
 import { useTheme } from "./hooks/useTheme";
