@@ -598,6 +598,11 @@ export default function App(){
   const [sort,    setSort]     = useState<SortOrder>("default");
   const [showSort,setShowSort] = useState(false);
   const [page, setPage] = useState(1);
+  // Гостевой режим: без входа в аккаунт заметки живут в локальном состоянии,
+  // чтобы закрепить / архивировать / удалить / напоминание работали и без Firebase.
+  const [localNotes, setLocalNotes] = useState<Note[]>(() =>
+    SEED.map(n => ({ ...n }))
+  );
 
   const width    = useWidth();
   const isMobile = width < 768;
@@ -651,11 +656,11 @@ export default function App(){
 
   const allNotes: Note[] = currentUser
     ? (firestoreNotes?.map(note => noteFromFirestore(note as FirestoreNote & { firestoreId: string })) ?? [])
-    : SEED;
+    : localNotes;
 
   const notes: Note[] = currentUser
     ? allNotes.slice(0, page * NOTES_PAGE_SIZE)
-    : SEED;
+    : localNotes;
 
   const hasMoreNotes = Boolean(currentUser && allNotes.length > page * NOTES_PAGE_SIZE);
 
@@ -677,7 +682,28 @@ export default function App(){
 
   const save=async()=>{
     if(!draftT.trim()&&!draftB.trim()){closeEd();return;}
-    if(!currentUser){closeEd();return;}
+
+    if(!currentUser){
+      const title = draftT || "Без названия";
+      if (editing) {
+        setLocalNotes(prev=>prev.map(n=>n.id===editing.id?{...n,title,body:draftB,updatedAt:new Date()}:n));
+      } else {
+        const newNote: Note = {
+          id: Date.now(),
+          title,
+          body: draftB,
+          updatedAt: new Date(),
+          accentIdx: Math.floor(Math.random()*theme.accents.length),
+          pinned: false,
+          archived: false,
+          trashed: false,
+          reminder: null,
+        };
+        setLocalNotes(prev=>[newNote, ...prev]);
+      }
+      closeEd();
+      return;
+    }
 
     const notePayload: Note = {
       firestoreId: editing?.firestoreId,
@@ -698,14 +724,25 @@ export default function App(){
 
 
   const mutNote = async (id:number, patch:Partial<Note>) => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      setLocalNotes(prev=>prev.map(n=>n.id===id?{...n,...patch,updatedAt:new Date()}:n));
+      return;
+    }
     const note = notes.find(n => n.id === id);
     if (!note) return;
     await patchNoteInFirestore(note, patch, currentUser.uid);
   };
 
   const deleteOrRestoreNote = async (note: Note) => {
-    if (!currentUser || !note.firestoreId) return;
+    if (!currentUser) {
+      if (tab === "trash" && note.trashed) {
+        setLocalNotes(prev=>prev.filter(n=>n.id!==note.id));
+      } else {
+        setLocalNotes(prev=>prev.map(n=>n.id===note.id?{...n,trashed:!n.trashed,archived:false,updatedAt:new Date()}:n));
+      }
+      return;
+    }
+    if (!note.firestoreId) return;
     if (tab === "trash" && note.trashed) {
       await deleteNoteFromFirestore(note);
       return;
