@@ -734,57 +734,184 @@ function parseRSS(xmlString: string): Note[] {
   }
 }
 
+/* ── Цепочка провайдеров RSS ─────────────────────────────────────────
+   Раньше лента запрашивалась через публичный прокси allorigins.win без
+   таймаута: при сбое прокси (HTTP 522, ~20 с ожидания, ответ без
+   Access-Control-Allow-Origin) гостевая лента подвисала, а браузер
+   блокировал ответ с net::ERR_FAILED. Теперь запрос идёт по цепочке
+   провайдеров, у каждого — жёсткий таймаут, а на всю цепочку — общий
+   бюджет времени. Если сеть недоступна совсем, показываем кэш последней
+   удачной ленты из localStorage (дальше вызывающий код откатывается на
+   демо-набор SEED). */
+const RSS_FEED_URL = "https://feeds.feedburner.com/rsscna/engnews/";
+const RSS_PROVIDER_TIMEOUT_MS = 8000;  // максимум на одну попытку
+const RSS_TOTAL_BUDGET_MS = 20000;     // максимум на всю цепочку
+const RSS_CACHE_KEY = "glasswave_rss_cache_v1";
+const RSS_CACHE_TTL_MS = 7 * 24 * 3600 * 1000;
+const RSS_CACHE_MAX_ITEMS = 20;
+
+type RssErrorKind = "timeout" | "http" | "network" | "parse";
+
+class RssError extends Error {
+  readonly kind: RssErrorKind;
+  constructor(kind: RssErrorKind, message: string) {
+    super(message);
+    this.name = "RssError";
+    this.kind = kind;
+  }
+}
+
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+  try {
+    response = await fetch(url, { signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new RssError("timeout", `таймаут ${timeoutMs} мс`);
+    }
+    // Сюда попадают и CORS-блокировки (net::ERR_FAILED) — для вызывающего
+    // кода это обычная сетевая ошибка провайдера, переходим к следующему.
+    throw new RssError("network", error instanceof Error ? error.message : "сетевая ошибка");
+  } finally {
+    window.clearTimeout(timer);
+  }
+  if (!response.ok) {
+    throw new RssError("http", `HTTP ${response.status}`);
+  }
+  return response;
+}
+
+function xmlToNotesOrThrow(xml: string): Note[] {
+  const notes = parseRSS(xml);
+  if (notes.length === 0) {
+    throw new RssError("parse", "в ответе нет RSS-элементов");
+  }
+  return notes;
+}
+
+function rss2jsonToNotesOrThrow(data: unknown): Note[] {
+  const feed = data as { status?: string; items?: { title?: string; description?: string; pubDate?: string }[] } | null;
+  if (!feed || feed.status !== "ok" || !Array.isArray(feed.items) || feed.items.length === 0) {
+    throw new RssError("parse", "rss2json вернул пустой или некорректный ответ");
+  }
+  return feed.items.map((item, index) => {
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = item.description || "";
+    const content = tempDiv.textContent?.trim() || "";
+    const date = item.pubDate ? new Date(item.pubDate) : new Date();
+    const updatedAt = isNaN(date.getTime()) ? new Date() : date;
+    return {
+      id: Date.now() + index,
+      title: item.title?.trim() || "Без заголовка",
+      body: content,
+      updatedAt,
+      accentIdx: index % 4,
+      pinned: false,
+      archived: false,
+      trashed: false,
+      reminder: null,
+    };
+  });
+}
+
+/* Порядок важен: сначала надёжные варианты, дальше — запасные.
+   1. /api/rss — серверная Cloudflare Pages Function (functions/api/rss.ts):
+      fetch выполняется на сервере, CORS не участвует, публичные прокси не
+      нужны. В dev-режиме vite и на статическом хостинге без Functions
+      запрос быстро падает (404/HTML) и цепочка идёт дальше.
+   2. api.rss2json.com — выделенный RSS-to-JSON API со стабильными
+      CORS-заголовками.
+   3. corsproxy.io — последний резерв среди универсальных прокси. */
+const RSS_PROVIDERS: { name: string; load: (timeoutMs: number) => Promise<Note[]> }[] = [
+  {
+    name: "pages-function",
+    load: async (timeoutMs) => xmlToNotesOrThrow(await (await fetchWithTimeout("/api/rss", timeoutMs)).text()),
+  },
+  {
+    name: "rss2json",
+    load: async (timeoutMs) => rss2jsonToNotesOrThrow(await (await fetchWithTimeout(
+      `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_FEED_URL)}`, timeoutMs,
+    )).json()),
+  },
+  {
+    name: "corsproxy.io",
+    load: async (timeoutMs) => xmlToNotesOrThrow(await (await fetchWithTimeout(
+      `https://corsproxy.io/?url=${encodeURIComponent(RSS_FEED_URL)}`, timeoutMs,
+    )).text()),
+  },
+];
+
+type RssCachePayload = {
+  savedAt: number;
+  notes: { id: number; title: string; body: string; updatedAt: string; accentIdx: number }[];
+};
+
+function writeRssCache(notes: Note[]): void {
+  try {
+    const payload: RssCachePayload = {
+      savedAt: Date.now(),
+      notes: notes.slice(0, RSS_CACHE_MAX_ITEMS).map(n => ({
+        id: n.id, title: n.title, body: n.body,
+        updatedAt: n.updatedAt.toISOString(), accentIdx: n.accentIdx,
+      })),
+    };
+    localStorage.setItem(RSS_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // Приватный режим / переполненная квота localStorage — кэш необязателен.
+  }
+}
+
+function readRssCache(): Note[] | null {
+  try {
+    const raw = localStorage.getItem(RSS_CACHE_KEY);
+    if (!raw) return null;
+    const payload = JSON.parse(raw) as RssCachePayload;
+    if (!payload || typeof payload.savedAt !== "number" || !Array.isArray(payload.notes)) return null;
+    if (Date.now() - payload.savedAt > RSS_CACHE_TTL_MS) return null;
+    const notes = payload.notes
+      .filter(n => n && typeof n.title === "string")
+      .map((n, index) => {
+        const date = new Date(n.updatedAt);
+        return {
+          id: typeof n.id === "number" ? n.id : Date.now() + index,
+          title: n.title,
+          body: typeof n.body === "string" ? n.body : "",
+          updatedAt: isNaN(date.getTime()) ? new Date(payload.savedAt) : date,
+          accentIdx: typeof n.accentIdx === "number" ? n.accentIdx : index % 4,
+          pinned: false, archived: false, trashed: false, reminder: null,
+        };
+      });
+    return notes.length > 0 ? notes : null;
+  } catch {
+    return null;
+  }
+}
+
 async function loadRssNotes(): Promise<Note[] | null> {
-  const RSS_URL = 'https://feeds.feedburner.com/rsscna/engnews/';
-  const PROXY_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(RSS_URL)}`;
+  const startedAt = Date.now();
 
-  try {
-    const response = await fetch(PROXY_URL);
-    if (response.ok) {
-      const data = await response.json();
-      if (data && data.contents) {
-        const notes = parseRSS(data.contents);
-        if (notes.length > 0) {
-          return notes;
-        }
-      }
+  for (const provider of RSS_PROVIDERS) {
+    const remaining = RSS_TOTAL_BUDGET_MS - (Date.now() - startedAt);
+    if (remaining <= 0) {
+      console.warn(`[rss] общий бюджет ${RSS_TOTAL_BUDGET_MS} мс исчерпан, «${provider.name}» пропущен`);
+      break;
     }
-  } catch (error) {
-    console.error('Ошибка загрузки RSS через allorigins:', error);
+    try {
+      const notes = await provider.load(Math.min(RSS_PROVIDER_TIMEOUT_MS, remaining));
+      writeRssCache(notes);
+      return notes;
+    } catch (error) {
+      console.warn(`[rss] провайдер «${provider.name}» не сработал:`, error);
+    }
   }
 
-  // Запасной прокси (rss2json)
-  try {
-    const RSS2JSON_URL = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_URL)}`;
-    const response = await fetch(RSS2JSON_URL);
-    if (response.ok) {
-      const data = await response.json();
-      if (data && data.status === 'ok' && Array.isArray(data.items) && data.items.length > 0) {
-        const notes: Note[] = data.items.map((item: any, index: number) => {
-          const tempDiv = document.createElement("div");
-          tempDiv.innerHTML = item.description || "";
-          const content = tempDiv.textContent?.trim() || "";
-          const date = item.pubDate ? new Date(item.pubDate) : new Date();
-          const updatedAt = isNaN(date.getTime()) ? new Date() : date;
-          return {
-            id: Date.now() + index,
-            title: item.title?.trim() || "Без заголовка",
-            body: content,
-            updatedAt,
-            accentIdx: index % 4,
-            pinned: false,
-            archived: false,
-            trashed: false,
-            reminder: null,
-          };
-        });
-        return notes;
-      }
-    }
-  } catch (error) {
-    console.error('Ошибка загрузки RSS через rss2json:', error);
+  const cached = readRssCache();
+  if (cached) {
+    console.info("[rss] сеть недоступна — показана кэшированная лента");
+    return cached;
   }
-
   return null;
 }
 
@@ -850,16 +977,21 @@ export default function App(){
     if (!currentUser) {
       let isMounted = true;
       setRssLoading(true);
-      loadRssNotes().then((fetchedNotes) => {
-        if (isMounted) {
-          if (fetchedNotes && fetchedNotes.length > 0) {
-            setLocalNotes(fetchedNotes);
-          } else {
-            setLocalNotes(getFallbackNotes());
+      loadRssNotes()
+        .then((fetchedNotes) => {
+          if (isMounted) {
+            setLocalNotes(fetchedNotes && fetchedNotes.length > 0 ? fetchedNotes : getFallbackNotes());
           }
-          setRssLoading(false);
-        }
-      });
+        })
+        .catch((error) => {
+          // Страховка: спиннер не должен зависнуть даже при непредвиденной
+          // ошибке — показываем демо-набор.
+          console.error("[rss] неожиданная ошибка загрузки ленты:", error);
+          if (isMounted) setLocalNotes(getFallbackNotes());
+        })
+        .finally(() => {
+          if (isMounted) setRssLoading(false);
+        });
       return () => {
         isMounted = false;
       };
