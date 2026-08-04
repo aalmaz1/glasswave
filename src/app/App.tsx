@@ -803,13 +803,26 @@ async function loadRssNotes(): Promise<Note[] | null> {
   return null;
 }
 
-function fmtDate(d:Date){
-  const h=(Date.now()-d.getTime())/3600000;
-  if(h<1)  return "Только что";
-  if(h<24) return `${Math.floor(h)}ч назад`;
-  const day=Math.floor(h/24);
-  if(day<7)return `${day}д назад`;
-  return d.toLocaleDateString("ru-RU",{month:"short",day:"numeric"});
+function fmtDate(d: Date, now = Date.now()): string {
+  const diffMs = now - d.getTime();
+  const diffInSeconds = Math.floor(diffMs / 1000);
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  const diffInHours = Math.floor(diffInSeconds / 3600);
+  const diffInDays = Math.floor(diffInSeconds / 86400);
+
+  if (diffInSeconds < 60) {
+    return "Только что";
+  } else if (diffInMinutes < 60) {
+    return `${diffInMinutes} мин. назад`;
+  } else if (diffInHours < 24) {
+    return `${diffInHours} ч. назад`;
+  } else if (diffInDays === 1) {
+    return "Вчера";
+  } else if (diffInDays < 7) {
+    return `${diffInDays} д. назад`;
+  } else {
+    return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+  }
 }
 
 function stripHtml(html: string): string {
@@ -852,6 +865,9 @@ export default function App(){
   const [sort,    setSort]     = useState<SortOrder>("default");
   const [showSort,setShowSort] = useState(false);
   const [page, setPage] = useState(1);
+  // State for triggering timestamp re-renders every minute
+  const [, setTick] = useState(0);
+  const [now, setNow] = useState(Date.now());
   // Гостевой режим: без входа в аккаунт заметки живут в локальном состоянии,
   // загружаются из RSS или старого демо-набора (fallback).
   const [localNotes, setLocalNotes] = useState<Note[]>(getFallbackNotes);
@@ -861,6 +877,15 @@ export default function App(){
   const isMobile = width < 768;
   const isTablet = width >= 768 && width < 1280;
   const theme    = THEMES.find(t=>t.id===themeId)!;
+
+  // Update timestamps every 60 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+      setNow(Date.now());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!currentUser) {
@@ -1411,9 +1436,13 @@ function NoteCard({note,theme,isMobile,isTablet,tab,masonry,onOpen,onPin,onArchi
           )}
 
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:"auto"}}>
-            <div style={{display:"flex",alignItems:"center",gap:4,color:G.textMuted,fontSize:"0.68rem"}}>
+            <div 
+              className="note-time"
+              data-timestamp={note.updatedAt.toISOString()}
+              style={{display:"flex",alignItems:"center",gap:4,color:G.textMuted,fontSize:"0.68rem"}}
+            >
               <Clock size={9} strokeWidth={1.8}/>
-              <span>{fmtDate(note.updatedAt)}</span>
+              <span>{fmtDate(note.updatedAt, now)}</span>
             </div>
             <div
               className={`card-actions${isMobile?" actions-always":""}`}
