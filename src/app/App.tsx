@@ -1238,6 +1238,7 @@ function KeepSearchBar({search,setSearch,isMobile,sort,onSort,onSettings}:{
   isMobile:boolean; sort:SortOrder;
   onSort:()=>void; onSettings:()=>void;
 }){
+  const { t } = useTranslation();
   const sortActive = sort !== "default";
   return (
     <div style={{
@@ -1257,7 +1258,7 @@ function KeepSearchBar({search,setSearch,isMobile,sort,onSort,onSettings}:{
           id="search-input"
           name="search"
           value={search} onChange={e=>setSearch(e.target.value)}
-          placeholder="Поиск по заметкам…"
+          placeholder={t.searchPlaceholder}
           style={{
             flex:1,background:"transparent",border:"none",outline:"none",
             fontSize:"0.95rem",color:G.textPrimary,fontFamily:"inherit",letterSpacing:"0.01em",
@@ -1265,7 +1266,7 @@ function KeepSearchBar({search,setSearch,isMobile,sort,onSort,onSettings}:{
         />
 
         {search&&(
-          <button onClick={()=>setSearch("")} style={{background:"none",border:"none",cursor:"pointer",lineHeight:0,padding:6}}>
+          <button onClick={()=>setSearch("")} aria-label={t.close} style={{background:"none",border:"none",cursor:"pointer",lineHeight:0,padding:6}}>
             <X size={16} color={G.textMuted}/>
           </button>
         )}
@@ -1274,7 +1275,8 @@ function KeepSearchBar({search,setSearch,isMobile,sort,onSort,onSettings}:{
         <button
           className="icon-btn"
           onClick={onSort}
-          title="Сортировка"
+          aria-label={t.sort}
+          title={t.sort}
           style={{
             position:"relative",
             background:sortActive?"rgba(255,200,60,0.12)":"transparent",
@@ -1291,7 +1293,7 @@ function KeepSearchBar({search,setSearch,isMobile,sort,onSort,onSettings}:{
           )}
         </button>
 
-        <button className="icon-btn" onClick={onSettings}>
+        <button className="icon-btn" onClick={onSettings} aria-label={t.settings}>
           <Settings size={18} color={G.textSecondary}/>
         </button>
       </div>
@@ -1345,6 +1347,7 @@ function MasonryView(p:ViewProps){
    NOTE CARD
    ════════════════════════════════════════════════════════════════════ */
 function NoteCard({note,theme,isMobile,isTablet,tab,masonry,onOpen,onPin,onArchive,onTrash,onReminder}:ViewProps&{note:Note}){
+  const { t } = useTranslation();
   const accent   = theme.accents[note.accentIdx%theme.accents.length];
   const minH     = masonry?0:isMobile?130:isTablet?140:160;
   const pad      = isMobile?"14px 16px 12px":"18px 20px 14px";
@@ -1366,7 +1369,8 @@ function NoteCard({note,theme,isMobile,isTablet,tab,masonry,onOpen,onPin,onArchi
             <button
               className={`card-pin${note.pinned?" pinned":""}`}
               onClick={e=>{e.stopPropagation();onPin(note);}}
-              title={note.pinned?"Открепить":"Закрепить"}
+              title={note.pinned?t.unpin:t.pin}
+              aria-label={note.pinned?t.unpinNote:t.pinNote}
               style={{background:"none",border:"none",cursor:"pointer",padding:2,flexShrink:0,lineHeight:0}}
             >
               {note.pinned
@@ -1434,8 +1438,9 @@ function NoteCard({note,theme,isMobile,isTablet,tab,masonry,onOpen,onPin,onArchi
 }
 
 function MiniAction({children,onClick,title}:{children:React.ReactNode;onClick:()=>void;title:string}){
+  const { t } = useTranslation();
   return(
-    <button onClick={onClick} title={title} style={{
+    <button onClick={onClick} title={title} aria-label={title} style={{
       ...glassBase(10),width:26,height:26,borderRadius:8,
       border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
     }}>
@@ -1512,9 +1517,10 @@ function BottomNav({tab,setTab,isMobile}:{tab:Tab;setTab:(t:Tab)=>void;isMobile:
    FAB
    ════════════════════════════════════════════════════════════════════ */
 function FabBtn({onClick,isMobile}:{onClick:()=>void;isMobile:boolean}){
+  const { t } = useTranslation();
   const sz=isMobile?52:56;
   return(
-    <button onClick={onClick} style={{
+    <button onClick={onClick} aria-label={t.createNewNote} style={{
       ...glassBase(16),
       position:"fixed",
       bottom:isMobile?"calc(76px + env(safe-area-inset-bottom, 0px))":32,
