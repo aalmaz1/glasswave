@@ -376,3 +376,9 @@ export function useTranslation() {
   }
   return context;
 }
+
+export const LANGUAGE_OPTIONS = [
+  { code: "ru", nativeName: "Русский" },
+  { code: "en", nativeName: "English" },
+  { code: "ko", nativeName: "한국어" },
+] as const;
