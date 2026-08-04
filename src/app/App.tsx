@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { RichTextEditor } from "./components/RichTextEditor";
 import { useTheme } from "./hooks/useTheme";
-import { useTranslation } from "../i18n";
+import { useTranslation, LANGUAGE_OPTIONS } from "../i18n";
 import {
   addDoc,
   collection,
@@ -706,7 +706,7 @@ async function loadRssNotes(): Promise<Note[] | null> {
   };
 
   // Функция для выполнения fetch с таймаутом
-  const fetchWithTimeout = async (url: string, timeoutMs: number = 8000): Promise<Response> => {
+  const fetchWithTimeout = async (url: string, timeoutMs: number = 15000): Promise<Response> => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     
