@@ -1176,6 +1176,7 @@ export default function App(){
                     <div style={{display:"flex",justifyContent:"center",marginTop:24}}>
                       <button
                         onClick={loadMoreNotes}
+                        aria-label="Show more notes"
                         style={{
                           ...glassBase(16),padding:"12px 18px",borderRadius:16,border:"none",
                           color:G.textPrimary,background:"rgba(255,255,255,0.10)",cursor:"pointer",
@@ -1393,6 +1394,7 @@ function NoteCard({note,theme,isMobile,isTablet,tab,masonry,onOpen,onPin,onArchi
           {hasReminder&&(
             <button
               onClick={e=>{e.stopPropagation();onReminder(note);}}
+              aria-label="View or edit reminder"
               style={{
                 alignSelf:"flex-start",display:"flex",alignItems:"center",gap:5,
                 background:"rgba(255,200,60,0.12)",border:"1px solid rgba(255,200,60,0.28)",
@@ -1497,7 +1499,7 @@ function BottomNav({tab,setTab,isMobile}:{tab:Tab;setTab:(t:Tab)=>void;isMobile:
         {items.map(([id,Icon,label])=>{
           const active=tab===id;
           return(
-            <button key={id} onClick={()=>setTab(id)} style={{
+            <button key={id} onClick={()=>setTab(id)} aria-label={label} style={{
               display:"flex",flexDirection:"column",alignItems:"center",gap:4,
               padding:"4px 20px",borderRadius:20,border:"none",cursor:"pointer",
               background:"transparent",fontFamily:"inherit",
@@ -1586,7 +1588,7 @@ function SortSheet({current,onSelect,onClose}:{
           {SORT_OPTIONS.map(({id,label,sub,Icon})=>{
             const active = current===id;
             return(
-              <button key={id} onClick={()=>onSelect(id)} style={{
+              <button key={id} onClick={()=>onSelect(id)} aria-label={`Sort by ${label}`} style={{
                 display:"flex",alignItems:"center",gap:14,padding:"14px 16px",
                 borderRadius:16,border:"none",cursor:"pointer",fontFamily:"inherit",
                 background:active?"rgba(255,255,255,0.07)":"transparent",
@@ -1679,7 +1681,7 @@ function ReminderModal({note,onSave,onClose}:{
               <CalendarClock size={18} color="rgba(255,200,60,0.90)"/>
               <span style={{fontWeight:700,fontSize:"1rem",color:G.textPrimary}}>Напоминание</span>
             </div>
-            <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",lineHeight:0,padding:4}}>
+            <button onClick={onClose} aria-label="Close reminder dialog" style={{background:"none",border:"none",cursor:"pointer",lineHeight:0,padding:4}}>
               <X size={16} color={G.textMuted}/>
             </button>
           </div>
@@ -1687,7 +1689,7 @@ function ReminderModal({note,onSave,onClose}:{
           {/* Quick picks */}
           <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:18}}>
             {quickPicks.map(qp=>(
-              <button key={qp.label} onClick={()=>setVal(toVal(qp.val))} style={{
+              <button key={qp.label} onClick={()=>setVal(toVal(qp.val))} aria-label={`Set reminder: ${qp.label}`} style={{
                 display:"flex",alignItems:"center",justifyContent:"space-between",
                 padding:"11px 14px",borderRadius:14,border:`1px solid ${G.border}`,
                 background:val===toVal(qp.val)?"rgba(255,200,60,0.12)":G.bg,
@@ -1725,7 +1727,7 @@ function ReminderModal({note,onSave,onClose}:{
           {/* Actions */}
           <div style={{display:"flex",gap:8}}>
             {note.reminder&&(
-              <button onClick={()=>onSave(null)} style={{
+              <button onClick={()=>onSave(null)} aria-label="Delete reminder" style={{
                 flex:1,padding:"11px 0",borderRadius:14,border:`1px solid rgba(255,100,100,0.28)`,
                 background:"rgba(255,80,80,0.08)",cursor:"pointer",fontFamily:"inherit",
                 fontSize:"0.84rem",fontWeight:600,color:"rgba(255,120,120,0.90)",transition:"all 0.18s",
@@ -1734,6 +1736,7 @@ function ReminderModal({note,onSave,onClose}:{
             <button
               onClick={()=>{if(val)onSave(new Date(val));}}
               disabled={!val}
+              aria-label="Save reminder"
               style={{
                 flex:2,padding:"11px 0",borderRadius:14,border:"1px solid rgba(255,200,60,0.35)",
                 background:val?"rgba(255,200,60,0.14)":"rgba(255,255,255,0.04)",
@@ -1769,7 +1772,7 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
   return(
     <div style={{paddingBottom:64}}>
       <div style={{display:"flex",alignItems:"center",gap:14,paddingTop:28,paddingBottom:28}}>
-        <button onClick={onBack} style={{...glassBase(16),width:38,height:38,borderRadius:12,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <button onClick={onBack} aria-label="Go back" style={{...glassBase(16),width:38,height:38,borderRadius:12,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
           <ChevronLeft size={18} color={G.textSecondary}/>
         </button>
         <h1 style={{fontWeight:700,fontSize:"1.3rem",color:G.textPrimary,margin:0,letterSpacing:"-0.02em"}}>{t.settings}</h1>
@@ -1790,7 +1793,7 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
         {THEMES.map(t=>{
           const active=t.id===themeId;
           return(
-            <button key={t.id} onClick={()=>setThemeId(t.id)} style={{
+            <button key={t.id} onClick={()=>setThemeId(t.id)} aria-label={`Select ${t.name} theme`} style={{
               ...glassBase(20),padding:0,
               border:active?`1px solid rgba(255,255,255,0.50)`:`1px solid ${G.border}`,
               boxShadow:active?"0 16px 48px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.28)":G.shadow,
@@ -1843,7 +1846,7 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
                   {t.deleteDescription}
                 </p>
               </div>
-              <button onClick={()=>setDeleteDialogOpen(true)} style={{
+              <button onClick={()=>setDeleteDialogOpen(true)} aria-label="Open delete account confirmation" style={{
                 padding:"9px 12px", borderRadius:10, flexShrink:0,
                 border:"1px solid rgba(255,105,105,0.55)", background:"rgba(230,55,65,0.20)",
                 color:"rgba(255,210,210,0.98)", cursor:"pointer", fontFamily:"inherit",
@@ -1948,8 +1951,8 @@ function DeleteAccountModal({email,onClose,onDelete,translations}:{
           </div>
           {error && <p role="alert" style={{margin:"9px 0 0",fontSize:"0.75rem",lineHeight:1.45,color:"rgba(255,145,145,0.96)"}}>{error}</p>}
           <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:22}}>
-            <button type="button" onClick={onClose} disabled={deleting} style={{padding:"10px 14px",borderRadius:11,border:`1px solid ${G.border}`,background:"rgba(255,255,255,0.05)",color:G.textSecondary,cursor:deleting?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"0.8rem",fontWeight:600}}>{t.cancel}</button>
-            <button type="button" onClick={()=>void submit()} disabled={deleting || !password} style={{padding:"10px 14px",borderRadius:11,border:"1px solid rgba(255,105,105,0.55)",background:deleting||!password?"rgba(180,50,55,0.18)":"rgba(225,55,65,0.42)",color:"white",cursor:deleting||!password?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"0.8rem",fontWeight:700}}>
+            <button type="button" onClick={onClose} disabled={deleting} aria-label="Cancel delete account" style={{padding:"10px 14px",borderRadius:11,border:`1px solid ${G.border}`,background:"rgba(255,255,255,0.05)",color:G.textSecondary,cursor:deleting?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"0.8rem",fontWeight:600}}>{t.cancel}</button>
+            <button type="button" onClick={()=>void submit()} disabled={deleting || !password} aria-label="Delete account forever" style={{padding:"10px 14px",borderRadius:11,border:"1px solid rgba(255,105,105,0.55)",background:deleting||!password?"rgba(180,50,55,0.18)":"rgba(225,55,65,0.42)",color:"white",cursor:deleting||!password?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"0.8rem",fontWeight:700}}>
               {deleting ? t.deleting : t.deleteForever}
             </button>
           </div>
