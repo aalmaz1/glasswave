@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { RichTextEditor } from "./components/RichTextEditor";
 import { useTheme } from "./hooks/useTheme";
+import { useTranslation } from "../i18n";
 import {
   addDoc,
   collection,
@@ -416,57 +417,6 @@ type SortOrder = "default" | "created" | "updated";
 
 type AuthUser = { uid:string; email:string; name:string };
 type UserProfile = { name:string; themeId?: ThemeId };
-type Language = "ru" | "en" | "ko";
-type Translation = {
-  settings: string; account: string; theme: string; language: string;
-  danger: string; deleteAccount: string; deleteDescription: string;
-  deleteConfirmTitle: string; deleteWarning: string; confirmPassword: string;
-  passwordPlaceholder: string; cancel: string; deleteForever: string;
-  deleting: string; synced: string; logout: string; selectLanguage: string;
-};
-
-const TRANSLATIONS: Record<Language, Translation> = {
-  ru: {
-    settings:"Настройки", account:"Аккаунт", theme:"Цветовая тема", language:"Язык интерфейса",
-    danger:"Опасная зона", deleteAccount:"Удалить аккаунт",
-    deleteDescription:"Будут безвозвратно удалены профиль, настройки и все заметки.",
-    deleteConfirmTitle:"Удалить аккаунт?", deleteWarning:"Это действие необратимо: профиль, настройки и все заметки для",
-    confirmPassword:"Подтвердите пароль", passwordPlaceholder:"Ваш пароль", cancel:"Отмена",
-    deleteForever:"Удалить навсегда", deleting:"Удаляем…", synced:"Синхронизировано", logout:"Выйти",
-    selectLanguage:"Выберите язык интерфейса",
-  },
-  en: {
-    settings:"Settings", account:"Account", theme:"Color theme", language:"Interface language",
-    danger:"Danger zone", deleteAccount:"Delete account",
-    deleteDescription:"Your profile, preferences, and all notes will be permanently deleted.",
-    deleteConfirmTitle:"Delete account?", deleteWarning:"This action is irreversible: the profile, preferences, and all notes for",
-    confirmPassword:"Confirm your password", passwordPlaceholder:"Your password", cancel:"Cancel",
-    deleteForever:"Delete permanently", deleting:"Deleting…", synced:"Synced", logout:"Log out",
-    selectLanguage:"Choose interface language",
-  },
-  ko: {
-    settings:"설정", account:"계정", theme:"색상 테마", language:"인터페이스 언어",
-    danger:"위험 영역", deleteAccount:"계정 삭제",
-    deleteDescription:"프로필, 환경설정 및 모든 노트가 영구적으로 삭제됩니다.",
-    deleteConfirmTitle:"계정을 삭제하시겠습니까?", deleteWarning:"이 작업은 되돌릴 수 없습니다. 다음 계정의 프로필, 환경설정 및 모든 노트가 삭제됩니다:",
-    confirmPassword:"비밀번호 확인", passwordPlaceholder:"비밀번호", cancel:"취소",
-    deleteForever:"영구 삭제", deleting:"삭제 중…", synced:"동기화됨", logout:"로그아웃",
-    selectLanguage:"인터페이스 언어 선택",
-  },
-};
-
-const LANGUAGE_OPTIONS: { code: Language; nativeName: string }[] = [
-  { code:"ru", nativeName:"Русский" },
-  { code:"en", nativeName:"English" },
-  { code:"ko", nativeName:"한국어" },
-];
-
-function getInitialLanguage(): Language {
-  if (typeof window === "undefined") return "ru";
-  const saved = window.localStorage.getItem("preferred-lang");
-  return saved === "en" || saved === "ko" || saved === "ru" ? saved : "ru";
-}
-
 const USERS_COLLECTION = "users";
 const NOTES_COLLECTION = "notes";
 const NOTES_PAGE_SIZE = 12;
@@ -881,6 +831,9 @@ function useWidth(){
    ROOT
    ════════════════════════════════════════════════════════════════════ */
 export default function App(){
+  // Use translation hook from i18n context
+  const { t, language, setLanguage } = useTranslation();
+  
   // Firebase restores a persisted session asynchronously through
   // onAuthStateChanged below. Do not read the removed local auth helpers here:
   // doing so caused the app to fail before React could render.
@@ -888,8 +841,6 @@ export default function App(){
   // Используем хук useTheme для управления темой с учётом статуса авторизации
   const [themeId, setThemeId] = useTheme(currentUser, "sunset");
   const [screen,  setScreen]   = useState<Screen>("dashboard");
-  const [language, setLanguageState] = useState<Language>(getInitialLanguage);
-  const t = TRANSLATIONS[language];
   const [tab,     setTab]      = useState<Tab>("all");
   const [editing, setEditing]  = useState<Note|null>(null);
   const [creating,setCreating] = useState(false);
@@ -992,8 +943,9 @@ export default function App(){
 
   const loadMoreNotes = () => setPage((prev) => prev + 1);
 
-  const setLanguage = (next: Language) => {
-    setLanguageState(next);
+  // Language change handler - uses setLanguage from context
+  const handleLanguageChange = (next: Language) => {
+    setLanguage(next);
     window.localStorage.setItem("preferred-lang", next);
     document.documentElement.lang = next;
   };
@@ -1173,7 +1125,7 @@ export default function App(){
             onLogout={handleLogout}
             onDeleteAccount={handleDeleteAccount}
             language={language}
-            onLanguageChange={setLanguage}
+            onLanguageChange={handleLanguageChange}
             translations={t}
           />
           </div>
