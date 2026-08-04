@@ -18,6 +18,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
         className={editor.isActive('heading', { level: 1 }) ? 'is-active' : ''}
         title="Заголовок 1"
+        aria-label="Heading 1"
       >
         H1
       </button>
@@ -25,6 +26,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
         className={editor.isActive('heading', { level: 2 }) ? 'is-active' : ''}
         title="Заголовок 2"
+        aria-label="Heading 2"
       >
         H2
       </button>
@@ -32,6 +34,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
         onClick={() => editor.chain().focus().toggleBold().run()}
         className={editor.isActive('bold') ? 'is-active' : ''}
         title="Жирный"
+        aria-label="Bold"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/>
@@ -42,6 +45,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
         onClick={() => editor.chain().focus().toggleItalic().run()}
         className={editor.isActive('italic') ? 'is-active' : ''}
         title="Курсив"
+        aria-label="Italic"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <line x1="19" y1="4" x2="10" y2="4"/>
@@ -53,6 +57,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
         onClick={() => editor.chain().focus().toggleStrike().run()}
         className={editor.isActive('strike') ? 'is-active' : ''}
         title="Зачёркнутый"
+        aria-label="Strikethrough"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M16 4H9a3 3 0 0 0-2.83 4"/>
@@ -64,6 +69,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         className={editor.isActive('underline') ? 'is-active' : ''}
         title="Подчёркнутый"
+        aria-label="Underline"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/>
@@ -74,6 +80,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
         onClick={() => editor.chain().focus().toggleBulletList().run()}
         className={editor.isActive('bulletList') ? 'is-active' : ''}
         title="Маркированный список"
+        aria-label="Bullet List"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <circle cx="9" cy="12" r="1"/>
@@ -88,6 +95,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
         className={editor.isActive('orderedList') ? 'is-active' : ''}
         title="Нумерованный список"
+        aria-label="Ordered List"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <line x1="10" y1="6" x2="21" y2="6"/>
@@ -102,6 +110,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
         className={editor.isActive('blockquote') ? 'is-active' : ''}
         title="Цитата"
+        aria-label="Blockquote"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/>
@@ -112,6 +121,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
         onClick={() => editor.chain().focus().toggleCodeBlock().run()}
         className={editor.isActive('codeBlock') ? 'is-active' : ''}
         title="Блок кода"
+        aria-label="Code Block"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <polyline points="16 18 22 12 16 6"/>
@@ -121,6 +131,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
       <button
         onClick={() => editor.chain().focus().setHorizontalRule().run()}
         title="Горизонтальная линия"
+        aria-label="Horizontal Rule"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <line x1="3" y1="12" x2="21" y2="12"/>
@@ -130,6 +141,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
         onClick={() => editor.chain().focus().undo().run()}
         disabled={!editor.can().undo()}
         title="Отменить"
+        aria-label="Undo"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M3 7v6h6"/>
@@ -140,6 +152,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
         onClick={() => editor.chain().focus().redo().run()}
         disabled={!editor.can().redo()}
         title="Вернуть"
+        aria-label="Redo"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M21 7v6h-6"/>
