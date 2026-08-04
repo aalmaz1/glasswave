@@ -83,6 +83,19 @@ export interface Translation {
   loadingRSS: string;
   rssLoaded: string;
   rssError: string;
+  
+  // Accessibility (aria-labels)
+  search: string;
+  sort: string;
+  createNewNote: string;
+  reminder: string;
+  archiveNote: string;
+  deleteNote: string;
+  showPassword: string;
+  hidePassword: string;
+  closeModal: string;
+  pinNote: string;
+  unpinNote: string;
 }
 
 const TRANSLATIONS: Record<Language, Translation> = {
@@ -167,6 +180,19 @@ const TRANSLATIONS: Record<Language, Translation> = {
     loadingRSS: "Загрузка RSS...",
     rssLoaded: "Загружено из RSS",
     rssError: "Ошибка загрузки RSS",
+    
+    // Accessibility
+    search: "Поиск",
+    sort: "Сортировка",
+    createNewNote: "Создать заметку",
+    reminder: "Напоминание",
+    archiveNote: "В архив",
+    deleteNote: "Удалить",
+    showPassword: "Показать пароль",
+    hidePassword: "Скрыть пароль",
+    closeModal: "Закрыть",
+    pinNote: "Закрепить",
+    unpinNote: "Открепить",
   },
   
   en: {
@@ -250,6 +276,19 @@ const TRANSLATIONS: Record<Language, Translation> = {
     loadingRSS: "Loading RSS...",
     rssLoaded: "Loaded from RSS",
     rssError: "RSS load error",
+    
+    // Accessibility
+    search: "Search",
+    sort: "Sort",
+    createNewNote: "Create note",
+    reminder: "Reminder",
+    archiveNote: "Archive",
+    deleteNote: "Delete",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
+    closeModal: "Close",
+    pinNote: "Pin",
+    unpinNote: "Unpin",
   },
   
   ko: {
@@ -333,6 +372,19 @@ const TRANSLATIONS: Record<Language, Translation> = {
     loadingRSS: "RSS 로딩 중...",
     rssLoaded: "RSS 에서 불러옴",
     rssError: "RSS 로딩 오류",
+    
+    // Accessibility
+    search: "검색",
+    sort: "정렬",
+    createNewNote: "노트 만들기",
+    reminder: "알림",
+    archiveNote: "보관",
+    deleteNote: "삭제",
+    showPassword: "비밀번호 표시",
+    hidePassword: "비밀번호 숨기기",
+    closeModal: "닫기",
+    pinNote: "고정",
+    unpinNote: "고정 해제",
   },
 };
 
