@@ -738,53 +738,105 @@ async function loadRssNotes(): Promise<Note[] | null> {
   const RSS_URL = 'https://feeds.feedburner.com/rsscna/engnews/';
   const PROXY_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(RSS_URL)}`;
 
+  // Функция для безопасного создания элемента без прямого доступа к DOM
+  const stripHtmlSafe = (html: string): string => {
+    if (!html) return "";
+    return html
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  // Функция для выполнения fetch с таймаутом
+  const fetchWithTimeout = async (url: string, timeoutMs: number = 8000): Promise<Response> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    try {
+      const response = await fetch(url, { 
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
+  };
+
+  // Попытка 1: allorigins proxy
   try {
-    const response = await fetch(PROXY_URL);
+    const response = await fetchWithTimeout(PROXY_URL);
     if (response.ok) {
       const data = await response.json();
-      if (data && data.contents) {
+      if (data && typeof data.contents === 'string') {
         const notes = parseRSS(data.contents);
         if (notes.length > 0) {
+          console.log(`[RSS] Загружено ${notes.length} заметок через allorigins`);
           return notes;
         }
       }
     }
   } catch (error) {
-    console.error('Ошибка загрузки RSS через allorigins:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn('Ошибка загрузки RSS через allorigins:', errorMessage);
   }
 
-  // Запасной прокси (rss2json)
+  // Попытка 2: rss2json (запасной вариант)
   try {
     const RSS2JSON_URL = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_URL)}`;
-    const response = await fetch(RSS2JSON_URL);
-    if (response.ok) {
-      const data = await response.json();
-      if (data && data.status === 'ok' && Array.isArray(data.items) && data.items.length > 0) {
-        const notes: Note[] = data.items.map((item: any, index: number) => {
-          const tempDiv = document.createElement("div");
-          tempDiv.innerHTML = item.description || "";
-          const content = tempDiv.textContent?.trim() || "";
-          const date = item.pubDate ? new Date(item.pubDate) : new Date();
-          const updatedAt = isNaN(date.getTime()) ? new Date() : date;
-          return {
-            id: Date.now() + index,
-            title: item.title?.trim() || "Без заголовка",
-            body: content,
-            updatedAt,
-            accentIdx: index % 4,
-            pinned: false,
-            archived: false,
-            trashed: false,
-            reminder: null,
-          };
-        });
-        return notes;
-      }
+    const response = await fetchWithTimeout(RSS2JSON_URL);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    let data: any;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      throw new Error('Невалидный JSON ответ от rss2json');
+    }
+
+    if (data && data.status === 'ok' && Array.isArray(data.items) && data.items.length > 0) {
+      const notes: Note[] = data.items.map((item: any, index: number) => {
+        const content = stripHtmlSafe(item.description || item.content || "");
+        const date = item.pubDate ? new Date(item.pubDate) : new Date();
+        const updatedAt = isNaN(date.getTime()) ? new Date() : date;
+        
+        return {
+          id: Date.now() + index,
+          title: (item.title || "Без заголовка").trim(),
+          body: content,
+          updatedAt,
+          accentIdx: index % 4,
+          pinned: false,
+          archived: false,
+          trashed: false,
+          reminder: null,
+        };
+      });
+      
+      console.log(`[RSS] Загружено ${notes.length} заметок через rss2json`);
+      return notes;
+    } else if (data && data.status !== 'ok') {
+      console.warn(`[RSS] rss2json вернул статус: ${data.status}`);
     }
   } catch (error) {
-    console.error('Ошибка загрузки RSS через rss2json:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn('Ошибка загрузки RSS через rss2json:', errorMessage);
   }
 
+  console.log('[RSS] Все источники не доступны, возвращаем null');
   return null;
 }
 
