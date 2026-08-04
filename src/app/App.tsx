@@ -1196,6 +1196,7 @@ export default function App(){
                     onArchive={n=>mutNote(n.id,{archived:!n.archived})}
                     onTrash={deleteOrRestoreNote}
                     onReminder={n=>setReminderNoteId(n.id)}
+                    now={now}
                   />
                   {hasMoreNotes && (
                     <div style={{display:"flex",justifyContent:"center",marginTop:24}}>
@@ -1337,6 +1338,7 @@ type ViewProps = {
   onArchive:(n:Note)=>void;onTrash:(n:Note)=>void;
   onReminder:(n:Note)=>void;
   masonry?:boolean;
+  now: number;
 };
 
 function GridView(p:ViewProps){
@@ -1372,7 +1374,7 @@ function MasonryView(p:ViewProps){
 /* ════════════════════════════════════════════════════════════════════
    NOTE CARD
    ════════════════════════════════════════════════════════════════════ */
-function NoteCard({note,theme,isMobile,isTablet,tab,masonry,onOpen,onPin,onArchive,onTrash,onReminder}:ViewProps&{note:Note}){
+function NoteCard({note,theme,isMobile,isTablet,tab,masonry,onOpen,onPin,onArchive,onTrash,onReminder,now}:ViewProps&{note:Note}){
   const { t } = useTranslation();
   const accent   = theme.accents[note.accentIdx%theme.accents.length];
   const minH     = masonry?0:isMobile?130:isTablet?140:160;
