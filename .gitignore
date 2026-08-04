@@ -17,48 +17,34 @@ env/
 venv/
 .venv/
 .ENV
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
+.ENV.local
+
+# Logs
 *.log
-.DS_Store
-Thumbs.db
+
+# Environment variables
+.env
+.env.local
+.env.*
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# Environment variables
-.env
-.env.local
-*.env.*
-
-# Logs
-*.log
-
-# Temporary files
 *.tmp
-*.temp
+
+# OS
+.DS_Store
+Thumbs.db
 
 # Coverage
 coverage/
 htmlcov/
-.coverage*
+.coverage
 
-# MyPy
+# Testing
 .mypy_cache/
-.dmypy.json
-dmypy.json
-
-# PyTest
 .pytest_cache/
 
 # Compressed files

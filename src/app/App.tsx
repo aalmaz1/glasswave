@@ -615,6 +615,8 @@ async function authLogin(email: string, pw: string): Promise<string | null> {
     await signInWithEmailAndPassword(auth, email, pw);
     return null;
   } catch (err: any) {
+    // Логируем детальную информацию об ошибке Firebase для отладки
+    console.error("Auth Error:", err.code, err.message);
     return firebaseAuthErrorMessage(err);
   }
 }
@@ -769,6 +771,10 @@ async function loadRssNotes(): Promise<Note[] | null> {
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
+      // Игнорируем ошибки отмены — это нормальное поведение при размонтировании или повторном запросе
+      if ((error as any).name === 'AbortError') {
+        console.log('[RSS] Запрос был отменён (signal aborted)');
+      }
       throw error;
     }
   };
@@ -776,6 +782,7 @@ async function loadRssNotes(): Promise<Note[] | null> {
   // Попытка 1: allorigins proxy
   try {
     const response = await fetchWithTimeout(PROXY_URL);
+    // Проверяем, не был ли сигнал отменён до продолжения работы
     if (response.ok) {
       const data = await response.json();
       if (data && typeof data.contents === 'string') {
@@ -788,7 +795,10 @@ async function loadRssNotes(): Promise<Note[] | null> {
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.warn('Ошибка загрузки RSS через allorigins:', errorMessage);
+    // Не логируем AbortError как предупреждение — это штатная ситуация
+    if ((error as any).name !== 'AbortError') {
+      console.warn('Ошибка загрузки RSS через allorigins:', errorMessage);
+    }
   }
 
   // Попытка 2: rss2json (запасной вариант)
@@ -833,7 +843,10 @@ async function loadRssNotes(): Promise<Note[] | null> {
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.warn('Ошибка загрузки RSS через rss2json:', errorMessage);
+    // Не логируем AbortError как предупреждение — это штатная ситуация
+    if ((error as any).name !== 'AbortError') {
+      console.warn('Ошибка загрузки RSS через rss2json:', errorMessage);
+    }
   }
 
   console.log('[RSS] Все источники не доступны, возвращаем null');
@@ -2090,7 +2103,7 @@ function AuthPanel({onLogin}:{onLogin:(u:AuthUser)=>void}){
         )}
         <input
           value={email} onChange={e=>setEmail(e.target.value)}
-          placeholder="Email" type="email"
+          placeholder="Email" type="email" name="email" autoComplete="email"
           style={inputStyle}
           onFocus={e=>(e.target.style.borderColor="rgba(255,255,255,0.40)")}
           onBlur={e=>(e.target.style.borderColor=G.border)}
@@ -2098,7 +2111,7 @@ function AuthPanel({onLogin}:{onLogin:(u:AuthUser)=>void}){
         <div style={{position:"relative"}}>
           <input
             value={pw} onChange={e=>setPw(e.target.value)}
-            placeholder="Пароль" type={showPw?"text":"password"}
+            placeholder="Пароль" type={showPw?"text":"password"} name="password" autoComplete="current-password"
             style={{...inputStyle,paddingRight:42}}
             onFocus={e=>(e.target.style.borderColor="rgba(255,255,255,0.40)")}
             onBlur={e=>(e.target.style.borderColor=G.border)}
