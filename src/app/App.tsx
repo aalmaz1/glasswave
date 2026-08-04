@@ -1302,6 +1302,8 @@ function KeepSearchBar({search,setSearch,isMobile,sort,onSort,onSettings}:{
         }}
       >
         <input
+          id="search-input"
+          name="search"
           value={search} onChange={e=>setSearch(e.target.value)}
           placeholder="Поиск по заметкам…"
           style={{
@@ -1748,6 +1750,8 @@ function ReminderModal({note,onSave,onClose}:{
             <p style={{margin:"0 0 8px",fontSize:"0.68rem",fontWeight:600,color:G.textMuted,
               textTransform:"uppercase",letterSpacing:"0.08em"}}>Своя дата и время</p>
             <input
+              id="custom-datetime"
+              name="custom-datetime"
               type="datetime-local" value={val}
               min={toVal(new Date(now.getTime()+60000))}
               onChange={e=>setVal(e.target.value)}
@@ -1968,6 +1972,7 @@ function DeleteAccountModal({email,onClose,onDelete,translations}:{
           <div style={{position:"relative"}}>
             <input
               id="delete-account-password"
+              name="delete-account-password"
               type={showPassword?"text":"password"}
               value={password}
               autoComplete="current-password"
@@ -2094,6 +2099,8 @@ function AuthPanel({onLogin}:{onLogin:(u:AuthUser)=>void}){
       >
         {mode==="register"&&(
           <input
+            id="name-input"
+            name="name"
             value={name} onChange={e=>setName(e.target.value)}
             placeholder="Имя"
             style={inputStyle}
@@ -2102,6 +2109,7 @@ function AuthPanel({onLogin}:{onLogin:(u:AuthUser)=>void}){
           />
         )}
         <input
+          id="email-input"
           value={email} onChange={e=>setEmail(e.target.value)}
           placeholder="Email" type="email" name="email" autoComplete="email"
           style={inputStyle}
@@ -2110,6 +2118,7 @@ function AuthPanel({onLogin}:{onLogin:(u:AuthUser)=>void}){
         />
         <div style={{position:"relative"}}>
           <input
+            id="password-input"
             value={pw} onChange={e=>setPw(e.target.value)}
             placeholder="Пароль" type={showPw?"text":"password"} name="password" autoComplete="current-password"
             style={{...inputStyle,paddingRight:42}}
@@ -2223,7 +2232,10 @@ function EditorModal({creating,title,body,onTitle,onBody,onClose,onSave,isMobile
           </div>
 
           <div style={{padding:"20px 24px 0"}}>
-            <input value={title} onChange={e=>onTitle(e.target.value)} placeholder="Заголовок..." autoFocus
+            <input
+              id="note-title-input"
+              name="note-title"
+              value={title} onChange={e=>onTitle(e.target.value)} placeholder="Заголовок..." autoFocus
               style={{width:"100%",background:"transparent",border:"none",outline:"none",fontFamily:"inherit",fontWeight:300,
                 fontSize:isMobile?"1.5rem":"1.75rem",letterSpacing:"-0.025em",color:G.textPrimary}}/>
           </div>
