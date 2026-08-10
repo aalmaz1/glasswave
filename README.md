@@ -1,85 +1,85 @@
 # 🌊 GlassWave
 
-**Современное кроссплатформенное приложение для заметок в стиле glassmorphism**
+**Modern cross-platform note-taking application with glassmorphism design**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Flutter](https://img.shields.io/badge/Flutter-3.12+-blue?logo=flutter)](https://flutter.dev)
 [![React](https://img.shields.io/badge/React-18.3+-61dafb?logo=react)](https://reactjs.org)
 [![Firebase](https://img.shields.io/badge/Firebase-Enabled-orange?logo=firebase)](https://firebase.google.com)
 
-GlassWave — это элегантное приложение для управления заметками с современным дизайном в стиле glassmorphism, поддержкой синхронизации через Firebase и мультиязычным интерфейсом.
+GlassWave is an elegant note management application featuring modern glassmorphism design, Firebase synchronization support, and a multilingual interface.
 
-## ✨ Особенности
+## ✨ Features
 
-### 🎨 Дизайн
-- **Glassmorphism UI** — полупрозрачные элементы с размытием фона
-- **Адаптивный интерфейс** — оптимизирован для мобильных и десктопных устройств
-- **Плавные анимации** — приятные переходы между экранами
+### 🎨 Design
+- **Glassmorphism UI** — semi-transparent elements with background blur
+- **Responsive interface** — optimized for mobile and desktop devices
+- **Smooth animations** — pleasant transitions between screens
 
-### 📝 Функциональность
-- **Создание и редактирование заметок** — поддержка заголовков и форматированного текста
-- **Организация** — закрепление, архивирование, корзина
-- **Поиск и сортировка** — быстрый поиск по заметкам, сортировка по дате создания/обновления
-- **Напоминания** — установка напоминаний для важных заметок
-- **RSS-интеграция** — загрузка контента из RSS-лент
-- **Гостевой режим** — использование без регистрации
+### 📝 Functionality
+- **Create and edit notes** — support for titles and formatted text
+- **Organization** — pin, archive, trash
+- **Search and sorting** — quick search through notes, sort by creation/update date
+- **Reminders** — set reminders for important notes
+- **RSS integration** — load content from RSS feeds
+- **Guest mode** — use without registration
 
-### 🔐 Синхронизация
-- **Firebase Firestore** — облачная синхронизация между устройствами
-- **Локальное кэширование** — работа офлайн с IndexedDB
-- **Аутентификация** — безопасный вход через Firebase Auth
+### 🔐 Synchronization
+- **Firebase Firestore** — cloud synchronization across devices
+- **Local caching** — offline work with IndexedDB
+- **Authentication** — secure login via Firebase Auth
 
-### 🌍 Мультиязычность
-Поддержка трёх языков интерфейса:
+### 🌍 Multilingual Support
+Support for three interface languages:
 - 🇷🇺 Русский
 - 🇬🇧 English
 - 🇰🇷 한국어
 
-## 🏗️ Архитектура проекта
+## 🏗️ Project Architecture
 
 ```
 glasswave/
-├── src/                    # Веб-приложение (React + Vite)
-│   ├── app/                # Компоненты приложения
-│   ├── hooks/              # Custom React хуки
-│   ├── i18n/               # Система локализации
-│   ├── styles/             # Глобальные стили
-│   └── firebase.ts         # Конфигурация Firebase
-├── lib/                    # Мобильное приложение (Flutter)
-│   ├── models/             # Модели данных
+├── src/                    # Web application (React + Vite)
+│   ├── app/                # Application components
+│   ├── hooks/              # Custom React hooks
+│   ├── i18n/               # Localization system
+│   ├── styles/             # Global styles
+│   └── firebase.ts         # Firebase configuration
+├── lib/                    # Mobile application (Flutter)
+│   ├── models/             # Data models
 │   ├── providers/          # State management (Riverpod)
-│   ├── screens/            # Экраны приложения
-│   ├── services/           # Бизнес-логика
-│   ├── theme/              # Темы оформления
-│   └── widgets/            # Переиспользуемые виджеты
-├── assets/translations/    # JSON файлы переводов
-├── android/                # Android платформа
-├── ios/                    # iOS платформа
-├── linux/                  # Linux платформа
-├── macos/                  # macOS платформа
-└── windows/                # Windows платформа
+│   ├── screens/            # App screens
+│   ├── services/           # Business logic
+│   ├── theme/              # Theme configuration
+│   └── widgets/            # Reusable widgets
+├── assets/translations/    # JSON translation files
+├── android/                # Android platform
+├── ios/                    # iOS platform
+├── linux/                  # Linux platform
+├── macos/                  # macOS platform
+└── windows/                # Windows platform
 ```
 
-## 🚀 Быстрый старт
+## 🚀 Quick Start
 
-### Предварительные требования
+### Prerequisites
 
-- **Node.js** 18+ и npm/pnpm
+- **Node.js** 18+ and npm/pnpm
 - **Flutter** 3.12+
-- **Firebase проект** (для синхронизации)
+- **Firebase project** (for synchronization)
 
-### Установка
+### Installation
 
-#### 1. Клонирование репозитория
+#### 1. Clone the repository
 
 ```bash
 git clone https://github.com/yourusername/glasswave.git
 cd glasswave
 ```
 
-#### 2. Настройка Firebase
+#### 2. Firebase Setup
 
-Создайте файл `.env` в корне проекта:
+Create a `.env` file in the project root:
 
 ```env
 VITE_FIREBASE_API_KEY=your_api_key
@@ -90,73 +90,73 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
 ```
 
-> ⚠️ **Важно**: Не коммитьте файл `.env` в репозиторий! Он уже добавлен в `.gitignore`.
+> ⚠️ **Important**: Do not commit the `.env` file to the repository! It's already added to `.gitignore`.
 
 ---
 
-## 💻 Веб-версия (React + Vite)
+## 💻 Web Version (React + Vite)
 
-### Установка зависимостей
+### Install Dependencies
 
 ```bash
 npm install
-# или
+# or
 pnpm install
 ```
 
-### Запуск в режиме разработки
+### Run in Development Mode
 
 ```bash
 npm run dev
-# или
+# or
 pnpm dev
 ```
 
-Приложение будет доступно по адресу `http://localhost:5173`
+The app will be available at `http://localhost:5173`
 
-### Сборка для продакшена
+### Build for Production
 
 ```bash
 npm run build
-# или
+# or
 pnpm build
 ```
 
-Собранные файлы появятся в директории `dist/`
+Built files will appear in the `dist/` directory.
 
-### Технологический стек веба
+### Web Tech Stack
 
-- **React 18.3** — UI библиотека
-- **Vite 6.4** — Сборщик
-- **Tailwind CSS 4.1** — Стилизация
-- **TipTap** — WYSIWYG редактор
-- **Lucide React** — Иконки
-- **Firebase** — Бэкенд
+- **React 18.3** — UI library
+- **Vite 6.4** — Build tool
+- **Tailwind CSS 4.1** — Styling
+- **TipTap** — WYSIWYG editor
+- **Lucide React** — Icons
+- **Firebase** — Backend
 
 ---
 
-## 📱 Мобильная версия (Flutter)
+## 📱 Mobile Version (Flutter)
 
-### Установка зависимостей
+### Install Dependencies
 
 ```bash
 flutter pub get
 ```
 
-### Запуск приложения
+### Run the App
 
 ```bash
 flutter run
 ```
 
-Или выберите конкретное устройство:
+Or select a specific device:
 
 ```bash
 flutter devices
 flutter run -d <device_id>
 ```
 
-### Сборка для различных платформ
+### Build for Various Platforms
 
 ```bash
 # Android APK
@@ -171,64 +171,64 @@ flutter build macos --release
 flutter build windows --release
 ```
 
-### Технологический стек Flutter
+### Flutter Tech Stack
 
-- **Flutter Riverpod** — Управление состоянием
-- **Google Fonts** — Типографика
-- **Easy Localization** — Локализация
-- **Lucide Icons Flutter** — Иконки
-- **Shared Preferences** — Локальное хранение
-- **Flutter Markdown** — Рендеринг Markdown
-
----
-
-## 📖 Использование
-
-### Основные экраны
-
-| Экран | Описание |
-|-------|----------|
-| **Dashboard** | Главная страница со списком всех заметок |
-| **Редактор** | Создание и редактирование заметок |
-| **Закреплённые** | Быстрый доступ к важным заметкам |
-| **Архив** | Заархивированные заметки |
-| **Корзина** | Удалённые заметки (перед окончательным удалением) |
-| **Настройки** | Управление аккаунтом, темой, языком |
-
-### Горячие клавиши (веб-версия)
-
-- `Ctrl/Cmd + N` — Создать новую заметку
-- `Ctrl/Cmd + F` — Поиск
-- `Ctrl/Cmd + S` — Сохранить заметку
-- `Esc` — Закрыть редактор/модалку
+- **Flutter Riverpod** — State management
+- **Google Fonts** — Typography
+- **Easy Localization** — Localization
+- **Lucide Icons Flutter** — Icons
+- **Shared Preferences** — Local storage
+- **Flutter Markdown** — Markdown rendering
 
 ---
 
-## 🌐 Локализация
+## 📖 Usage
 
-Добавление нового языка:
+### Main Screens
 
-1. Создайте файл перевода в `assets/translations/<lang>.json`
-2. Добавьте переводы в `src/i18n/index.tsx`
-3. Обновите список языков в компоненте настроек
+| Screen | Description |
+|--------|-------------|
+| **Dashboard** | Main page with list of all notes |
+| **Editor** | Create and edit notes |
+| **Pinned** | Quick access to important notes |
+| **Archive** | Archived notes |
+| **Trash** | Deleted notes (before permanent deletion) |
+| **Settings** | Account, theme, language management |
 
-Пример структуры перевода:
+### Keyboard Shortcuts (Web Version)
+
+- `Ctrl/Cmd + N` — Create new note
+- `Ctrl/Cmd + F` — Search
+- `Ctrl/Cmd + S` — Save note
+- `Esc` — Close editor/modal
+
+---
+
+## 🌐 Localization
+
+Adding a new language:
+
+1. Create a translation file in `assets/translations/<lang>.json`
+2. Add translations in `src/i18n/index.tsx`
+3. Update the language list in the settings component
+
+Translation structure example:
 
 ```json
 {
-  "settings": "Настройки",
-  "dashboard": "Заметки",
-  "createNote": "Создать заметку"
+  "settings": "Settings",
+  "dashboard": "Notes",
+  "createNote": "Create note"
 }
 ```
 
 ---
 
-## 🔧 Конфигурация
+## 🔧 Configuration
 
 ### Firebase Rules
 
-Файл `firestore.rules` содержит правила безопасности для базы данных:
+The `firestore.rules` file contains security rules for the database:
 
 ```javascript
 rules_version = '2';
@@ -241,7 +241,7 @@ service cloud.firestore {
 }
 ```
 
-### Развёртывание на Firebase Hosting
+### Deploy to Firebase Hosting
 
 ```bash
 npm run build
@@ -250,44 +250,44 @@ firebase deploy
 
 ---
 
-## 🤝 Вклад в проект
+## 🤝 Contributing
 
-Мы приветствуем вклад в развитие GlassWave!
+We welcome contributions to GlassWave development!
 
-1. Forkните репозиторий
-2. Создайте ветку для вашей фичи (`git checkout -b feature/amazing-feature`)
-3. Закоммитьте изменения (`git commit -m 'Add amazing feature'`)
-4. Отправьте в ветку (`git push origin feature/amazing-feature`)
-5. Откройте Pull Request
+1. Fork the repository
+2. Create a branch for your feature (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-### Руководство по стилю кода
+### Code Style Guide
 
 - **React**: ESLint + Prettier
 - **Flutter**: `flutter analyze` + `dart format`
 
 ---
 
-## 📄 Лицензия
+## 📄 License
 
-Этот проект распространяется под лицензией MIT. Подробнее см. в файле [LICENSE](LICENSE).
-
----
-
-## 🙏 Благодарности
-
-- [Lucide Icons](https://lucide.dev) — красивые открытые иконки
-- [TipTap](https://tiptap.dev) — мощный WYSIWYG редактор
-- [Firebase](https://firebase.google.com) — бэкенд как сервис
-- [Flutter](https://flutter.dev) — кроссплатформенная разработка
+This project is distributed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 📞 Контакты
+## 🙏 Acknowledgments
 
-- **Проект**: GlassWave
-- **Версия**: 1.0.0
+- [Lucide Icons](https://lucide.dev) — Beautiful open-source icons
+- [TipTap](https://tiptap.dev) — Powerful WYSIWYG editor
+- [Firebase](https://firebase.google.com) — Backend as a service
+- [Flutter](https://flutter.dev) — Cross-platform development
 
-Если у вас возникли вопросы или предложения, пожалуйста, создайте issue в репозитории.
+---
+
+## 📞 Contact
+
+- **Project**: GlassWave
+- **Version**: 1.0.0
+
+If you have any questions or suggestions, please create an issue in the repository.
 
 ---
 
