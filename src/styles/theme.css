@@ -185,3 +185,22 @@
     line-height: 1.5;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   Theme Selection Grid — Desktop 6x2 Layout
+   ════════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 992px) {
+  .settings-theme-grid {
+    display: grid !important;
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .settings-theme-grid > * {
+    width: auto !important;
+    flex: unset !important;
+  }
+}
