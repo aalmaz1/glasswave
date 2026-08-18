@@ -2038,11 +2038,10 @@ function AccountCard({user,onLogout,translations}:{user:AuthUser;onLogout:()=>vo
         <p style={{margin:"2px 0 0",fontSize:"0.74rem",color:G.textMuted,
           overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.email}</p>
       </div>
-      <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0,
-        fontSize:"0.68rem",color:G.textMuted,background:"rgba(0,200,80,0.10)",
-        border:"1px solid rgba(0,200,80,0.20)",borderRadius:8,padding:"4px 8px"}}>
-        <Shield size={10} color="rgba(0,220,100,0.80)"/>
-        <span style={{color:"rgba(0,220,100,0.80)"}}>{t.synced}</span>
+      <div title={t.synced} aria-label={t.synced} style={{display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
+        width:36,height:36,borderRadius:10,background:"rgba(0,200,80,0.10)",
+        border:"1px solid rgba(0,200,80,0.20)"}}>
+        <Shield size={15} color="rgba(0,220,100,0.80)"/>
       </div>
       <button onClick={onLogout} title={t.logout} style={{
         ...glassBase(12),width:36,height:36,borderRadius:10,border:"none",cursor:"pointer",
