@@ -4,6 +4,24 @@ The APK is the **React + Vite app**, packaged with Capacitor 8.
 
 Flutter’s native project stays in `android/`. Capacitor lives in `android-capacitor/`.
 
+## Automatic GitHub Releases
+
+`.github/workflows/apk_build.yml` builds and publishes a new APK automatically after every push to `main` (normally after a pull request is merged).
+
+Each workflow run:
+
+1. Builds the web application and syncs it with Capacitor.
+2. Builds an installable release APK.
+3. Assigns an increasing version based on the GitHub Actions run number, for example `1.0.12`.
+4. Creates the tag and GitHub Release `v1.0.12`.
+5. Attaches `GlassWave-1.0.12.apk` to the Release.
+
+The workflow can also be started from **GitHub → Actions → Build and release Android APK → Run workflow**. A manually started run creates a Release in the same way.
+
+GitHub Actions receives only the built-in `GITHUB_TOKEN`; no personal token or extra repository secret is required. The workflow declares `contents: write` so it can create tags and Releases.
+
+> Changes pushed only to a feature branch do not publish a production Release. Merge them into `main` first.
+
 ## Build locally
 
 Requirements: Node.js 22+, JDK 21, Android SDK (compileSdk 36).
@@ -19,41 +37,15 @@ Installable file:
 android-capacitor/app/build/outputs/apk/release/app-release.apk
 ```
 
+Local builds use version `1.0.0` and version code `1`. You can override them when needed:
+
+```bash
+VERSION_NAME=1.2.0 VERSION_CODE=120 npm run android:apk
+```
+
 Sync the web build without compiling Gradle:
 
 ```bash
 npm run cap:sync
 npx cap open android
-```
-
-## Optional GitHub Action
-
-Copy `.github/workflows/android-apk.yml` from the snippet below if your token can write workflow files:
-
-```yaml
-name: Build Capacitor APK
-on:
-  workflow_dispatch:
-jobs:
-  apk:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-      - uses: android-actions/setup-android@v3
-      - run: npm ci
-      - run: npm run cap:sync
-      - working-directory: android-capacitor
-        run: ./gradlew assembleRelease --no-daemon
-      - uses: actions/upload-artifact@v4
-        with:
-          name: GlassWave
-          path: android-capacitor/app/build/outputs/apk/release/*.apk
 ```
