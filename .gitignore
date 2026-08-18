@@ -1,1 +1,46 @@
-Nothing needs to be added to .gitignore since only a README.md file was modified and there are no build artifacts, dependencies, or temporary files in the changes.
+# Dependencies
+node_modules/
+
+# Web / Vite
+dist/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Capacitor Android build output
+android-capacitor/app/build/
+android-capacitor/app/release/
+android-capacitor/build/
+android-capacitor/.gradle/
+android-capacitor/local.properties
+android-capacitor/captures/
+android-capacitor/.idea/
+android-capacitor/*.apk
+android-capacitor/*.aab
+
+# Built packages
+*.apk
+*.aab
+releases/
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/

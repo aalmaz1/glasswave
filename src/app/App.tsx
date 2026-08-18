@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import { RichTextEditor } from "./components/RichTextEditor";
 import { useTheme } from "./hooks/useTheme";
-import { useTranslation, LANGUAGE_OPTIONS } from "../i18n";
+import { useTranslation, LANGUAGE_OPTIONS, type Language, type Translation } from "../i18n";
+import { listenNativeBackButton } from "../native";
 import {
   addDoc,
   collection,
@@ -1108,6 +1109,28 @@ export default function App(){
   const cols     = isMobile?1:isTablet?2:3;
   const editorOpen = creating||editing!==null;
 
+  useEffect(() => {
+    return listenNativeBackButton(() => {
+      if (editorOpen) {
+        closeEd();
+        return true;
+      }
+      if (showSort) {
+        setShowSort(false);
+        return true;
+      }
+      if (reminderNoteId !== null) {
+        setReminderNoteId(null);
+        return true;
+      }
+      if (screen === "settings") {
+        setScreen("dashboard");
+        return true;
+      }
+      return false;
+    });
+  }, [editorOpen, showSort, reminderNoteId, screen]);
+
   return (
     <div style={{
       fontFamily:"'Manrope','Inter',sans-serif",
@@ -1269,7 +1292,7 @@ function KeepSearchBar({search,setSearch,isMobile,sort,onSort,onSettings}:{
   const sortActive = sort !== "default";
   return (
     <div style={{
-      paddingTop:20,paddingBottom:24,
+      paddingTop:"calc(20px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))",paddingBottom:24,
       background:"linear-gradient(to bottom, rgba(0,0,0,0.38) 60%, transparent 100%)",
     }}>
       <div
@@ -1802,7 +1825,7 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
 
   return(
     <div style={{paddingBottom:64}}>
-      <div style={{display:"flex",alignItems:"center",gap:14,paddingTop:28,paddingBottom:28}}>
+      <div style={{display:"flex",alignItems:"center",gap:14,paddingTop:"calc(28px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))",paddingBottom:28}}>
         <button onClick={onBack} aria-label="Go back" style={{...glassBase(16),width:38,height:38,borderRadius:12,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
           <ChevronLeft size={18} color={G.textSecondary}/>
         </button>

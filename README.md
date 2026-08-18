@@ -124,6 +124,36 @@ pnpm build
 
 Built files will appear in the `dist/` directory.
 
+---
+
+## 🤖 Android APK (Capacitor + React)
+
+The Android APK is the **same React + Vite app**, wrapped with [Capacitor](https://capacitorjs.com). Flutter remains in `android/` / `lib/` for the native rewrite; Capacitor lives in `android-capacitor/`.
+
+### Build the APK
+
+```bash
+npm install
+npm run android:apk
+```
+
+The installable file is written to:
+
+```
+android-capacitor/app/build/outputs/apk/release/app-release.apk
+```
+
+Requirements: Node.js 22+, JDK 21, Android SDK (compileSdk 36).
+
+You can also sync the web build into the native project without compiling Gradle:
+
+```bash
+npm run cap:sync
+npx cap open android
+```
+
+---
+
 ### Web Tech Stack
 
 - **React 18.3** — UI library
