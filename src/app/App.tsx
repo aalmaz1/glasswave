@@ -403,7 +403,9 @@ const CSS = `
     .settings-theme-grid {
       display: grid !important;
       grid-template-columns: repeat(6, 1fr) !important;
-      gap: 10px;
+      gap: 10px !important;
+      width: 100% !important;
+      max-width: 100% !important;
       justify-content: center;
     }
   }
