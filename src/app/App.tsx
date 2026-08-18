@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Plus, Archive, Trash2, FileText,
-  X, Hash, Clock, Check, User, LogOut,
+  X, Hash, Clock, Check, LogOut,
   Settings, ChevronLeft, Eye, EyeOff,
   Pin, PinOff, Shield, Bell, BellRing, CalendarClock,
   SlidersHorizontal, Palette, Shuffle, CalendarDays, RefreshCw, Languages as LanguagesIcon,
@@ -383,6 +383,19 @@ const CSS = `
   .settings-section-container select,
   .settings-section-container button{
     max-width:100%;box-sizing:border-box;
+  }
+
+  /* Keep all 12 theme choices predictable and touch-friendly on phones. */
+  @media (max-width:768px){
+    .settings-theme-grid{
+      display:grid!important;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px!important;
+    }
+    .settings-theme-grid > button{
+      width:100%!important;
+      min-width:0!important;
+    }
   }
 
   .section-label{
@@ -1895,7 +1908,7 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
 
       {/* ── Account ── - constrained to theme width */}
       <div style={sectionBlockStyle} className="settings-section-container">
-        <SLabel Icon={User} label={t.account}/>
+        <SLabel label={t.account}/>
         <div style={{width:"100%", maxWidth:"100%", boxSizing:"border-box", overflow:"hidden"}}>
           {currentUser
             ? <AccountCard user={currentUser} onLogout={onLogout} translations={t}/>
@@ -1907,11 +1920,11 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
       {/* ── Themes ── - reference section, defines visual width */}
       <div style={sectionBlockStyle} className="settings-section-container">
         <SLabel Icon={Palette} label={t.theme}/>
-        <div style={sectionGridStyle}>
+        <div className="settings-theme-grid" style={sectionGridStyle}>
           {THEMES.map(th=>{
             const active=th.id===themeId;
             return(
-              <button key={th.id} onClick={()=>setThemeId(th.id)} aria-label={`Select ${th.name} theme`} style={{
+              <button key={th.id} onClick={()=>setThemeId(th.id)} aria-label={`Select ${th.name} theme`} aria-pressed={active} style={{
                 ...glassBase(20),padding:0,
                 border:active?`1px solid rgba(255,255,255,0.50)`:`1px solid ${G.border}`,
                 boxShadow:active?"0 16px 48px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.28)":G.shadow,
@@ -1945,9 +1958,9 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
       <div style={sectionBlockStyle} className="settings-section-container">
         <SLabel Icon={LanguagesIcon} label={t.language}/>
         <div style={{width:"100%", maxWidth:"100%", boxSizing:"border-box", overflow:"hidden"}}>
-          <label htmlFor="lang-select" style={{display:"block",marginBottom:8,fontSize:"0.76rem",color:G.textSecondary, maxWidth:"100%", overflow:"hidden", textOverflow:"ellipsis"}}>{t.selectLanguage}</label>
           <select
             id="lang-select"
+            aria-label={t.selectLanguage}
             value={language}
             onChange={event=>onLanguageChange(event.target.value as Language)}
             style={{
@@ -2139,10 +2152,6 @@ function AccountCard({user,onLogout,translations}:{user:AuthUser;onLogout:()=>vo
       gap:16,
       borderRadius:18
     }}>
-      <div style={{width:44,height:44,borderRadius:"50%",background:"rgba(255,255,255,0.12)",
-        border:`1px solid ${G.border}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-        <User size={20} color={G.textPrimary} strokeWidth={1.5}/>
-      </div>
       <div style={{flex:"1 1 auto",minWidth:0, maxWidth:"100%", overflow:"hidden", boxSizing:"border-box"}}>
         <p style={{margin:0,fontWeight:700,fontSize:"0.92rem",color:G.textPrimary,
           overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap", maxWidth:"100%"}}>{user.name}</p>
@@ -2312,10 +2321,10 @@ function AuthPanel({onLogin}:{onLogin:(u:AuthUser)=>void}){
   );
 }
 
-function SLabel({Icon,label}:{Icon:React.FC<{size?:number;color?:string}>;label:string}){
+function SLabel({Icon,label}:{Icon?:React.FC<{size?:number;color?:string}>;label:string}){
   return(
     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-      <Icon size={13} color={G.textMuted}/>
+      {Icon && <Icon size={13} color={G.textMuted}/>}
       <span style={{fontSize:"0.68rem",fontWeight:600,color:G.textMuted,letterSpacing:"0.08em",textTransform:"uppercase"}}>{label}</span>
     </div>
   );
