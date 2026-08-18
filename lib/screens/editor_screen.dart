@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -145,9 +146,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
-        const SingleActivator(LogicalKeyboardKey.keyS, control: true): _save,
-        const SingleActivator(LogicalKeyboardKey.keyS, meta: true): _save,
-        const SingleActivator(LogicalKeyboardKey.escape): () => Navigator.pop(context),
+        SingleActivator(LogicalKeyboardKey.keyS, control: true): _save,
+        SingleActivator(LogicalKeyboardKey.keyS, meta: true): _save,
+        SingleActivator(LogicalKeyboardKey.escape): () => Navigator.pop(context),
       },
       child: Scaffold(
         backgroundColor: Colors.transparent,
