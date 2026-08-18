@@ -1194,12 +1194,19 @@ export default function App(){
               />
             </div>
 
-            {/* Scroll container fills full height; paddingTop clears the search bar */}
+            {/* Scroll container fills full height; paddingTop clears the search bar.
+                The top/bottom paddings include the same safe-area terms as the search
+                bar itself, so on the Android APK (edge-to-edge, where Capacitor injects
+                --safe-area-inset-* for the status/navigation bars) the whole layout shifts
+                down together and the gap between the search panel and the first note stays
+                exactly the same as in the web version. In browsers the insets resolve to 0,
+                so nothing changes there. */}
             <div
               className="scroll-host"
               style={{
                 position:"absolute",inset:0,overflowY:"auto",
-                padding:`92px 8px 150px`,
+                paddingTop:`calc(92px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))`,
+                paddingBottom:`calc(150px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))`,
                 paddingLeft:isMobile?24:isTablet?36:52,
                 paddingRight:isMobile?24:isTablet?36:52,
               }}
