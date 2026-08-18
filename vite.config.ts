@@ -9,4 +9,10 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    // Bind to all interfaces and accept any Host header so the app can be
+    // previewed through proxied hosts (e.g. sandboxed/dev previews).
+    host: true,
+    allowedHosts: true,
+  },
 })
