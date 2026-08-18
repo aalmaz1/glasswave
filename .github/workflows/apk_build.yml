@@ -1,25 +1,73 @@
-name: Build Capacitor APK
+name: Build and release Android APK
+
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   apk:
+    name: Build APK and publish release
     runs-on: ubuntu-latest
+    env:
+      VERSION_NAME: 1.0.${{ github.run_number }}
+      VERSION_CODE: ${{ github.run_number }}
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - uses: actions/setup-java@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
-      - run: npm ci
-      - run: npm run cap:sync
-      - working-directory: android-capacitor
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app and sync Capacitor
+        run: npm run cap:sync
+
+      - name: Build release APK
+        working-directory: android-capacitor
         run: ./gradlew assembleRelease --no-daemon
-      - uses: actions/upload-artifact@v4
+
+      - name: Prepare APK
+        run: |
+          cp android-capacitor/app/build/outputs/apk/release/app-release.apk \
+            "GlassWave-${VERSION_NAME}.apk"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: GlassWave
-          path: android-capacitor/app/build/outputs/apk/release/*.apk
+          name: GlassWave-${{ env.VERSION_NAME }}
+          path: GlassWave-${{ env.VERSION_NAME }}.apk
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${VERSION_NAME}" \
+            "GlassWave-${VERSION_NAME}.apk" \
+            --target "${GITHUB_SHA}" \
+            --title "GlassWave v${VERSION_NAME}" \
+            --generate-notes \
+            --latest
