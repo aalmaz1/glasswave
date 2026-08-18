@@ -398,6 +398,16 @@ const CSS = `
     }
   }
 
+  /* Desktop viewport (992px and above): 6x2 grid layout for theme selection */
+  @media (min-width: 992px) {
+    .settings-theme-grid {
+      display: grid !important;
+      grid-template-columns: repeat(6, 1fr) !important;
+      gap: 10px;
+      justify-content: center;
+    }
+  }
+
   .section-label{
     font-size:0.68rem;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;
     color:rgba(255,255,255,0.30);margin:0 0 12px 4px;
