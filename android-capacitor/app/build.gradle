@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+// GitHub Actions sets these values. Keep local builds usable when they are absent.
+def ciVersionCode = System.getenv('VERSION_CODE')?.trim()
+def ciVersionName = System.getenv('VERSION_NAME')?.trim()
+def appVersionCode = ciVersionCode ? Integer.parseInt(ciVersionCode) : 1
+def appVersionName = ciVersionName ?: '1.0.0'
+
 android {
     namespace = "com.glasswave.app"
     compileSdk = rootProject.ext.compileSdkVersion
