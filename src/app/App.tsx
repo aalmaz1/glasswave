@@ -366,9 +366,29 @@ const CSS = `
     }
   }
 
+  /* Settings panel alignment fix: all sections share same max-width reference (theme section) */
+  .settings-page-root{
+    width:100%;max-width:100%;box-sizing:border-box;
+  }
+  .settings-section-container{
+    width:100%;max-width:666px;box-sizing:border-box;
+    margin-left:auto;margin-right:auto;
+  }
+  .settings-section-container > *{
+    max-width:100%;box-sizing:border-box;
+    overflow-wrap:break-word;word-break:break-word;
+  }
+  /* Ensure inner content does not force container to expand */
+  .settings-section-container input,
+  .settings-section-container select,
+  .settings-section-container button{
+    max-width:100%;box-sizing:border-box;
+  }
+
   .section-label{
     font-size:0.68rem;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;
     color:rgba(255,255,255,0.30);margin:0 0 12px 4px;
+    max-width:100%;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
 
   .fmt-btn{
@@ -1830,80 +1850,156 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const t = translations;
 
+  // Shared layout tokens to keep all major sections aligned with the
+  // "Color Theme" / "Coffee Theme" reference width (measured ~666.67px).
+  // Using width:100% + maxWidth + box-sizing:border-box prevents overflow
+  // while allowing natural responsiveness on mobile.
+  const contentWrapperStyle: React.CSSProperties = {
+    width: "100%",
+    maxWidth: 666,
+    marginLeft: "auto",
+    marginRight: "auto",
+    boxSizing: "border-box",
+    paddingBottom: 64,
+    overflow: "hidden",
+  };
+
+  const sectionBlockStyle: React.CSSProperties = {
+    width: "100%",
+    maxWidth: 666,
+    boxSizing: "border-box",
+    marginBottom: 36,
+    overflow: "hidden",
+    marginLeft: "auto",
+    marginRight: "auto",
+  };
+
+  const sectionGridStyle: React.CSSProperties = {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 10,
+    width: "100%",
+    maxWidth: 666,
+    boxSizing: "border-box",
+    overflow: "hidden",
+  };
+
   return(
-    <div style={{paddingBottom:64}}>
-      <div style={{display:"flex",alignItems:"center",gap:14,paddingTop:"calc(28px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))",paddingBottom:28}}>
-        <button onClick={onBack} aria-label="Go back" style={{...glassBase(16),width:38,height:38,borderRadius:12,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div style={contentWrapperStyle} className="settings-page-root">
+      <div style={{display:"flex",alignItems:"center",gap:14,paddingTop:"calc(28px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))",paddingBottom:28, width:"100%", maxWidth:"100%", boxSizing:"border-box"}}>
+        <button onClick={onBack} aria-label="Go back" style={{...glassBase(16),width:38,height:38,borderRadius:12,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center", flexShrink:0}}>
           <ChevronLeft size={18} color={G.textSecondary}/>
         </button>
-        <h1 style={{fontWeight:700,fontSize:"1.3rem",color:G.textPrimary,margin:0,letterSpacing:"-0.02em"}}>{t.settings}</h1>
+        <h1 style={{fontWeight:700,fontSize:"1.3rem",color:G.textPrimary,margin:0,letterSpacing:"-0.02em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", minWidth:0}}>{t.settings}</h1>
       </div>
 
-      {/* ── Account ── */}
-      <SLabel Icon={User} label={t.account}/>
-      <div style={{marginBottom:36}}>
-        {currentUser
-          ? <AccountCard user={currentUser} onLogout={onLogout} translations={t}/>
-          : <AuthPanel onLogin={onLogin}/>
-        }
+      {/* ── Account ── - constrained to theme width */}
+      <div style={sectionBlockStyle} className="settings-section-container">
+        <SLabel Icon={User} label={t.account}/>
+        <div style={{width:"100%", maxWidth:"100%", boxSizing:"border-box", overflow:"hidden"}}>
+          {currentUser
+            ? <AccountCard user={currentUser} onLogout={onLogout} translations={t}/>
+            : <AuthPanel onLogin={onLogin}/>
+          }
+        </div>
       </div>
 
-      {/* ── Themes ── */}
-      <SLabel Icon={Palette} label={t.theme}/>
-      <div style={{display:"flex",flexWrap:"wrap",gap:10,marginBottom:36}}>
-        {THEMES.map(t=>{
-          const active=t.id===themeId;
-          return(
-            <button key={t.id} onClick={()=>setThemeId(t.id)} aria-label={`Select ${t.name} theme`} style={{
-              ...glassBase(20),padding:0,
-              border:active?`1px solid rgba(255,255,255,0.50)`:`1px solid ${G.border}`,
-              boxShadow:active?"0 16px 48px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.28)":G.shadow,
-              cursor:"pointer",borderRadius:18,overflow:"hidden",transition:"all 0.25s",
-            }}>
-              <div style={{height:56,background:t.bg,position:"relative",overflow:"hidden"}}>
-                {t.orbs.slice(0,2).map((o,i)=>(
-                  <div key={i} style={{position:"absolute",top:i===0?"-30%":"20%",left:i===0?"-10%":"52%",
-                    width:o.size*0.3,height:o.size*0.3,borderRadius:"50%",
-                    background:`radial-gradient(circle,${o.color} 0%,transparent 70%)`}}/>
-                ))}
-                {active&&<div style={{position:"absolute",top:8,right:8,width:20,height:20,borderRadius:"50%",
-                  background:"rgba(255,255,255,0.90)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  <Check size={12} color="#111" strokeWidth={2.5}/>
-                </div>}
-              </div>
-              <div style={{padding:"10px 14px 12px",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <span style={{fontSize:"1.25rem"}}>{t.emoji}</span>
-              </div>
-            </button>
-          );
-        })}
+      {/* ── Themes ── - reference section, defines visual width */}
+      <div style={sectionBlockStyle} className="settings-section-container">
+        <SLabel Icon={Palette} label={t.theme}/>
+        <div style={sectionGridStyle}>
+          {THEMES.map(th=>{
+            const active=th.id===themeId;
+            return(
+              <button key={th.id} onClick={()=>setThemeId(th.id)} aria-label={`Select ${th.name} theme`} style={{
+                ...glassBase(20),padding:0,
+                border:active?`1px solid rgba(255,255,255,0.50)`:`1px solid ${G.border}`,
+                boxShadow:active?"0 16px 48px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.28)":G.shadow,
+                cursor:"pointer",borderRadius:18,overflow:"hidden",transition:"all 0.25s",
+                boxSizing:"border-box",
+                flex:"0 0 auto",
+                // Prevent theme buttons from forcing container wider than parent
+                maxWidth:"100%",
+              }}>
+                <div style={{height:56,background:th.bg,position:"relative",overflow:"hidden"}}>
+                  {th.orbs.slice(0,2).map((o,i)=>(
+                    <div key={i} style={{position:"absolute",top:i===0?"-30%":"20%",left:i===0?"-10%":"52%",
+                      width:o.size*0.3,height:o.size*0.3,borderRadius:"50%",
+                      background:`radial-gradient(circle,${o.color} 0%,transparent 70%)`}}/>
+                  ))}
+                  {active&&<div style={{position:"absolute",top:8,right:8,width:20,height:20,borderRadius:"50%",
+                    background:"rgba(255,255,255,0.90)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <Check size={12} color="#111" strokeWidth={2.5}/>
+                  </div>}
+                </div>
+                <div style={{padding:"10px 14px 12px",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <span style={{fontSize:"1.25rem"}}>{th.emoji}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <SLabel Icon={LanguagesIcon} label={t.language}/>
-      <div style={{marginBottom:36}}>
-        <label htmlFor="lang-select" style={{display:"block",marginBottom:8,fontSize:"0.76rem",color:G.textSecondary}}>{t.selectLanguage}</label>
-        <select
-          id="lang-select"
-          value={language}
-          onChange={event=>onLanguageChange(event.target.value as Language)}
-          style={{width:"100%",padding:"12px 14px",borderRadius:12,border:`1px solid ${G.border}`,background:"rgba(255,255,255,0.06)",color:G.textPrimary,fontFamily:"inherit",fontSize:"0.86rem",outline:"none",colorScheme:"dark"}}
-        >
-          {LANGUAGE_OPTIONS.map(option=><option key={option.code} value={option.code} style={{background:"#17171d"}}>{option.nativeName}</option>)}
-        </select>
+      {/* ── Interface Language ── */}
+      <div style={sectionBlockStyle} className="settings-section-container">
+        <SLabel Icon={LanguagesIcon} label={t.language}/>
+        <div style={{width:"100%", maxWidth:"100%", boxSizing:"border-box", overflow:"hidden"}}>
+          <label htmlFor="lang-select" style={{display:"block",marginBottom:8,fontSize:"0.76rem",color:G.textSecondary, maxWidth:"100%", overflow:"hidden", textOverflow:"ellipsis"}}>{t.selectLanguage}</label>
+          <select
+            id="lang-select"
+            value={language}
+            onChange={event=>onLanguageChange(event.target.value as Language)}
+            style={{
+              width:"100%",
+              maxWidth:"100%",
+              boxSizing:"border-box",
+              padding:"12px 14px",
+              borderRadius:12,
+              border:`1px solid ${G.border}`,
+              background:"rgba(255,255,255,0.06)",
+              color:G.textPrimary,
+              fontFamily:"inherit",
+              fontSize:"0.86rem",
+              outline:"none",
+              colorScheme:"dark",
+              overflow:"hidden",
+              textOverflow:"ellipsis",
+            }}
+          >
+            {LANGUAGE_OPTIONS.map(option=><option key={option.code} value={option.code} style={{background:"#17171d"}}>{option.nativeName}</option>)}
+          </select>
+        </div>
       </div>
 
+      {/* ── Danger Zone ── */}
       {currentUser && (
-        <>
+        <div style={sectionBlockStyle} className="settings-section-container">
           <SLabel Icon={Trash2} label={t.danger}/>
           <div style={{
-            ...glassBase(20), padding:"18px 20px", borderRadius:18,
+            ...glassBase(20),
+            width:"100%",
+            maxWidth:"100%",
+            boxSizing:"border-box",
+            overflow:"hidden",
+            padding:"18px 20px",
+            borderRadius:18,
             border:"1px solid rgba(255,100,100,0.28)",
             background:"rgba(145,20,35,0.13)",
           }}>
-            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:16}}>
-              <div>
-                <p style={{margin:0,fontWeight:700,fontSize:"0.92rem",color:"rgba(255,190,190,0.98)"}}>{t.deleteAccount}</p>
-                <p style={{margin:"5px 0 0",fontSize:"0.76rem",lineHeight:1.55,color:"rgba(255,220,220,0.62)"}}>
+            <div style={{
+              display:"flex",
+              flexWrap:"wrap",
+              alignItems:"flex-start",
+              justifyContent:"space-between",
+              gap:16,
+              width:"100%",
+              maxWidth:"100%",
+              boxSizing:"border-box",
+            }}>
+              <div style={{flex:"1 1 180px", minWidth:0, maxWidth:"100%", boxSizing:"border-box", overflow:"hidden"}}>
+                <p style={{margin:0,fontWeight:700,fontSize:"0.92rem",color:"rgba(255,190,190,0.98)", maxWidth:"100%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{t.deleteAccount}</p>
+                <p style={{margin:"5px 0 0",fontSize:"0.76rem",lineHeight:1.55,color:"rgba(255,220,220,0.62)", maxWidth:"100%", overflow:"hidden", display:"-webkit-box", WebkitLineClamp:3, WebkitBoxOrient:"vertical" as any, wordBreak:"break-word"}}>
                   {t.deleteDescription}
                 </p>
               </div>
@@ -1912,10 +2008,15 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
                 border:"1px solid rgba(255,105,105,0.55)", background:"rgba(230,55,65,0.20)",
                 color:"rgba(255,210,210,0.98)", cursor:"pointer", fontFamily:"inherit",
                 fontSize:"0.76rem", fontWeight:700,
+                maxWidth:"100%",
+                boxSizing:"border-box",
+                whiteSpace:"nowrap",
+                overflow:"hidden",
+                textOverflow:"ellipsis",
               }}>{t.deleteAccount}</button>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {deleteDialogOpen && currentUser && (
@@ -1927,7 +2028,6 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
         />
       )}
     </div>
-
   );
 }
 
@@ -2023,20 +2123,31 @@ function DeleteAccountModal({email,onClose,onDelete,translations}:{
   );
 }
 
-/* ── Logged-in account card ── */
+/* ── Logged-in account card ── - now strictly constrained to parent width */
 function AccountCard({user,onLogout,translations}:{user:AuthUser;onLogout:()=>void;translations:Translation}){
   const t = translations;
   return(
-    <div style={{...glassBase(20),padding:"18px 20px",display:"flex",alignItems:"center",gap:16,borderRadius:18}}>
+    <div style={{
+      ...glassBase(20),
+      width:"100%",
+      maxWidth:"100%",
+      boxSizing:"border-box",
+      overflow:"hidden",
+      padding:"18px 20px",
+      display:"flex",
+      alignItems:"center",
+      gap:16,
+      borderRadius:18
+    }}>
       <div style={{width:44,height:44,borderRadius:"50%",background:"rgba(255,255,255,0.12)",
         border:`1px solid ${G.border}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
         <User size={20} color={G.textPrimary} strokeWidth={1.5}/>
       </div>
-      <div style={{flex:1,minWidth:0}}>
+      <div style={{flex:"1 1 auto",minWidth:0, maxWidth:"100%", overflow:"hidden", boxSizing:"border-box"}}>
         <p style={{margin:0,fontWeight:700,fontSize:"0.92rem",color:G.textPrimary,
-          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.name}</p>
+          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap", maxWidth:"100%"}}>{user.name}</p>
         <p style={{margin:"2px 0 0",fontSize:"0.74rem",color:G.textMuted,
-          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.email}</p>
+          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap", maxWidth:"100%"}}>{user.email}</p>
       </div>
       <div title={t.synced} aria-label={t.synced} style={{display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
         width:36,height:36,borderRadius:10,background:"rgba(0,200,80,0.10)",
@@ -2046,6 +2157,7 @@ function AccountCard({user,onLogout,translations}:{user:AuthUser;onLogout:()=>vo
       <button onClick={onLogout} title={t.logout} style={{
         ...glassBase(12),width:36,height:36,borderRadius:10,border:"none",cursor:"pointer",
         display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
+        boxSizing:"border-box",
       }}>
         <LogOut size={15} color={G.textSecondary}/>
       </button>
@@ -2091,15 +2203,34 @@ function AuthPanel({onLogin}:{onLogin:(u:AuthUser)=>void}){
   };
 
   const inputStyle: React.CSSProperties = {
-    width:"100%",background:"rgba(255,255,255,0.04)",border:`1px solid ${G.border}`,
-    borderRadius:12,padding:"11px 14px",outline:"none",fontFamily:"inherit",
-    fontSize:"0.88rem",color:G.textPrimary,transition:"border-color 0.2s",
+    width:"100%",
+    maxWidth:"100%",
+    boxSizing:"border-box",
+    background:"rgba(255,255,255,0.04)",
+    border:`1px solid ${G.border}`,
+    borderRadius:12,
+    padding:"11px 14px",
+    outline:"none",
+    fontFamily:"inherit",
+    fontSize:"0.88rem",
+    color:G.textPrimary,
+    transition:"border-color 0.2s",
+    overflow:"hidden",
+    textOverflow:"ellipsis",
   };
 
   return(
-    <div style={{...glassBase(20),padding:"22px 24px",borderRadius:20}}>
+    <div style={{
+      ...glassBase(20),
+      width:"100%",
+      maxWidth:"100%",
+      boxSizing:"border-box",
+      overflow:"hidden",
+      padding:"22px 24px",
+      borderRadius:20
+    }}>
       {/* Tab row */}
-      <div style={{display:"flex",gap:8,marginBottom:22}}>
+      <div style={{display:"flex",gap:8,marginBottom:22, width:"100%", maxWidth:"100%", boxSizing:"border-box", overflow:"hidden"}}>
         {(["login","register"] as const).map(m=>(
           <button key={m} onClick={()=>{setMode(m);setErr("");setOk(false);}} style={{
             flex:1,padding:"9px 0",borderRadius:12,border:"none",cursor:"pointer",
@@ -2116,7 +2247,7 @@ function AuthPanel({onLogin}:{onLogin:(u:AuthUser)=>void}){
 
       <form
         onSubmit={event => { event.preventDefault(); void submit(); }}
-        style={{display:"flex",flexDirection:"column",gap:12}}
+        style={{display:"flex",flexDirection:"column",gap:12, width:"100%", maxWidth:"100%", boxSizing:"border-box", overflow:"hidden"}}
       >
         {mode==="register"&&(
           <input
