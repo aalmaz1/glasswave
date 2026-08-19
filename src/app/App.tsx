@@ -528,14 +528,21 @@ function fbError(err: any, t: Translation): string {
     case "auth/email-already-in-use": return t.authErrEmailUsed;
     case "auth/invalid-email": return t.authErrInvalidEmail;
     case "auth/weak-password": return t.authErrWeakPw;
-    case "auth/operation-not-allowed": return t.authErrNotAllowed;
+    case "auth/operation-not-allowed":
+    case "auth/admin-restricted-operation": return t.authErrNotAllowed;
+    case "auth/unauthorized-domain": return t.authErrUnauthorizedDomain;
+    case "auth/network-request-failed": return t.authErrNetwork;
+    case "auth/invalid-api-key":
+    case "auth/api-key-not-valid.-please-pass-a-valid-api-key.":
+    case "auth/app-not-authorized":
+    case "auth/configuration-not-found": return t.authErrInvalidApiKey;
     case "auth/too-many-requests": return t.authErrTooMany;
     default: return t.authErrGeneric;
   }
 }
 
 async function authRegister(email: string, name: string, pw: string, t: Translation): Promise<string | null> {
-  if (!hasFirebaseConfig || !auth) return t.authErrNotAllowed;
+  if (!hasFirebaseConfig || !auth) return t.authErrNotConfigured;
   email = email.trim().toLowerCase();
   if (!email.includes("@")) return t.authErrInvalidEmail;
   if (name.trim().length < 2) return t.authErrNameShort;
@@ -552,7 +559,7 @@ async function authRegister(email: string, name: string, pw: string, t: Translat
 }
 
 async function authResetPassword(email: string, t: Translation): Promise<string | null> {
-  if (!hasFirebaseConfig || !auth) return t.authErrResetGeneric;
+  if (!hasFirebaseConfig || !auth) return t.authErrNotConfigured;
   email = email.trim().toLowerCase();
   if (!email.includes("@")) return t.authErrInvalidEmail;
   try {
@@ -565,7 +572,7 @@ async function authResetPassword(email: string, t: Translation): Promise<string 
 }
 
 async function authLogin(email: string, pw: string, t: Translation): Promise<string | null> {
-  if (!hasFirebaseConfig || !auth) return t.authErrNotAllowed;
+  if (!hasFirebaseConfig || !auth) return t.authErrNotConfigured;
   email = email.trim().toLowerCase();
   if (!email || !pw) return t.authErrEmailPassRequired;
   try { await signInWithEmailAndPassword(auth, email, pw); return null; }
@@ -2034,6 +2041,16 @@ function AuthPanel() {
     border: `1px solid ${G.border}`, borderRadius: 12, padding: "11px 14px",
     outline: "none", fontFamily: "inherit", fontSize: "0.88rem", color: G.textPrimary,
   };
+
+  if (!hasFirebaseConfig) {
+    return (
+      <div style={{ ...glassBase(20), padding: "22px 24px", borderRadius: 20 }}>
+        <p role="alert" style={{ margin: 0, fontSize: "0.82rem", color: "rgba(255,160,160,0.95)", lineHeight: 1.55 }}>
+          {t.authErrNotConfigured}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ ...glassBase(20), padding: "22px 24px", borderRadius: 20 }}>

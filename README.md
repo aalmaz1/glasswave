@@ -80,20 +80,22 @@ cd glasswave
 
 #### 2. Firebase Setup
 
-Create a `.env` file in the project root. A ready-made template is available as
-[`.env.example`](.env.example):
+The web app is preconfigured for the official **`glasswave-4f5da`** project
+(Email/Password sign-in). You do **not** need a `.env` file to log in.
 
-```env
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-```
+To point a fork or staging build at another project, copy [`.env.example`](.env.example)
+to `.env` and set all six `VITE_FIREBASE_*` values from **that** project's
+Firebase console (Project settings → Your apps → Web). Mixing keys from two
+projects is the usual cause of `auth/operation-not-allowed`.
 
-All six variables are **required**. If any are missing, the web app shows a
-configuration error instead of connecting to an unrelated project.
+If you do override the config:
+
+- Enable **Email/Password** (the password provider — not Email link) under
+  Authentication → Sign-in method.
+- Add every host you serve the app from to Authentication → Settings →
+  Authorized domains (`localhost` is already allowed).
+- Do **not** set `VITE_FIREBASE_AUTH_EMULATOR` unless the Auth emulator is
+  actually running.
 
 > ⚠️ **Important**: Do not commit the `.env` file to the repository! It's already added to `.gitignore`.
 
