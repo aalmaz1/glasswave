@@ -29,7 +29,6 @@ import {
   setDoc,
   updateDoc,
   where,
-  orderBy,
   type Query,
 } from "firebase/firestore";
 import {
@@ -438,15 +437,16 @@ function noteFromFirestore(data: FirestoreNote & { firestoreId: string }): Note 
 }
 
 function buildNotesQuery(ownerUid: string): Query<FirestoreNote> {
-  // NOTE: requires a composite Firestore index (ownerUid ASC, updatedAt DESC).
-  // Firebase will return an error with a one-click URL to create it on first use.
+  // A `where(ownerUid) + orderBy(updatedAt)` query requires a composite
+  // Firestore index. Loading the list then fails completely until that index
+  // has been created in every Firebase project. Keep this query on Firestore's
+  // built-in single-field index and sort the bounded result in the client.
   return query(
     collection(db, NOTES_COLLECTION).withConverter<FirestoreNote>({
       toFirestore: (data) => data as any,
       fromFirestore: (snap) => snap.data() as FirestoreNote,
     }),
     where("ownerUid", "==", ownerUid),
-    orderBy("updatedAt", "desc"),
     limit(NOTES_FETCH_LIMIT)
   );
 }
@@ -713,6 +713,8 @@ export default function App() {
     return saved && saved.length ? saved : getFallbackNotes();
   });
   const [rssLoadedOnce, setRssLoadedOnce] = useState(false);
+  const [notesQueryVersion, setNotesQueryVersion] = useState(0);
+  const [noteSyncError, setNoteSyncError] = useState<string | null>(null);
 
   const width = useWidth();
   const isMobile = width < 768;
@@ -759,10 +761,10 @@ export default function App() {
 
   const notesQuery = useMemo(
     () => currentUser ? buildNotesQuery(currentUser.uid) : null,
-    [currentUser]
+    [currentUser, notesQueryVersion]
   );
 
-  const { data: firestoreData, loading: notesLoading } = useFirestoreQuery<FirestoreNote>(
+  const { data: firestoreData, loading: notesLoading, error: notesError } = useFirestoreQuery<FirestoreNote>(
     () => notesQuery,
     [notesQuery]
   );
@@ -771,7 +773,11 @@ export default function App() {
     if (!currentUser) return localNotes;
     if (!firestoreData) return [];
     const list = Array.isArray(firestoreData) ? firestoreData : [];
-    return list.map(n => noteFromFirestore(n as FirestoreNote & { firestoreId: string }));
+    // The Firestore request deliberately has no `orderBy` (see
+    // buildNotesQuery), so preserve the previous newest-updated-first UX here.
+    return list
+      .map(n => noteFromFirestore(n as FirestoreNote & { firestoreId: string }))
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime() || b.id - a.id);
   }, [currentUser, firestoreData, localNotes]);
 
   const filtered = useMemo(() => {
@@ -847,8 +853,24 @@ export default function App() {
   }, []);
   const closeEd = useCallback(() => { setEditing(null); setCreating(false); }, []);
 
-  const save = useCallback(async () => {
+  /**
+   * Firestore immediately applies writes to its persistent local cache, but the
+   * returned promise settles only after the backend acknowledges it. Waiting
+   * for that acknowledgement leaves the editor open indefinitely offline even
+   * though the note is safely queued for sync. Queue the write instead; its
+   * local snapshot updates the list right away and a rejected write is shown.
+   */
+  const enqueueNoteWrite = useCallback((write: Promise<unknown>) => {
+    setNoteSyncError(null);
+    void write.catch(error => {
+      console.error("Could not synchronize note.", error);
+      setNoteSyncError(t.noteSyncError);
+    });
+  }, [t]);
+
+  const save = useCallback(() => {
     if (!draftT.trim() && !draftB.trim()) { closeEd(); return; }
+    setNoteSyncError(null);
     if (!currentUser) {
       const title = draftT || t.untitled;
       if (editing) {
@@ -876,22 +898,24 @@ export default function App() {
       trashed: editing?.trashed ?? false,
       reminder: editing?.reminder ?? null,
     };
-    await writeNoteToFirestore(payload, currentUser.uid);
+    enqueueNoteWrite(writeNoteToFirestore(payload, currentUser.uid));
     closeEd();
-  }, [draftT, draftB, currentUser, editing, t, theme.accents.length, closeEd]);
+  }, [draftT, draftB, currentUser, editing, t, theme.accents.length, closeEd, enqueueNoteWrite]);
 
-  const mutNote = useCallback(async (id: number, patch: Partial<Note>) => {
+  const mutNote = useCallback((id: number, patch: Partial<Note>) => {
     if (!currentUser) {
+      setNoteSyncError(null);
       setLocalNotes(prev => prev.map(n => n.id === id ? { ...n, ...patch, updatedAt: new Date() } : n));
       return;
     }
     const note = allNotes.find(n => n.id === id);
     if (!note) return;
-    await patchNoteInFirestore(note, patch, currentUser.uid);
-  }, [currentUser, allNotes]);
+    enqueueNoteWrite(patchNoteInFirestore(note, patch, currentUser.uid));
+  }, [currentUser, allNotes, enqueueNoteWrite]);
 
-  const deleteOrRestoreNote = useCallback(async (note: Note) => {
+  const deleteOrRestoreNote = useCallback((note: Note) => {
     if (!currentUser) {
+      setNoteSyncError(null);
       if (tab === "trash" && note.trashed) {
         setLocalNotes(prev => prev.filter(n => n.id !== note.id));
       } else {
@@ -901,9 +925,9 @@ export default function App() {
       return;
     }
     if (!note.firestoreId) return;
-    if (tab === "trash" && note.trashed) await deleteNoteFromFirestore(note);
-    else await patchNoteInFirestore(note, { trashed: !note.trashed, archived: false }, currentUser.uid);
-  }, [currentUser, tab]);
+    if (tab === "trash" && note.trashed) enqueueNoteWrite(deleteNoteFromFirestore(note));
+    else enqueueNoteWrite(patchNoteInFirestore(note, { trashed: !note.trashed, archived: false }, currentUser.uid));
+  }, [currentUser, tab, enqueueNoteWrite]);
 
   useEffect(() => {
     return listenNativeBackButton(() => {
@@ -992,7 +1016,8 @@ export default function App() {
               }}
               onScroll={e => setScrollY((e.target as HTMLDivElement).scrollTop)}
             >
-              {(currentUser && notesLoading) ? <LoadingState t={t} /> :
+              {(currentUser && notesError) ? <NotesLoadError onRetry={() => setNotesQueryVersion(v => v + 1)} t={t} /> :
+                (currentUser && notesLoading) ? <LoadingState t={t} /> :
                 filtered.length === 0 ? <EmptyState tab={tab} search={search} t={t} /> :
                 <GridView
                   pinned={pinned} unpinned={unpinned} cols={cols}
@@ -1038,6 +1063,10 @@ export default function App() {
           isMobile={isMobile} isTablet={isTablet}
           language={language} t={t}
         />
+      )}
+
+      {noteSyncError && (
+        <NoteSyncError message={noteSyncError} closeLabel={t.close} onDismiss={() => setNoteSyncError(null)} />
       )}
     </div>
   );
@@ -1216,6 +1245,47 @@ function MiniAction({ children, onClick, title }: { children: ReactNode; onClick
     }}>
       {children}
     </button>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   FIRESTORE FEEDBACK
+   ════════════════════════════════════════════════════════════════════ */
+function NoteSyncError({ message, closeLabel, onDismiss }: { message: string; closeLabel: string; onDismiss: () => void }) {
+  return (
+    <div role="alert" aria-live="assertive" style={{
+      position: "fixed", zIndex: 70, top: "calc(86px + env(safe-area-inset-top, 0px))", left: "50%",
+      transform: "translateX(-50%)", width: "min(460px, calc(100% - 32px))",
+      ...glassBase(20), display: "flex", alignItems: "center", gap: 10, padding: "11px 12px 11px 14px",
+      border: "1px solid rgba(255,130,130,0.42)", background: "rgba(100,22,30,0.78)",
+    }}>
+      <X size={16} color="rgba(255,205,205,0.95)" aria-hidden="true" />
+      <span style={{ flex: 1, color: "rgba(255,235,235,0.98)", fontSize: "0.77rem", lineHeight: 1.45 }}>{message}</span>
+      <button type="button" onClick={onDismiss} aria-label={closeLabel} style={{
+        display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
+        border: "none", borderRadius: 8, cursor: "pointer", color: G.textPrimary, background: "rgba(255,255,255,0.10)",
+      }}>
+        <X size={14} />
+      </button>
+    </div>
+  );
+}
+
+function NotesLoadError({ onRetry, t }: { onRetry: () => void; t: Translation }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 260, gap: 14, textAlign: "center" }}>
+      <div style={{ ...glassBase(16), width: 52, height: 52, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <FileText size={22} color="rgba(255,170,170,0.78)" />
+      </div>
+      <p style={{ maxWidth: 360, color: G.textSecondary, fontSize: "0.84rem", lineHeight: 1.5, margin: 0 }}>{t.notesLoadError}</p>
+      <button type="button" onClick={onRetry} style={{
+        ...glassBase(14), display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 14px",
+        borderRadius: 11, cursor: "pointer", fontFamily: "inherit", color: G.textPrimary, fontSize: "0.78rem", fontWeight: 600,
+      }}>
+        <RefreshCw size={14} />
+        {t.retry}
+      </button>
+    </div>
   );
 }
 
