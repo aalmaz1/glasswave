@@ -47,6 +47,12 @@ jobs:
         # Gate the release on the compiler so broken TS never ships as an APK.
         run: npm run typecheck
 
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
       - name: Decode release keystore (if configured)
         run: |
           if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
