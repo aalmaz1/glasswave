@@ -45,10 +45,18 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
     }
   }
 
+  String _dateLocale(String langCode) {
+    switch (langCode) {
+      case 'ru': return 'ru_RU';
+      case 'ko': return 'ko_KR';
+      default: return 'en_US';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final locale = context.locale.languageCode;
-    final dateLocale = locale == 'ru' ? 'ru_RU' : 'en_US';
+    final dateLocale = _dateLocale(locale);
 
     return Dialog(
       backgroundColor: Colors.transparent,

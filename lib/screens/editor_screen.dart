@@ -21,7 +21,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
   late FocusNode _bodyFocusNode;
-  final bool _isPreview = false;
+  bool _isPreview = false;
 
   @override
   void initState() {
@@ -128,13 +128,22 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   int get _wordCount => _bodyController.text.trim().isEmpty ? 0 : _bodyController.text.trim().split(RegExp(r'\s+')).length;
 
+  String _dateLocale(String langCode) {
+    switch (langCode) {
+      case 'ru': return 'ru_RU';
+      case 'ko': return 'ko_KR';
+      default: return 'en_US';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final prefs = ref.watch(themeProvider);
     final theme = allThemes.firstWhere((t) => t.id == prefs.themeId);
     final localeCode = context.locale.languageCode;
-    
-    final today = DateFormat("d MMMM yyyy", localeCode == 'ru' ? 'ru_RU' : 'en_US').format(DateTime.now());
+    final dateLocale = _dateLocale(localeCode);
+
+    final today = DateFormat("d MMMM yyyy", dateLocale).format(DateTime.now());
     final width = MediaQuery.of(context).size.width;
 
     double modalWidth = width;
@@ -185,11 +194,17 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                         Text(widget.note == null ? tr('editor_new') : tr('editor_edit'), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
                         Row(
                           children: [
+                            _headerAction(
+                              _isPreview ? LucideIcons.pencil : LucideIcons.eye,
+                              _isPreview ? tr('editor_edit_mode') : tr('editor_preview'),
+                              () => setState(() => _isPreview = !_isPreview),
+                            ),
                             if (width >= 768)
                               Padding(
-                                padding: const EdgeInsets.only(right: 12),
+                                padding: const EdgeInsets.only(left: 12),
                                 child: Text("⌘S · Esc", style: TextStyle(color: Colors.white.withValues(alpha: 0.15), fontSize: 10, fontFamily: 'monospace')),
                               ),
+                            const SizedBox(width: 8),
                             _headerAction(LucideIcons.check, tr('editor_save'), _save, highlight: true),
                           ],
                         ),
@@ -203,16 +218,23 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          TextField(
-                            controller: _titleController,
-                            autofocus: true,
-                            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w300),
-                            decoration: InputDecoration(
-                              hintText: tr('editor_title'),
-                              hintStyle: const TextStyle(color: Colors.white24),
-                              border: InputBorder.none,
+                          if (!_isPreview)
+                            TextField(
+                              controller: _titleController,
+                              autofocus: true,
+                              style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w300),
+                              decoration: InputDecoration(
+                                hintText: tr('editor_title'),
+                                hintStyle: const TextStyle(color: Colors.white24),
+                                border: InputBorder.none,
+                              ),
+                            )
+                          else
+                            Text(
+                              _titleController.text.trim().isEmpty ? tr('editor_no_title') : _titleController.text.trim(),
+                              style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w300),
                             ),
-                          ),
+                          const SizedBox(height: 8),
                           Row(
                             children: [
                               const Icon(LucideIcons.clock, size: 10, color: Colors.white30),
@@ -228,14 +250,18 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                           ),
                           const Divider(color: Colors.white10, height: 32),
                           Expanded(
-                            child: _isPreview 
+                            child: _isPreview
                               ? Markdown(
                                   data: _bodyController.text,
+                                  selectable: true,
                                   styleSheet: MarkdownStyleSheet(
                                     p: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 16, height: 1.75),
                                     h1: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                                    h2: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                                    h3: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
                                     strong: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                                     em: const TextStyle(color: Colors.white, fontStyle: FontStyle.italic),
+                                    code: TextStyle(color: Colors.white.withValues(alpha: 0.8), backgroundColor: Colors.white.withValues(alpha: 0.08), fontFamily: 'monospace'),
                                     listBullet: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
                                   ),
                                 )
@@ -243,6 +269,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                                   controller: _bodyController,
                                   focusNode: _bodyFocusNode,
                                   maxLines: null,
+                                  expands: false,
+                                  keyboardType: TextInputType.multiline,
                                   style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 16, height: 1.75, fontFamily: 'Inter'),
                                   decoration: InputDecoration(
                                     hintText: tr('editor_body'),
@@ -298,9 +326,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         children: [
           _fmtBtn("B", () => _insertFormat("**", "**")),
           _fmtBtn("I", () => _insertFormat("_", "_")),
+          _fmtBtn("S", () => _insertFormat("~~", "~~")),
           _fmtBtn("UL", () => _toggleLinePrefix("- ")),
           _fmtBtn("OL", () => _toggleLinePrefix("1. ")),
           _fmtBtn("H1", () => _toggleLinePrefix("# ")),
+          _fmtBtn("H2", () => _toggleLinePrefix("## ")),
           IconButton(
             onPressed: () => _insertFormat("[", "](url)"),
             icon: const Icon(LucideIcons.link2, size: 14, color: Colors.white30),

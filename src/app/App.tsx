@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import type { CSSProperties, ReactNode, FC } from "react";
 import {
   Plus, Archive, Trash2, FileText,
   X, Hash, Clock, Check, LogOut,
@@ -8,7 +9,10 @@ import {
 } from "lucide-react";
 import { RichTextEditor } from "./components/RichTextEditor";
 import { useTheme } from "./hooks/useTheme";
-import { useTranslation, LANGUAGE_OPTIONS, type Language, type Translation } from "../i18n";
+import {
+  useTranslation, TRANSLATIONS, themeNameByLang,
+  type Language, type Translation,
+} from "../i18n";
 import { listenNativeBackButton } from "../native";
 import {
   addDoc,
@@ -24,6 +28,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  orderBy,
 } from "firebase/firestore";
 import {
   createUserWithEmailAndPassword,
@@ -55,31 +60,33 @@ const G = {
   overlay:       "rgba(0,0,0,0.50)",
 };
 
-function glassBase(blur = 24): React.CSSProperties {
+function glassBase(blur = 24): CSSProperties {
   return {
-    background:           G.bg,
-    backdropFilter:       `blur(${blur}px)`,
+    background: G.bg,
+    backdropFilter: `blur(${blur}px)`,
     WebkitBackdropFilter: `blur(${blur}px)`,
-    border:               `1px solid ${G.border}`,
-    boxShadow:            G.shadow,
-    borderRadius:         G.radius,
+    border: `1px solid ${G.border}`,
+    boxShadow: G.shadow,
+    borderRadius: G.radius,
   };
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   THEMES  (8 total)
+   THEMES (12 total)
    ════════════════════════════════════════════════════════════════════ */
-type ThemeId = "sunset" | "ice" | "mono" | "cyber" | "aurora" | "rose" | "cosmos" | "forest"
-             | "obsidian" | "graphite" | "midnight" | "espresso";
+type ThemeId =
+  | "sunset" | "ice" | "mono" | "cyber" | "aurora" | "rose" | "cosmos" | "forest"
+  | "obsidian" | "graphite" | "midnight" | "espresso";
+
 type Theme = {
-  id: ThemeId; name: string; emoji: string; bg: string;
+  id: ThemeId; nameKey: keyof Translation; emoji: string; bg: string;
   orbs: { color: string; size: number; top: string; left: string }[];
   accents: string[];
 };
 
 const THEMES: Theme[] = [
   {
-    id:"sunset", name:"Тёплый закат", emoji:"🌅",
+    id:"sunset", nameKey:"themeSunset", emoji:"🌅",
     bg:"linear-gradient(145deg,#130500 0%,#2E0C00 28%,#4A1400 52%,#6B1E00 75%,#8A2800 100%)",
     orbs:[
       {color:"rgba(255,110,20,0.22)", size:680,top:"-18%",left:"-10%"},
@@ -90,7 +97,7 @@ const THEMES: Theme[] = [
     accents:["rgba(255,150,50,0.09)","rgba(255,90,30,0.08)","rgba(240,190,60,0.07)","rgba(210,70,10,0.08)"],
   },
   {
-    id:"ice", name:"Ледяная свежесть", emoji:"🧊",
+    id:"ice", nameKey:"themeIce", emoji:"🧊",
     bg:"linear-gradient(145deg,#00080F 0%,#001525 30%,#002440 58%,#003658 80%,#004870 100%)",
     orbs:[
       {color:"rgba(0,180,230,0.18)",  size:620,top:"-12%",left:"-8%"},
@@ -101,7 +108,7 @@ const THEMES: Theme[] = [
     accents:["rgba(40,200,255,0.08)","rgba(0,180,200,0.08)","rgba(80,170,255,0.07)","rgba(0,150,210,0.08)"],
   },
   {
-    id:"mono", name:"Монохром", emoji:"🪨",
+    id:"mono", nameKey:"themeMono", emoji:"🪨",
     bg:"linear-gradient(150deg,#0E0E10 0%,#141416 35%,#1A1A1C 65%,#111113 100%)",
     orbs:[
       {color:"rgba(200,200,220,0.07)", size:700,top:"-15%",left:"-8%"},
@@ -111,7 +118,7 @@ const THEMES: Theme[] = [
     accents:["rgba(220,220,240,0.07)","rgba(150,160,255,0.06)","rgba(255,150,200,0.05)","rgba(190,190,210,0.06)"],
   },
   {
-    id:"cyber", name:"Кибер-закат", emoji:"🌺",
+    id:"cyber", nameKey:"themeCyber", emoji:"🌺",
     bg:"linear-gradient(140deg,#001212 0%,#002828 30%,#004040 55%,#003535 70%,#380A20 100%)",
     orbs:[
       {color:"rgba(0,220,200,0.20)",  size:600,top:"-12%",left:"-7%"},
@@ -122,7 +129,7 @@ const THEMES: Theme[] = [
     accents:["rgba(0,230,210,0.08)","rgba(210,40,110,0.08)","rgba(0,200,190,0.07)","rgba(180,30,100,0.07)"],
   },
   {
-    id:"aurora", name:"Северное сияние", emoji:"🌌",
+    id:"aurora", nameKey:"themeAurora", emoji:"🌌",
     bg:"linear-gradient(155deg,#010806 0%,#031A0E 28%,#051828 55%,#090B22 80%,#06041A 100%)",
     orbs:[
       {color:"rgba(0,240,120,0.18)",  size:660,top:"-16%",left:"-9%"},
@@ -134,7 +141,7 @@ const THEMES: Theme[] = [
     accents:["rgba(0,255,130,0.07)","rgba(80,50,255,0.07)","rgba(0,210,180,0.07)","rgba(100,255,190,0.06)"],
   },
   {
-    id:"rose", name:"Полночная роза", emoji:"🥀",
+    id:"rose", nameKey:"themeRose", emoji:"🥀",
     bg:"linear-gradient(145deg,#0A0005 0%,#180008 32%,#260010 60%,#180018 82%,#0E000C 100%)",
     orbs:[
       {color:"rgba(230,0,80,0.22)",   size:620,top:"-14%",left:"-8%"},
@@ -145,7 +152,7 @@ const THEMES: Theme[] = [
     accents:["rgba(255,50,110,0.08)","rgba(210,0,150,0.08)","rgba(190,0,255,0.07)","rgba(255,100,170,0.07)"],
   },
   {
-    id:"cosmos", name:"Глубокий космос", emoji:"🔭",
+    id:"cosmos", nameKey:"themeCosmos", emoji:"🔭",
     bg:"linear-gradient(148deg,#020008 0%,#08001E 32%,#110030 60%,#08001A 82%,#030010 100%)",
     orbs:[
       {color:"rgba(110,0,255,0.20)",  size:640,top:"-15%",left:"-8%"},
@@ -157,7 +164,7 @@ const THEMES: Theme[] = [
     accents:["rgba(130,50,255,0.08)","rgba(190,70,255,0.07)","rgba(255,130,255,0.06)","rgba(90,0,210,0.08)"],
   },
   {
-    id:"forest", name:"Тёмный лес", emoji:"🌲",
+    id:"forest", nameKey:"themeForest", emoji:"🌲",
     bg:"linear-gradient(145deg,#010602 0%,#030E05 30%,#061808 58%,#081E0A 80%,#040C06 100%)",
     orbs:[
       {color:"rgba(0,190,55,0.17)",   size:620,top:"-13%",left:"-7%"},
@@ -167,10 +174,7 @@ const THEMES: Theme[] = [
     ],
     accents:["rgba(0,210,75,0.07)","rgba(50,190,60,0.07)","rgba(130,255,70,0.06)","rgba(0,150,55,0.07)"],
   },
-  /* ── DARK SOLID / TONAL THEMES ───────────────────────────────────── */
-  {
-    id:"obsidian", name:"Обсидиан", emoji:"🪬",
-    /* Real obsidian: volcanic glass, deep black with a blue-green subsurface sheen */
+  { id:"obsidian", nameKey:"themeObsidian", emoji:"🪬",
     bg:"linear-gradient(158deg,#08080C 0%,#0C0C12 35%,#090B10 65%,#07070A 100%)",
     orbs:[
       {color:"rgba(40,60,140,0.22)",  size:800,top:"-25%",left:"-15%"},
@@ -180,9 +184,7 @@ const THEMES: Theme[] = [
     ],
     accents:["rgba(60,80,200,0.06)","rgba(40,60,180,0.06)","rgba(80,100,220,0.05)","rgba(30,50,160,0.06)"],
   },
-  {
-    id:"graphite", name:"Графит", emoji:"🩶",
-    /* Premium carbon: cool dark with subtle warm-neutral variation */
+  { id:"graphite", nameKey:"themeGraphite", emoji:"🩶",
     bg:"linear-gradient(152deg,#111113 0%,#161618 38%,#191919 62%,#111112 100%)",
     orbs:[
       {color:"rgba(180,185,210,0.10)", size:750,top:"-20%",left:"-12%"},
@@ -192,9 +194,7 @@ const THEMES: Theme[] = [
     ],
     accents:["rgba(210,215,235,0.06)","rgba(160,165,200,0.06)","rgba(130,135,185,0.05)","rgba(185,190,215,0.05)"],
   },
-  {
-    id:"midnight", name:"Полночь", emoji:"🌑",
-    /* Deep night sky: rich dark navy, no moon */
+  { id:"midnight", nameKey:"themeMidnight", emoji:"🌑",
     bg:"linear-gradient(148deg,#040610 0%,#080C1C 32%,#0C1028 60%,#070A1A 82%,#040610 100%)",
     orbs:[
       {color:"rgba(30,50,160,0.25)",  size:720,top:"-20%",left:"-12%"},
@@ -204,9 +204,7 @@ const THEMES: Theme[] = [
     ],
     accents:["rgba(80,110,255,0.07)","rgba(60,90,230,0.07)","rgba(50,80,210,0.06)","rgba(100,130,255,0.06)"],
   },
-  {
-    id:"espresso", name:"Эспрессо", emoji:"☕",
-    /* Freshly brewed: deep warm brown with golden crema undertones */
+  { id:"espresso", nameKey:"themeEspresso", emoji:"☕",
     bg:"linear-gradient(150deg,#0E0804 0%,#160C05 32%,#1C1008 60%,#140B06 82%,#0D0703 100%)",
     orbs:[
       {color:"rgba(160,80,10,0.22)",  size:700,top:"-18%",left:"-10%"},
@@ -221,7 +219,8 @@ const THEMES: Theme[] = [
 /* ════════════════════════════════════════════════════════════════════
    GLOBAL CSS
    ════════════════════════════════════════════════════════════════════ */
-const CSS = `
+function buildCSS(): string {
+  return `
   *,*::before,*::after{box-sizing:border-box;}
 
   .card{
@@ -247,36 +246,29 @@ const CSS = `
     -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
     -webkit-mask-composite:xor;mask-composite:exclude;transition:background 0.28s;
   }
-  .card:hover .glass-ring{
-    background:linear-gradient(160deg,rgba(255,255,255,0.60) 0%,rgba(255,255,255,0.14) 45%,rgba(255,255,255,0.02) 100%);
-  }
-
+  .card:hover .glass-ring{background:linear-gradient(160deg,rgba(255,255,255,0.60) 0%,rgba(255,255,255,0.14) 45%,rgba(255,255,255,0.02) 100%);}
   .glass-sheen{
     position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:9;
     background:linear-gradient(45deg,rgba(255,255,255,0.06) 0%,transparent 50%,rgba(255,255,255,0.03) 100%);
     opacity:0.6;transition:opacity 0.28s;
   }
   .card:hover .glass-sheen{opacity:1;}
-
-  .card-accent{
-    position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:8;transition:filter 0.28s;
-  }
+  .card-accent{position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:8;transition:filter 0.28s;}
   .card:hover .card-accent{filter:brightness(1.6);}
 
   .card-actions{opacity:0;transition:opacity 0.20s;}
   .card:hover .card-actions{opacity:1;}
   .actions-always{opacity:1!important;}
 
-  .card-pin{opacity:0;transform:scale(0.75);transition:opacity 0.20s,transform 0.20s;}
-  .card:hover .card-pin,.card-pin.pinned{opacity:1;transform:scale(1);}
+  /* Pin button: ALWAYS visible (fixes mobile pin issue) */
+  .card-pin{opacity:1;transform:scale(1);transition:opacity 0.20s,transform 0.20s,background 0.20s;}
+  .card-pin:hover{background:rgba(255,255,255,0.10);border-radius:6px;}
+  .card-pin.pinned{color:rgba(255,255,255,0.90);}
 
   input[type="datetime-local"]{color-scheme:dark;}
   input[type="datetime-local"]:focus{border-color:rgba(255,200,60,0.55)!important;outline:none;}
 
-  @keyframes slideUp{
-    from{transform:translateY(100%);}
-    to{transform:translateY(0);}
-  }
+  @keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
   .sheet-in{animation:slideUp 0.28s cubic-bezier(0.32,0.72,0,1) both;}
 
   @keyframes bellRing{
@@ -302,16 +294,10 @@ const CSS = `
     box-shadow:0 12px 40px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.22)!important;
   }
 
-  @keyframes modalIn{
-    from{opacity:0;transform:translateY(22px) scale(0.97);}
-    to{opacity:1;transform:none;}
-  }
+  @keyframes modalIn{from{opacity:0;transform:translateY(22px) scale(0.97);}to{opacity:1;transform:none;}}
   .modal-in{animation:modalIn 0.30s cubic-bezier(0.34,1.46,0.64,1) both;}
 
-  /* Mobile viewport fix - prevent UI from going behind browser chrome */
-  @supports (height: 100dvh) {
-    .modal-mobile-safe { height: 92dvh; }
-  }
+  @supports (height: 100dvh) { .modal-mobile-safe { height: 92dvh; } }
   @media (max-width: 767px) {
     .modal-overlay {
       padding-bottom: env(safe-area-inset-bottom, 12px);
@@ -319,93 +305,43 @@ const CSS = `
     }
   }
 
-  /* Glassmorphism modal rounding - Universal fix with high specificity */
   .modal-in.modal-mobile-safe,
-  div.modal-in.modal-mobile-safe,
-  .modal-overlay .modal-in.modal-mobile-safe {
+  div.modal-in.modal-mobile-safe{
     border-radius: 24px !important;
     overflow: hidden !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    -webkit-border-radius: 24px !important; /* Safari/iOS support */
+    -webkit-border-radius: 24px !important;
   }
-
-  /* Ensure child layers inherit the border radius */
   .modal-in.modal-mobile-safe > div,
-  .modal-in.modal-mobile-safe > * {
+  .modal-in.modal-mobile-safe > *{
     border-radius: inherit !important;
     overflow: hidden !important;
   }
-
-  /* Mobile-specific override: Force smaller radius but KEEP it rounded */
   @media (max-width: 767px) {
     .modal-in.modal-mobile-safe,
-    div.modal-in.modal-mobile-safe,
-    .modal-overlay .modal-in.modal-mobile-safe {
-      border-radius: 20px !important;
-      -webkit-border-radius: 20px !important;
-      /* Explicitly remove any potential 0 radius overrides */
-      border-top-left-radius: 20px !important;
-      border-top-right-radius: 20px !important;
-      border-bottom-left-radius: 20px !important;
-      border-bottom-right-radius: 20px !important;
+    div.modal-in.modal-mobile-safe{
+      border-radius: 20px !important;-webkit-border-radius: 20px !important;
+      border-top-left-radius: 20px !important;border-top-right-radius: 20px !important;
+      border-bottom-left-radius: 20px !important;border-bottom-right-radius: 20px !important;
     }
-    
-    /* Fix for potential full-screen mobile modals that might reset radius */
     .modal-in.modal-mobile-safe[style*="border-radius"],
-    .modal-in.modal-mobile-safe[style*="radius"] {
-      border-radius: 20px !important;
-    }
+    .modal-in.modal-mobile-safe[style*="radius"]{border-radius: 20px !important;}
   }
-
-  /* Extra safety: Target any element that might be forcing square corners on mobile */
   @media (max-width: 767px) {
-    .modal-in[class*="mobile"],
-    .modal-in[class*="safe"] {
-      border-radius: 20px !important;
-      overflow: hidden !important;
-    }
+    .modal-in[class*="mobile"],.modal-in[class*="safe"]{border-radius: 20px !important;overflow: hidden !important;}
   }
 
-  /* Settings panel alignment fix: all sections share same max-width reference (theme section) */
-  .settings-page-root{
-    width:100%;max-width:100%;box-sizing:border-box;
-  }
-  .settings-section-container{
-    width:100%;max-width:666px;box-sizing:border-box;
-    margin-left:auto;margin-right:auto;
-  }
-  .settings-section-container > *{
-    max-width:100%;box-sizing:border-box;
-    overflow-wrap:break-word;word-break:break-word;
-  }
-  /* Ensure inner content does not force container to expand */
-  .settings-section-container input,
-  .settings-section-container select,
-  .settings-section-container button{
-    max-width:100%;box-sizing:border-box;
-  }
+  .settings-page-root{width:100%;max-width:100%;box-sizing:border-box;}
+  .settings-section-container{width:100%;max-width:666px;box-sizing:border-box;margin-left:auto;margin-right:auto;}
+  .settings-section-container > *{max-width:100%;box-sizing:border-box;overflow-wrap:break-word;word-break:break-word;}
+  .settings-section-container input,.settings-section-container select,.settings-section-container button{max-width:100%;box-sizing:border-box;}
 
-  /* Keep all 12 theme choices predictable and touch-friendly on phones. */
   @media (max-width:768px){
-    .settings-theme-grid{
-      display:grid!important;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:8px!important;
-    }
-    .settings-theme-grid > button{
-      width:100%!important;
-      min-width:0!important;
-    }
+    .settings-theme-grid{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px!important;}
+    .settings-theme-grid > button{width:100%!important;min-width:0!important;}
   }
-
-  /* Desktop viewport (992px and above): 6x2 grid layout for theme selection */
   @media (min-width: 992px) {
-    .settings-theme-grid {
-      display: grid !important;
-      grid-template-columns: repeat(6, 1fr) !important;
-      gap: 10px;
-      justify-content: center;
-    }
+    .settings-theme-grid{display:grid!important;grid-template-columns:repeat(6,1fr)!important;gap:10px;justify-content:center;}
   }
 
   .section-label{
@@ -432,67 +368,59 @@ const CSS = `
   }
   .icon-btn:hover{background:rgba(255,255,255,0.08);}
 `;
+}
 
 /* ════════════════════════════════════════════════════════════════════
    TYPES
    ════════════════════════════════════════════════════════════════════ */
 type Note = {
   firestoreId?: string;
-  id:number; title:string; body:string; updatedAt:Date;
-  accentIdx:number; pinned:boolean; archived:boolean; trashed:boolean;
-  reminder:Date|null;
+  id: number; title: string; body: string; updatedAt: Date;
+  accentIdx: number; pinned: boolean; archived: boolean; trashed: boolean;
+  reminder: Date | null;
 };
 
 type FirestoreNote = {
-  ownerUid:string;
-  id:number;
-  title:string;
-  body:string;
-  accentIdx:number;
-  pinned:boolean;
-  archived:boolean;
-  trashed:boolean;
-  updatedAt:any;
-  reminder:any;
+  ownerUid: string; id: number; title: string; body: string; accentIdx: number;
+  pinned: boolean; archived: boolean; trashed: boolean; updatedAt: any; reminder: any;
 };
+
 type Screen    = "dashboard" | "settings";
 type Tab       = "all" | "archive" | "trash";
 type SortOrder = "default" | "created" | "updated";
 
-type AuthUser = { uid:string; email:string; name:string };
-type UserProfile = { name:string; themeId?: ThemeId };
+type AuthUser = { uid: string; email: string; name: string };
+type UserProfile = { name: string; themeId?: ThemeId };
+
 const USERS_COLLECTION = "users";
 const NOTES_COLLECTION = "notes";
-const NOTES_PAGE_SIZE = 12;
+const NOTES_FETCH_LIMIT = 500;
 const DEFAULT_THEME: ThemeId = "sunset";
+const LS_GUEST_NOTES = "glasswave_guest_notes_v1";
 
-async function createUserProfile(uid:string, email:string, name:string) {
+async function createUserProfile(uid: string, email: string, name: string) {
   await setDoc(doc(db, USERS_COLLECTION, uid), {
-    email,
-    name,
-    themeId: DEFAULT_THEME,
-    createdAt: serverTimestamp(),
+    email, name, themeId: DEFAULT_THEME, createdAt: serverTimestamp(),
   });
 }
 
-async function getUserProfile(uid:string): Promise<UserProfile | null> {
+async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(doc(db, USERS_COLLECTION, uid));
   if (!snap.exists()) return null;
   return snap.data() as UserProfile;
 }
 
-async function setUserTheme(uid:string, themeId:ThemeId) {
+async function setUserTheme(uid: string, themeId: ThemeId) {
   await setDoc(doc(db, USERS_COLLECTION, uid), { themeId }, { merge: true });
 }
 
-function noteFromFirestore(data: FirestoreNote & { firestoreId:string }): Note {
-  const toDate = (value:any) => {
+function noteFromFirestore(data: FirestoreNote & { firestoreId: string }): Note {
+  const toDate = (value: any) => {
     if (!value) return null;
     if (typeof value.toDate === "function") return value.toDate();
     if (value instanceof Date) return value;
     return new Date(value);
   };
-
   return {
     firestoreId: data.firestoreId,
     id: Number(data.id ?? Date.now()),
@@ -507,35 +435,27 @@ function noteFromFirestore(data: FirestoreNote & { firestoreId:string }): Note {
   };
 }
 
-function buildNotesQuery(ownerUid: string, limitSize:number) {
+function buildNotesQuery(ownerUid: string) {
+  // NOTE: requires a composite Firestore index (ownerUid ASC, updatedAt DESC).
+  // Firebase will return an error with a one-click URL to create it on first use.
   return query(
     collection(db, NOTES_COLLECTION),
-    // Keeping this query to a single field avoids requiring a composite
-    // Firestore index (ownerUid + updatedAt) for every new deployment.
     where("ownerUid", "==", ownerUid),
-    limit(limitSize)
+    orderBy("updatedAt", "desc"),
+    limit(NOTES_FETCH_LIMIT)
   );
 }
 
 async function writeNoteToFirestore(note: Note, ownerUid: string) {
   const payload = {
-    ownerUid,
-    id: note.id,
-    title: note.title,
-    body: note.body,
-    accentIdx: note.accentIdx,
-    pinned: note.pinned,
-    archived: note.archived,
-    trashed: note.trashed,
-    updatedAt: serverTimestamp(),
-    reminder: note.reminder ? note.reminder : null,
+    ownerUid, id: note.id, title: note.title, body: note.body, accentIdx: note.accentIdx,
+    pinned: note.pinned, archived: note.archived, trashed: note.trashed,
+    updatedAt: serverTimestamp(), reminder: note.reminder ? note.reminder : null,
   };
-
   if (note.firestoreId) {
     await updateDoc(doc(db, NOTES_COLLECTION, note.firestoreId), payload);
     return note.firestoreId;
   }
-
   const ref = await addDoc(collection(db, NOTES_COLLECTION), payload);
   return ref.id;
 }
@@ -546,13 +466,8 @@ async function deleteNoteFromFirestore(note: Note) {
 }
 
 async function patchNoteInFirestore(note: Note, patch: Partial<Note>, ownerUid: string) {
-  if (!note.firestoreId) {
-    return writeNoteToFirestore({ ...note, ...patch }, ownerUid);
-  }
-
-  const payload: any = {
-    updatedAt: serverTimestamp(),
-  };
+  if (!note.firestoreId) return writeNoteToFirestore({ ...note, ...patch }, ownerUid);
+  const payload: any = { updatedAt: serverTimestamp() };
   if (patch.title !== undefined) payload.title = patch.title;
   if (patch.body !== undefined) payload.body = patch.body;
   if (patch.accentIdx !== undefined) payload.accentIdx = patch.accentIdx;
@@ -560,94 +475,64 @@ async function patchNoteInFirestore(note: Note, patch: Partial<Note>, ownerUid: 
   if (patch.archived !== undefined) payload.archived = patch.archived;
   if (patch.trashed !== undefined) payload.trashed = patch.trashed;
   if (patch.reminder !== undefined) payload.reminder = patch.reminder ?? null;
-
   await updateDoc(doc(db, NOTES_COLLECTION, note.firestoreId), payload);
   return note.firestoreId;
 }
 
-async function authRegister(email: string, name: string, pw: string): Promise<string | null> {
-  email = email.trim().toLowerCase();
-  if (!email.includes("@")) return "Введите корректный email";
-  if (name.trim().length < 2) return "Имя должно быть не короче 2 символов";
-  if (pw.length < 6) return "Пароль должен быть не менее 6 символов";
-  try {
-    const credential = await createUserWithEmailAndPassword(auth, email, pw);
-    const user = credential.user;
-    await updateProfile(user, { displayName: name.trim() });
-    await createUserProfile(user.uid, email, name.trim());
-    return null;
-  } catch (err: any) {
-    return firebaseAuthErrorMessage(err);
-  }
-}
-
-function firebaseAuthErrorMessage(err: any): string {
+/* ════════════════════════════════════════════════════════════════════
+   AUTH
+   ════════════════════════════════════════════════════════════════════ */
+function fbError(err: any, t: Translation): string {
   switch (err?.code) {
     case "auth/invalid-credential":
     case "auth/wrong-password":
-    case "auth/user-not-found":
-      return "Неверный email или пароль";
-    case "auth/email-already-in-use":
-      return "Этот email уже зарегистрирован";
-    case "auth/invalid-email":
-      return "Введите корректный email";
-    case "auth/weak-password":
-      return "Пароль должен быть не менее 6 символов";
-    case "auth/operation-not-allowed":
-      return "В Firebase не включён вход по email и паролю";
-    case "auth/too-many-requests":
-      return "Слишком много попыток. Повторите позже";
-    default:
-      return "Не удалось выполнить вход. Повторите попытку";
+    case "auth/user-not-found": return t.authErrBadCreds;
+    case "auth/email-already-in-use": return t.authErrEmailUsed;
+    case "auth/invalid-email": return t.authErrInvalidEmail;
+    case "auth/weak-password": return t.authErrWeakPw;
+    case "auth/operation-not-allowed": return t.authErrNotAllowed;
+    case "auth/too-many-requests": return t.authErrTooMany;
+    default: return t.authErrGeneric;
   }
 }
 
-async function authLogin(email: string, pw: string): Promise<string | null> {
+async function authRegister(email: string, name: string, pw: string, t: Translation): Promise<string | null> {
   email = email.trim().toLowerCase();
-  if (!email || !pw) return "Введите email и пароль";
+  if (!email.includes("@")) return t.authErrInvalidEmail;
+  if (name.trim().length < 2) return t.authErrNameShort;
+  if (pw.length < 6) return t.authErrPwShort;
   try {
-    await signInWithEmailAndPassword(auth, email, pw);
+    const credential = await createUserWithEmailAndPassword(auth, email, pw);
+    await updateProfile(credential.user, { displayName: name.trim() });
+    await createUserProfile(credential.user.uid, email, name.trim());
     return null;
-  } catch (err: any) {
-    // Логируем детальную информацию об ошибке Firebase для отладки
-    console.error("Auth Error:", err.code, err.message);
-    return firebaseAuthErrorMessage(err);
-  }
+  } catch (err: any) { return fbError(err, t); }
 }
 
-async function authLogout() {
-  await signOut(auth);
+async function authLogin(email: string, pw: string, t: Translation): Promise<string | null> {
+  email = email.trim().toLowerCase();
+  if (!email || !pw) return t.authErrEmailPassRequired;
+  try { await signInWithEmailAndPassword(auth, email, pw); return null; }
+  catch (err: any) { console.error("Auth Error:", err.code, err.message); return fbError(err, t); }
 }
 
-/**
- * Removes data owned by the current user before deleting their Firebase Auth
- * identity. Firestore security rules only permit an owner to remove these
- * documents, so this must happen while their authenticated session is valid.
- */
-async function deleteCurrentAccount(password: string): Promise<string | null> {
+async function authLogout() { await signOut(auth); }
+
+async function deleteCurrentAccount(password: string, t: Translation): Promise<string | null> {
   const user = auth.currentUser;
-  if (!user || !user.email) return "Сессия уже завершена. Войдите снова и повторите попытку.";
-  if (!password) return "Введите пароль для подтверждения.";
-
+  if (!user || !user.email) return t.authErrLoggedOut;
+  if (!password) return t.authErrPasswordRequired;
   try {
-    // Firebase requires a recent sign-in for this sensitive operation. Asking
-    // for the password also makes the destructive action intentional.
     const credential = EmailAuthProvider.credential(user.email, password);
     await reauthenticateWithCredential(user, credential);
-
     const notesSnapshot = await getDocs(
       query(collection(db, NOTES_COLLECTION), where("ownerUid", "==", user.uid))
     );
-    // A Firestore batch can contain no more than 500 writes. Keep a margin so
-    // this continues to work if related account records are added later.
     for (let start = 0; start < notesSnapshot.docs.length; start += 450) {
       const batch = writeBatch(db);
-      notesSnapshot.docs.slice(start, start + 450).forEach(note => batch.delete(note.ref));
+      notesSnapshot.docs.slice(start, start + 450).forEach(n => batch.delete(n.ref));
       await batch.commit();
     }
-
-    // Profile preferences are user data too; delete them rather than leaving
-    // an orphaned document behind after the Auth identity is removed.
     await deleteDoc(doc(db, USERS_COLLECTION, user.uid));
     await deleteUser(user);
     return null;
@@ -655,36 +540,46 @@ async function deleteCurrentAccount(password: string): Promise<string | null> {
     console.error("Could not delete account.", error);
     switch (error?.code) {
       case "auth/invalid-credential":
-      case "auth/wrong-password":
-        return "Неверный пароль. Аккаунт не был удалён.";
-      case "auth/requires-recent-login":
-        return "Войдите в аккаунт заново и повторите попытку.";
+      case "auth/wrong-password": return t.authErrDeleteBadPw;
+      case "auth/requires-recent-login": return t.authErrReauth;
       case "permission-denied":
-      case "firestore/permission-denied":
-        return "Не удалось удалить данные аккаунта. Проверьте права Firebase и повторите попытку.";
-      default:
-        return "Не удалось удалить аккаунт. Повторите попытку позже.";
+      case "firestore/permission-denied": return t.authErrDeletePerm;
+      default: return t.authErrDeleteGeneric;
     }
   }
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   SEED DATA & RSS FEED
+   GUEST LOCAL NOTES (localStorage persistence)
+   ════════════════════════════════════════════════════════════════════ */
+function loadGuestNotes(): Note[] | null {
+  try {
+    const raw = localStorage.getItem(LS_GUEST_NOTES);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as any[];
+    return parsed.map(n => ({
+      ...n,
+      updatedAt: new Date(n.updatedAt),
+      reminder: n.reminder ? new Date(n.reminder) : null,
+    }));
+  } catch { return null; }
+}
+
+function saveGuestNotes(notes: Note[]) {
+  try { localStorage.setItem(LS_GUEST_NOTES, JSON.stringify(notes)); } catch {}
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   SEED / RSS
    ════════════════════════════════════════════════════════════════════ */
 const SEED: Note[] = [
-  {id:1,title:"Product Roadmap Q3",  body:"Launch mobile redesign by August 15. Milestones: design handoff Jul 20, beta Aug 1, soft launch Aug 10. Coordinate with Elena on onboarding flow.",updatedAt:new Date("2026-07-11T14:30:00"),accentIdx:0,pinned:true, archived:false,trashed:false,reminder:null},
-  {id:2,title:"Design Sprint Notes", body:"Decided on glassmorphism for v2. Action items: component library, Figma tokens, user testing schedule.",                                               updatedAt:new Date("2026-07-10T09:15:00"),accentIdx:1,pinned:false,archived:false,trashed:false,reminder:null},
-  {id:3,title:"Reading List",        body:"Thinking in Systems — Meadows.\nA Pattern Language — Alexander.\nWorking in Public — Nadia Eghbal.\nFinite and Infinite Games — Carse.",            updatedAt:new Date("2026-07-09T18:00:00"),accentIdx:2,pinned:true, archived:false,trashed:false,reminder:null},
-  {id:4,title:"API Integration",     body:"Auth: /v2/auth/token. Rate limit 1000 req/min. Headers: X-API-Key, Content-Type. Exponential backoff from 500ms.",                                   updatedAt:new Date("2026-07-08T11:45:00"),accentIdx:3,pinned:false,archived:false,trashed:false,reminder:null},
-  {id:5,title:"Weekly Reflection",   body:"Good progress on dashboard. Animation timing sluggish on low-end — profile render pipeline. Fix modal state bug.",                                    updatedAt:new Date("2026-07-07T20:00:00"),accentIdx:0,pinned:false,archived:false,trashed:false,reminder:null},
-  {id:6,title:"Miso Ramen Recipe",   body:"Base: white miso 3 tbsp, dashi 4 cups, soy 2 tbsp.\nToppings: soft-boiled egg (6h), chashu pork, menma, nori.",                                     updatedAt:new Date("2026-07-06T13:20:00"),accentIdx:1,pinned:false,archived:false,trashed:false,reminder:null},
-  {id:7,title:"CSS Deep Dive",       body:"backdrop-filter needs -webkit- in Safari. Container queries: broad support now. @layer controls specificity cleanly.",                                updatedAt:new Date("2026-07-05T16:50:00"),accentIdx:2,pinned:false,archived:false,trashed:false,reminder:null},
-  {id:8,title:"Kyoto Itinerary",     body:"Day 1: Fushimi Inari at dawn, Nishiki Market. Day 2: Arashiyama, Tenryu-ji. Day 3: Philosopher's Path, Nanzen-ji.",                                 updatedAt:new Date("2026-07-04T10:10:00"),accentIdx:3,pinned:false,archived:true, trashed:false,reminder:null},
+  {id:1,title:"Product Roadmap Q3",  body:"<p>Launch mobile redesign by August 15. Milestones: design handoff Jul 20, beta Aug 1, soft launch Aug 10. Coordinate with Elena on onboarding flow.</p>",updatedAt:new Date("2026-07-11T14:30:00"),accentIdx:0,pinned:true, archived:false,trashed:false,reminder:null},
+  {id:2,title:"Design Sprint Notes", body:"<p>Decided on glassmorphism for v2. Action items: component library, Figma tokens, user testing schedule.</p>",updatedAt:new Date("2026-07-10T09:15:00"),accentIdx:1,pinned:false,archived:false,trashed:false,reminder:null},
+  {id:3,title:"Reading List",        body:"<ul><li>Thinking in Systems — Meadows</li><li>A Pattern Language — Alexander</li><li>Working in Public — Nadia Eghbal</li><li>Finite and Infinite Games — Carse</li></ul>",updatedAt:new Date("2026-07-09T18:00:00"),accentIdx:2,pinned:true, archived:false,trashed:false,reminder:null},
+  {id:4,title:"API Integration",     body:"<p>Auth: /v2/auth/token. Rate limit 1000 req/min. Headers: X-API-Key, Content-Type. Exponential backoff from 500ms.</p>",updatedAt:new Date("2026-07-08T11:45:00"),accentIdx:3,pinned:false,archived:false,trashed:false,reminder:null},
 ];
 
-function getFallbackNotes(): Note[] {
-  return SEED.map(n => ({ ...n }));
-}
+function getFallbackNotes(): Note[] { return SEED.map(n => ({ ...n })); }
 
 function parseRSS(xmlString: string): Note[] {
   try {
@@ -692,181 +587,70 @@ function parseRSS(xmlString: string): Note[] {
     const xmlDoc = parser.parseFromString(xmlString, "text/xml");
     const items = xmlDoc.querySelectorAll("item");
     const notes: Note[] = [];
-
     items.forEach((item, index) => {
-      const titleEl = item.querySelector("title");
-      const title = titleEl?.textContent?.trim() || "Без заголовка";
-
-      const descEl = item.querySelector("description");
+      const title = item.querySelector("title")?.textContent?.trim() || "—";
       let content = "";
+      const descEl = item.querySelector("description");
       if (descEl?.textContent) {
         const tempDiv = document.createElement("div");
         tempDiv.innerHTML = descEl.textContent;
-        content = tempDiv.textContent?.trim() || "";
+        content = `<p>${(tempDiv.textContent || "").trim()}</p>`;
       }
-
-      const dateEl = item.querySelector("pubDate");
-      const dateStr = dateEl?.textContent?.trim() || "";
+      const dateStr = item.querySelector("pubDate")?.textContent?.trim() || "";
       const parsedDate = dateStr ? new Date(dateStr) : new Date();
       const updatedAt = isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
-
       notes.push({
-        id: Date.now() + index,
-        title,
-        body: content,
-        updatedAt,
-        accentIdx: index % 4,
-        pinned: false,
-        archived: false,
-        trashed: false,
-        reminder: null,
+        id: Date.now() + index, title, body: content, updatedAt,
+        accentIdx: index % 4, pinned: false, archived: false, trashed: false, reminder: null,
       });
     });
-
     return notes;
-  } catch (error) {
-    console.error("Ошибка парсинга RSS:", error);
-    return [];
-  }
+  } catch (error) { console.error("RSS parse error:", error); return []; }
 }
 
 async function loadRssNotes(): Promise<Note[] | null> {
   const RSS_URL = 'https://feeds.feedburner.com/rsscna/engnews/';
-  const PROXY_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(RSS_URL)}`;
+  const stripHtml = (html: string): string => html
+      .replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
 
-  // Функция для безопасного создания элемента без прямого доступа к DOM
-  const stripHtmlSafe = (html: string): string => {
-    if (!html) return "";
-    return html
-      .replace(/<[^>]*>/g, '')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/\s+/g, ' ')
-      .trim();
+  const fetchWithTimeout = async (url: string, ms = 10000): Promise<Response> => {
+    const ctrl = new AbortController();
+    const id = setTimeout(() => ctrl.abort(), ms);
+    try { const r = await fetch(url, { signal: ctrl.signal }); clearTimeout(id); return r; }
+    catch (e) { clearTimeout(id); throw e; }
   };
 
-  // Функция для выполнения fetch с таймаутом
-  const fetchWithTimeout = async (url: string, timeoutMs: number = 15000): Promise<Response> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
-    try {
-      const response = await fetch(url, { 
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-      clearTimeout(timeoutId);
-      return response;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      // Игнорируем ошибки отмены — это нормальное поведение при размонтировании или повторном запросе
-      if ((error as any).name === 'AbortError') {
-        console.log('[RSS] Запрос был отменён (signal aborted)');
-      }
-      throw error;
-    }
-  };
-
-  // Попытка 1: allorigins proxy
   try {
-    const response = await fetchWithTimeout(PROXY_URL);
-    // Проверяем, не был ли сигнал отменён до продолжения работы
-    if (response.ok) {
-      const data = await response.json();
-      if (data && typeof data.contents === 'string') {
+    const r = await fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(RSS_URL)}`);
+    if (r.ok) {
+      const data = await r.json();
+      if (data?.contents) {
         const notes = parseRSS(data.contents);
-        if (notes.length > 0) {
-          console.log(`[RSS] Загружено ${notes.length} заметок через allorigins`);
-          return notes;
-        }
+        if (notes.length) return notes;
       }
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    // Не логируем AbortError как предупреждение — это штатная ситуация
-    if ((error as any).name !== 'AbortError') {
-      console.warn('Ошибка загрузки RSS через allorigins:', errorMessage);
-    }
-  }
+  } catch (e) { /* fall through */ }
 
-  // Попытка 2: rss2json (запасной вариант)
   try {
-    const RSS2JSON_URL = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_URL)}`;
-    const response = await fetchWithTimeout(RSS2JSON_URL);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    let data: any;
-    try {
-      data = await response.json();
-    } catch (parseError) {
-      throw new Error('Невалидный JSON ответ от rss2json');
-    }
-
-    if (data && data.status === 'ok' && Array.isArray(data.items) && data.items.length > 0) {
-      const notes: Note[] = data.items.map((item: any, index: number) => {
-        const content = stripHtmlSafe(item.description || item.content || "");
-        const date = item.pubDate ? new Date(item.pubDate) : new Date();
-        const updatedAt = isNaN(date.getTime()) ? new Date() : date;
-        
+    const r = await fetchWithTimeout(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_URL)}`);
+    if (!r.ok) return null;
+    const data = await r.json();
+    if (data?.status === 'ok' && Array.isArray(data.items) && data.items.length) {
+      return data.items.map((it: any, i: number) => {
+        const content = stripHtml(it.description || it.content || "");
+        const d = it.pubDate ? new Date(it.pubDate) : new Date();
         return {
-          id: Date.now() + index,
-          title: (item.title || "Без заголовка").trim(),
-          body: content,
-          updatedAt,
-          accentIdx: index % 4,
-          pinned: false,
-          archived: false,
-          trashed: false,
-          reminder: null,
+          id: Date.now() + i, title: (it.title || "—").trim(),
+          body: `<p>${content}</p>`,
+          updatedAt: isNaN(d.getTime()) ? new Date() : d,
+          accentIdx: i % 4, pinned: false, archived: false, trashed: false, reminder: null,
         };
       });
-      
-      console.log(`[RSS] Загружено ${notes.length} заметок через rss2json`);
-      return notes;
-    } else if (data && data.status !== 'ok') {
-      console.warn(`[RSS] rss2json вернул статус: ${data.status}`);
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    // Не логируем AbortError как предупреждение — это штатная ситуация
-    if ((error as any).name !== 'AbortError') {
-      console.warn('Ошибка загрузки RSS через rss2json:', errorMessage);
-    }
-  }
-
-  console.log('[RSS] Все источники не доступны, возвращаем null');
+  } catch (e) { /* fall through */ }
   return null;
-}
-
-function fmtDate(d: Date, now = Date.now()): string {
-  const diffMs = now - d.getTime();
-  const diffInSeconds = Math.floor(diffMs / 1000);
-  const diffInMinutes = Math.floor(diffInSeconds / 60);
-  const diffInHours = Math.floor(diffInSeconds / 3600);
-  const diffInDays = Math.floor(diffInSeconds / 86400);
-
-  if (diffInSeconds < 60) {
-    return "Только что";
-  } else if (diffInMinutes < 60) {
-    return `${diffInMinutes} мин. назад`;
-  } else if (diffInHours < 24) {
-    return `${diffInHours} ч. назад`;
-  } else if (diffInDays === 1) {
-    return "Вчера";
-  } else if (diffInDays < 7) {
-    return `${diffInDays} д. назад`;
-  } else {
-    return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
-  }
 }
 
 function stripHtml(html: string): string {
@@ -874,456 +658,379 @@ function stripHtml(html: string): string {
   return html
     .replace(/<\/p>|<\/h[1-6]>|<\/li>|<\/div>|<br\s*\/?>/gi, '\n')
     .replace(/<[^>]*>/g, '')
-    .replace(/\n+/g, '\n')
-    .trim();
+    .replace(/\n+/g, '\n').trim();
 }
 
-function useWidth(){
-  const [w,setW]=useState(typeof window!=="undefined"?window.innerWidth:1280);
-  useEffect(()=>{const h=()=>setW(window.innerWidth);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
+function fmtDate(d: Date, locale: string, t: Translation, now: number = Date.now()): string {
+  const secs = Math.floor((now - d.getTime()) / 1000);
+  if (secs < 60) return t.timeJustNow;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return t.timeMinAgo(mins);
+  const hrs = Math.floor(secs / 3600);
+  if (hrs < 24) return t.timeHoursAgo(hrs);
+  const days = Math.floor(secs / 86400);
+  if (days === 1) return t.timeYesterday;
+  if (days < 7) return t.timeDaysAgo(days);
+  return d.toLocaleDateString(locale, { day: "numeric", month: "long" });
+}
+
+function useWidth() {
+  const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 1280);
+  useEffect(() => {
+    const h = () => setW(window.innerWidth);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
   return w;
 }
 
 /* ════════════════════════════════════════════════════════════════════
    ROOT
    ════════════════════════════════════════════════════════════════════ */
-export default function App(){
-  // Use translation hook from i18n context
-  const { t, language, setLanguage } = useTranslation();
-  
-  // Firebase restores a persisted session asynchronously through
-  // onAuthStateChanged below. Do not read the removed local auth helpers here:
-  // doing so caused the app to fail before React could render.
-  const [currentUser, setCurrentUser] = useState<AuthUser|null>(null);
-  // Используем хук useTheme для управления темой с учётом статуса авторизации
-  const [themeId, setThemeId] = useTheme(currentUser, "sunset");
-  const [screen,  setScreen]   = useState<Screen>("dashboard");
-  const [tab,     setTab]      = useState<Tab>("all");
-  const [editing, setEditing]  = useState<Note|null>(null);
-  const [creating,setCreating] = useState(false);
-  const [draftT,  setDraftT]   = useState("");
-  const [draftB,  setDraftB]   = useState("");
-  const [search,  setSearch]       = useState("");
-  const [scrollY, setScrollY]      = useState(0);
-  const [reminderNoteId, setReminderNoteId] = useState<number|null>(null);
-  const [sort,    setSort]     = useState<SortOrder>("default");
-  const [showSort,setShowSort] = useState(false);
-  const [page, setPage] = useState(1);
-  // State for triggering timestamp re-renders every minute
-  const [, setTick] = useState(0);
+export default function App() {
+  const { t, language } = useTranslation();
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [themeId, setThemeId] = useTheme(currentUser, DEFAULT_THEME);
+  const [screen, setScreen] = useState<Screen>("dashboard");
+  const [tab, setTab] = useState<Tab>("all");
+  const [editing, setEditing] = useState<Note | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [draftT, setDraftT] = useState("");
+  const [draftB, setDraftB] = useState("");
+  const [search, setSearch] = useState("");
+  const [scrollY, setScrollY] = useState(0);
+  const [reminderNoteId, setReminderNoteId] = useState<number | null>(null);
+  const [sort, setSort] = useState<SortOrder>("default");
+  const [showSort, setShowSort] = useState(false);
   const [now, setNow] = useState(Date.now());
-  // Гостевой режим: без входа в аккаунт заметки живут в локальном состоянии,
-  // загружаются из RSS или старого демо-набора (fallback).
-  const [localNotes, setLocalNotes] = useState<Note[]>(getFallbackNotes);
-  const [rssLoading, setRssLoading] = useState<boolean>(false);
+  const [localNotes, setLocalNotes] = useState<Note[]>(() => {
+    const saved = loadGuestNotes();
+    return saved && saved.length ? saved : getFallbackNotes();
+  });
+  const [rssLoadedOnce, setRssLoadedOnce] = useState(false);
 
-  const width    = useWidth();
+  const width = useWidth();
   const isMobile = width < 768;
   const isTablet = width >= 768 && width < 1280;
-  const theme    = THEMES.find(t=>t.id===themeId)!;
+  const theme = THEMES.find(th => th.id === themeId)!;
 
-  // Update timestamps every 60 seconds
+  // Ticker every 60s for relative times
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTick(t => t + 1);
-      setNow(Date.now());
-    }, 60000);
-    return () => clearInterval(interval);
+    const id = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(id);
   }, []);
 
+  // Guest: attempt RSS load once only (don't overwrite user-created notes)
   useEffect(() => {
-    if (!currentUser) {
-      let isMounted = true;
-      setRssLoading(true);
-      loadRssNotes().then((fetchedNotes) => {
-        if (isMounted) {
-          if (fetchedNotes && fetchedNotes.length > 0) {
-            setLocalNotes(fetchedNotes);
-          } else {
-            setLocalNotes(getFallbackNotes());
-          }
-          setRssLoading(false);
-        }
-      });
-      return () => {
-        isMounted = false;
-      };
-    }
-  }, [currentUser]);
+    if (currentUser || rssLoadedOnce) return;
+    setRssLoadedOnce(true);
+    const saved = loadGuestNotes();
+    if (saved && saved.length) return; // already has notes (e.g. seed persisted)
+    loadRssNotes().then(notes => {
+      if (notes && notes.length) setLocalNotes(notes);
+    });
+  }, [currentUser, rssLoadedOnce]);
 
+  // Persist guest notes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        setCurrentUser(null);
-        setThemeId(DEFAULT_THEME);
-        setPage(1);
-        return;
-      }
+    if (!currentUser) saveGuestNotes(localNotes);
+  }, [localNotes, currentUser]);
 
-      const nextUser: AuthUser = {
-        uid: user.uid,
-        email: user.email ?? "",
-        name: user.displayName ?? "",
-      };
-
-      setCurrentUser(nextUser);
-
-      // A Firestore rules error must not turn a successful Auth login into an
-      // unhandled promise rejection. The user can still use the app while the
-      // Firebase rules are corrected.
+  // Auth state
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) { setCurrentUser(null); setThemeId(DEFAULT_THEME); return; }
+      setCurrentUser({ uid: user.uid, email: user.email ?? "", name: user.displayName ?? "" });
       try {
         const profile = await getUserProfile(user.uid);
         setThemeId(profile?.themeId ?? DEFAULT_THEME);
-      } catch (error) {
-        console.warn("Could not load the Firebase user profile.", error);
+      } catch (e) {
+        console.warn("Could not load user profile.", e);
         setThemeId(DEFAULT_THEME);
       }
     });
-
-    return unsubscribe;
+    return unsub;
   }, []);
 
-  useEffect(() => {
-    if (!currentUser) {
-      setPage(1);
-    }
-  }, [currentUser]);
-
-  const pageLimit = page * NOTES_PAGE_SIZE + 1;
   const notesQuery = useMemo(
-    () => currentUser ? buildNotesQuery(currentUser.uid, pageLimit) : null,
-    [currentUser, pageLimit]
+    () => currentUser ? buildNotesQuery(currentUser.uid) : null,
+    [currentUser]
   );
 
-  const { data: firestoreNotes, loading: notesLoading } = useFirestoreQuery<FirestoreNote[]>(
+  const { data: firestoreData, loading: notesLoading } = useFirestoreQuery<FirestoreNote[]>(
     () => notesQuery,
     [notesQuery]
   );
 
-  const allNotes: Note[] = currentUser
-    ? (firestoreNotes?.map(note => noteFromFirestore(note as FirestoreNote & { firestoreId: string })) ?? [])
-    : localNotes;
+  const allNotes: Note[] = useMemo(() => {
+    if (!currentUser) return localNotes;
+    if (!firestoreData) return [];
+    return firestoreData.map(n => noteFromFirestore(n as FirestoreNote & { firestoreId: string }));
+  }, [currentUser, firestoreData, localNotes]);
 
-  const notes: Note[] = currentUser
-    ? allNotes.slice(0, page * NOTES_PAGE_SIZE)
-    : localNotes;
+  const filtered = useMemo(() => {
+    const src = allNotes.filter(n => {
+      if (tab === "all") return !n.archived && !n.trashed;
+      if (tab === "archive") return n.archived && !n.trashed;
+      return n.trashed;
+    }).filter(n => {
+      if (!search) return true;
+      const s = search.toLowerCase();
+      return n.title.toLowerCase().includes(s)
+        || stripHtml(n.body).toLowerCase().includes(s);
+    });
+    const sorted = [...src];
+    if (sort === "created") sorted.sort((a, b) => b.id - a.id);
+    else if (sort === "updated") sorted.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    return sorted;
+  }, [allNotes, tab, search, sort]);
 
-  const hasMoreNotes = Boolean(currentUser && allNotes.length > page * NOTES_PAGE_SIZE);
+  const pinned = filtered.filter(n => n.pinned);
+  const unpinned = filtered.filter(n => !n.pinned);
+  const cols = isMobile ? 1 : isTablet ? 2 : 3;
+  const editorOpen = creating || editing !== null;
 
-  const loadMoreNotes = () => setPage((prev) => prev + 1);
-
-  // Language change handler - uses setLanguage from context
-  const handleLanguageChange = (next: Language) => {
-    setLanguage(next);
-    window.localStorage.setItem("preferred-lang", next);
-    document.documentElement.lang = next;
-  };
-
-  useEffect(() => {
-    document.documentElement.lang = language;
-  }, [language]);
-
-  const handleLogin = (user: AuthUser) => {
-    // Keep the UI responsive while Firebase emits the authoritative auth event.
-    setCurrentUser(user);
-  };
-
-  const handleLogout = () => {
-    authLogout().catch(() => {});
-    setCurrentUser(null);
-  };
-
-  const handleDeleteAccount = async (password: string): Promise<string | null> => {
-    const error = await deleteCurrentAccount(password);
-    if (!error) {
-      // deleteUser() also triggers onAuthStateChanged, but reset immediately so
-      // no account data remains visible while that observer updates.
-      setCurrentUser(null);
-      setThemeId(DEFAULT_THEME);
-      setScreen("dashboard");
-      setEditing(null);
-      setCreating(false);
-      setPage(1);
-    }
-    return error;
-  };
-
-  const updateTheme = (id: ThemeId) => {
-    setThemeId(id); // keeps the current device responsive and available offline
+  const updateTheme = useCallback((id: ThemeId) => {
+    setThemeId(id);
     if (currentUser) {
-      // Persist the same choice in Firestore so it survives F5 and other devices.
-      setUserTheme(currentUser.uid, id).catch(error => {
-        console.warn("Could not save the Firebase theme preference.", error);
-      });
+      setUserTheme(currentUser.uid, id).catch(e => console.warn("Could not save theme pref.", e));
     }
-  };
+  }, [currentUser, setThemeId]);
 
-  const openEdit  = (n:Note)=>{ setEditing(n); setCreating(false); setDraftT(n.title); setDraftB(n.body); };
-  const openNew   = ()=>{ setEditing(null); setCreating(true); setDraftT(""); setDraftB(""); };
-  const closeEd   = ()=>{ setEditing(null); setCreating(false); };
+  /* ─────────────────── Reminder notifications (best-effort) ────────────
+     When the tab/app is open we poll notes every 30s and fire a browser
+     Notification (or in-app toast fallback) for any reminder whose time has
+     arrived but that we haven't shown yet. We also ask for Notification
+     permission once a reminder is first scheduled. */
+  const firedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      // Don't annoy on first open — ask lazily when user sets a reminder.
+    }
+  }, []);
+  useEffect(() => {
+    const tick = () => {
+      const nowMs = Date.now();
+      allNotes.forEach(n => {
+        if (!n.reminder) return;
+        const key = `${n.firestoreId || `local-${n.id}`}-${n.reminder.toISOString()}`;
+        if (firedRef.current.has(key)) return;
+        const diff = n.reminder.getTime() - nowMs;
+        if (diff <= 0 && diff > -60 * 60 * 1000 /* within last hour */) {
+          firedRef.current.add(key);
+          const title = n.title || t.untitled;
+          const body = stripHtml(n.body).slice(0, 140);
+          if ("Notification" in window && Notification.permission === "granted") {
+            try { new Notification(title, { body, icon: "/favicon.ico" }); } catch {}
+          }
+          console.log("[Reminder]", title, body);
+        }
+      });
+    };
+    const id = setInterval(tick, 30_000);
+    tick();
+    return () => clearInterval(id);
+  }, [allNotes, t]);
 
-  const save=async()=>{
-    if(!draftT.trim()&&!draftB.trim()){closeEd();return;}
+  const openEdit = useCallback((n: Note) => {
+    setEditing(n); setCreating(false); setDraftT(n.title); setDraftB(n.body);
+  }, []);
+  const openNew = useCallback(() => {
+    setEditing(null); setCreating(true); setDraftT(""); setDraftB("");
+  }, []);
+  const closeEd = useCallback(() => { setEditing(null); setCreating(false); }, []);
 
-    if(!currentUser){
-      const title = draftT || "Без названия";
+  const save = useCallback(async () => {
+    if (!draftT.trim() && !draftB.trim()) { closeEd(); return; }
+    if (!currentUser) {
+      const title = draftT || t.untitled;
       if (editing) {
-        setLocalNotes(prev=>prev.map(n=>n.id===editing.id?{...n,title,body:draftB,updatedAt:new Date()}:n));
+        setLocalNotes(prev => prev.map(n => n.id === editing.id
+          ? { ...n, title, body: draftB, updatedAt: new Date() } : n));
       } else {
-        const newNote: Note = {
-          id: Date.now(),
-          title,
-          body: draftB,
-          updatedAt: new Date(),
-          accentIdx: Math.floor(Math.random()*theme.accents.length),
-          pinned: false,
-          archived: false,
-          trashed: false,
-          reminder: null,
-        };
-        setLocalNotes(prev=>[newNote, ...prev]);
+        setLocalNotes(prev => [{
+          id: Date.now(), title, body: draftB, updatedAt: new Date(),
+          accentIdx: Math.floor(Math.random() * theme.accents.length),
+          pinned: false, archived: false, trashed: false, reminder: null,
+        }, ...prev]);
       }
       closeEd();
       return;
     }
-
-    const notePayload: Note = {
+    const payload: Note = {
       firestoreId: editing?.firestoreId,
       id: editing?.id ?? Date.now(),
-      title: draftT || "Без названия",
+      title: draftT || t.untitled,
       body: draftB,
       updatedAt: new Date(),
-      accentIdx: editing?.accentIdx ?? Math.floor(Math.random()*theme.accents.length),
+      accentIdx: editing?.accentIdx ?? Math.floor(Math.random() * theme.accents.length),
       pinned: editing?.pinned ?? false,
       archived: editing?.archived ?? false,
       trashed: editing?.trashed ?? false,
       reminder: editing?.reminder ?? null,
     };
-
-    await writeNoteToFirestore(notePayload, currentUser.uid);
+    await writeNoteToFirestore(payload, currentUser.uid);
     closeEd();
-  };
+  }, [draftT, draftB, currentUser, editing, t, theme.accents.length, closeEd]);
 
-
-  const mutNote = async (id:number, patch:Partial<Note>) => {
+  const mutNote = useCallback(async (id: number, patch: Partial<Note>) => {
     if (!currentUser) {
-      setLocalNotes(prev=>prev.map(n=>n.id===id?{...n,...patch,updatedAt:new Date()}:n));
+      setLocalNotes(prev => prev.map(n => n.id === id ? { ...n, ...patch, updatedAt: new Date() } : n));
       return;
     }
-    const note = notes.find(n => n.id === id);
+    const note = allNotes.find(n => n.id === id);
     if (!note) return;
     await patchNoteInFirestore(note, patch, currentUser.uid);
-  };
+  }, [currentUser, allNotes]);
 
-  const deleteOrRestoreNote = async (note: Note) => {
+  const deleteOrRestoreNote = useCallback(async (note: Note) => {
     if (!currentUser) {
       if (tab === "trash" && note.trashed) {
-        setLocalNotes(prev=>prev.filter(n=>n.id!==note.id));
+        setLocalNotes(prev => prev.filter(n => n.id !== note.id));
       } else {
-        setLocalNotes(prev=>prev.map(n=>n.id===note.id?{...n,trashed:!n.trashed,archived:false,updatedAt:new Date()}:n));
+        setLocalNotes(prev => prev.map(n => n.id === note.id
+          ? { ...n, trashed: !n.trashed, archived: false, updatedAt: new Date() } : n));
       }
       return;
     }
     if (!note.firestoreId) return;
-    if (tab === "trash" && note.trashed) {
-      await deleteNoteFromFirestore(note);
-      return;
-    }
-    await patchNoteInFirestore(note, { trashed: !note.trashed, archived: false }, currentUser.uid);
-  };
-
-  const base = notes.filter(n=>{
-    if(tab==="all")     return !n.archived&&!n.trashed;
-    if(tab==="archive") return  n.archived&&!n.trashed;
-    return n.trashed;
-  }).filter(n=>!search||
-    n.title.toLowerCase().includes(search.toLowerCase())||
-    stripHtml(n.body).toLowerCase().includes(search.toLowerCase())
-  );
-
-  const sorted = [...base].sort((a,b)=>{
-    if(sort==="created") return b.id - a.id;
-    if(sort==="updated") return b.updatedAt.getTime() - a.updatedAt.getTime();
-    return 0; // default: keep insertion order
-  });
-
-  const pinned   = sorted.filter(n=>n.pinned);
-  const unpinned = sorted.filter(n=>!n.pinned);
-  const cols     = isMobile?1:isTablet?2:3;
-  const editorOpen = creating||editing!==null;
+    if (tab === "trash" && note.trashed) await deleteNoteFromFirestore(note);
+    else await patchNoteInFirestore(note, { trashed: !note.trashed, archived: false }, currentUser.uid);
+  }, [currentUser, tab]);
 
   useEffect(() => {
     return listenNativeBackButton(() => {
-      if (editorOpen) {
-        closeEd();
-        return true;
-      }
-      if (showSort) {
-        setShowSort(false);
-        return true;
-      }
-      if (reminderNoteId !== null) {
-        setReminderNoteId(null);
-        return true;
-      }
-      if (screen === "settings") {
-        setScreen("dashboard");
-        return true;
-      }
+      if (editorOpen) { closeEd(); return true; }
+      if (showSort) { setShowSort(false); return true; }
+      if (reminderNoteId !== null) { setReminderNoteId(null); return true; }
+      if (screen === "settings") { setScreen("dashboard"); return true; }
       return false;
     });
-  }, [editorOpen, showSort, reminderNoteId, screen]);
+  }, [editorOpen, showSort, reminderNoteId, screen, closeEd]);
+
+  const handleLogout = () => { authLogout().catch(() => {}); setCurrentUser(null); };
+
+  const handleDeleteAccount = async (password: string): Promise<string | null> => {
+    const err = await deleteCurrentAccount(password, t);
+    if (!err) {
+      setCurrentUser(null); setThemeId(DEFAULT_THEME); setScreen("dashboard");
+      setEditing(null); setCreating(false);
+    }
+    return err;
+  };
 
   return (
     <div style={{
-      fontFamily:"'Manrope','Inter',sans-serif",
-      background:theme.bg,
-      minHeight:"100vh",position:"relative",overflow:"hidden",
-      fontSize:"1rem",
+      fontFamily: "'Manrope','Inter',sans-serif",
+      background: theme.bg,
+      minHeight: "100vh", position: "relative", overflow: "hidden", fontSize: "1rem",
     }}>
-      <style>{CSS}</style>
+      <style>{buildCSS()}</style>
 
-      {/* Orbs */}
-      <div style={{position:"absolute",inset:0,pointerEvents:"none",overflow:"hidden"}}>
-        {theme.orbs.map((o,i)=>(
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+        {theme.orbs.map((o, i) => (
           <div key={i} style={{
-            position:"absolute",
-            top:`calc(${o.top} - ${scrollY*(0.07+i*0.05)}px)`,
-            left:o.left,width:o.size,height:o.size,borderRadius:"50%",
-            background:`radial-gradient(circle,${o.color} 0%,transparent 68%)`,
-            filter:"blur(2px)",transition:"top 0.12s linear",
-          }}/>
+            position: "absolute",
+            top: `calc(${o.top} - ${scrollY * (0.07 + i * 0.05)}px)`,
+            left: o.left, width: o.size, height: o.size, borderRadius: "50%",
+            background: `radial-gradient(circle,${o.color} 0%,transparent 68%)`,
+            filter: "blur(2px)", transition: "top 0.12s linear",
+          }} />
         ))}
       </div>
 
       <div style={{
-        position:"relative",zIndex:10,
-        maxWidth:isMobile?"100%":isTablet?920:1220,
-        margin:"0 auto",
-        height:"100vh",
-        /* No padding here — children handle their own horizontal padding */
+        position: "relative", zIndex: 10,
+        maxWidth: isMobile ? "100%" : isTablet ? 920 : 1220,
+        margin: "0 auto", height: "100vh",
       }}>
-        {screen==="settings"?(
+        {screen === "settings" ? (
           <div style={{
-            position:"absolute",inset:0,overflowY:"auto",
-            padding:isMobile?"0 16px":isTablet?"0 28px":"0 44px",
+            position: "absolute", inset: 0, overflowY: "auto",
+            padding: isMobile ? "0 16px" : isTablet ? "0 28px" : "0 44px",
           }}>
-          <SettingsScreen
-            themeId={themeId} setThemeId={updateTheme}
-            onBack={()=>setScreen("dashboard")}
-            currentUser={currentUser}
-            onLogin={handleLogin}
-            onLogout={handleLogout}
-            onDeleteAccount={handleDeleteAccount}
-            language={language}
-            onLanguageChange={handleLanguageChange}
-            translations={t}
-          />
+            <SettingsScreen
+              themeId={themeId} setThemeId={updateTheme}
+              onBack={() => setScreen("dashboard")}
+              currentUser={currentUser}
+              onLogout={handleLogout}
+              onDeleteAccount={handleDeleteAccount}
+              language={language}
+            />
           </div>
-        ):(
+        ) : (
           <>
-            {/* Search bar floats above scroll area — cards slide under it */}
-            <div style={{position:"absolute",top:0,left:0,right:0,zIndex:30,
-              padding:isMobile?"0 16px":isTablet?"0 28px":"0 44px",
-              maxWidth:isMobile?"100%":isTablet?920:1220,margin:"0 auto",
-              width:"100%",
+            <div style={{
+              position: "absolute", top: 0, left: 0, right: 0, zIndex: 30,
+              padding: isMobile ? "0 16px" : isTablet ? "0 28px" : "0 44px",
+              maxWidth: isMobile ? "100%" : isTablet ? 920 : 1220,
+              margin: "0 auto", width: "100%",
             }}>
               <KeepSearchBar
                 search={search} setSearch={setSearch}
                 isMobile={isMobile}
-                sort={sort}
-                onSort={()=>setShowSort(true)}
-                onSettings={()=>setScreen("settings")}
+                sort={sort} sortActive={sort !== "default"}
+                onSort={() => setShowSort(true)}
+                onSettings={() => setScreen("settings")}
               />
             </div>
-
-            {/* Scroll container fills full height; paddingTop clears the search bar.
-                The top/bottom paddings include the same safe-area terms as the search
-                bar itself, so on the Android APK (edge-to-edge, where Capacitor injects
-                --safe-area-inset-* for the status/navigation bars) the whole layout shifts
-                down together and the gap between the search panel and the first note stays
-                exactly the same as in the web version. In browsers the insets resolve to 0,
-                so nothing changes there. */}
             <div
               className="scroll-host"
               style={{
-                position:"absolute",inset:0,overflowY:"auto",
-                paddingTop:`calc(92px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))`,
-                paddingBottom:`calc(150px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))`,
-                paddingLeft:isMobile?24:isTablet?36:52,
-                paddingRight:isMobile?24:isTablet?36:52,
+                position: "absolute", inset: 0, overflowY: "auto",
+                paddingTop: `calc(92px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))`,
+                paddingBottom: `calc(150px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))`,
+                paddingLeft: isMobile ? 24 : isTablet ? 36 : 52,
+                paddingRight: isMobile ? 24 : isTablet ? 36 : 52,
               }}
-              onScroll={e=>setScrollY((e.target as HTMLDivElement).scrollTop)}
+              onScroll={e => setScrollY((e.target as HTMLDivElement).scrollTop)}
             >
-              {(currentUser && notesLoading) || (!currentUser && rssLoading) ? (
-                <LoadingState />
-              ) : base.length===0 ? (
-                <EmptyState tab={tab} search={search}/>
-              ) : (
-                <>
-                  <GridView
-                    pinned={pinned} unpinned={unpinned} cols={cols}
-                    theme={theme} isMobile={isMobile} isTablet={isTablet} tab={tab}
-                    onOpen={openEdit}
-                    onPin={n=>mutNote(n.id,{pinned:!n.pinned})}
-                    onArchive={n=>mutNote(n.id,{archived:!n.archived})}
-                    onTrash={deleteOrRestoreNote}
-                    onReminder={n=>setReminderNoteId(n.id)}
-                    now={now}
-                  />
-                  {hasMoreNotes && (
-                    <div style={{display:"flex",justifyContent:"center",marginTop:24}}>
-                      <button
-                        onClick={loadMoreNotes}
-                        aria-label="Show more notes"
-                        style={{
-                          ...glassBase(16),padding:"12px 18px",borderRadius:16,border:"none",
-                          color:G.textPrimary,background:"rgba(255,255,255,0.10)",cursor:"pointer",
-                          fontFamily:"inherit",fontSize:"0.92rem",
-                        }}
-                      >Показать ещё</button>
-                    </div>
-                  )}
-                </>
-              )}
+              {(currentUser && notesLoading) ? <LoadingState t={t} /> :
+                filtered.length === 0 ? <EmptyState tab={tab} search={search} t={t} /> :
+                <GridView
+                  pinned={pinned} unpinned={unpinned} cols={cols}
+                  theme={theme} isMobile={isMobile} isTablet={isTablet} tab={tab}
+                  onOpen={openEdit}
+                  onPin={n => mutNote(n.id, { pinned: !n.pinned })}
+                  onArchive={n => mutNote(n.id, { archived: !n.archived })}
+                  onTrash={deleteOrRestoreNote}
+                  onReminder={n => setReminderNoteId(n.id)}
+                  now={now} language={language} t={t}
+                />
+              }
             </div>
-
-            <BottomNav tab={tab} setTab={setTab} isMobile={isMobile}/>
+            <BottomNav tab={tab} setTab={setTab} isMobile={isMobile} t={t} />
           </>
         )}
       </div>
 
-      {/* FAB — fixed bottom-right like Google Keep */}
-      {screen==="dashboard"&&<FabBtn onClick={openNew} isMobile={isMobile}/>}
+      {screen === "dashboard" && <FabBtn onClick={openNew} isMobile={isMobile} t={t} />}
 
-      {/* Sort sheet */}
-      {showSort&&(
-        <SortSheet
-          current={sort}
-          onSelect={o=>{ setSort(o); setShowSort(false); }}
-          onClose={()=>setShowSort(false)}
-        />
+      {showSort && (
+        <SortSheet current={sort} onSelect={o => { setSort(o); setShowSort(false); }} onClose={() => setShowSort(false)} t={t} />
       )}
 
-      {/* Reminder picker */}
-      {reminderNoteId!==null&&(()=>{
-        const n=notes.find(x=>x.id===reminderNoteId);
-        if(!n)return null;
-        return(
+      {reminderNoteId !== null && (() => {
+        const n = allNotes.find(x => x.id === reminderNoteId);
+        if (!n) return null;
+        return (
           <ReminderModal
             note={n}
-            onSave={d=>{ mutNote(n.id,{reminder:d}); setReminderNoteId(null); }}
-            onClose={()=>setReminderNoteId(null)}
+            onSave={d => { mutNote(n.id, { reminder: d }); setReminderNoteId(null); }}
+            onClose={() => setReminderNoteId(null)}
+            language={language} t={t}
           />
         );
       })()}
 
-      {editorOpen&&(
+      {editorOpen && (
         <EditorModal
           creating={creating} title={draftT} body={draftB}
           onTitle={setDraftT} onBody={setDraftB}
           onClose={closeEd} onSave={save}
           isMobile={isMobile} isTablet={isTablet}
+          language={language} t={t}
         />
       )}
     </div>
@@ -1333,68 +1040,47 @@ export default function App(){
 /* ════════════════════════════════════════════════════════════════════
    SEARCH BAR
    ════════════════════════════════════════════════════════════════════ */
-function KeepSearchBar({search,setSearch,isMobile,sort,onSort,onSettings}:{
-  search:string; setSearch:(v:string)=>void;
-  isMobile:boolean; sort:SortOrder;
-  onSort:()=>void; onSettings:()=>void;
-}){
+function KeepSearchBar({ search, setSearch, isMobile, sort, sortActive, onSort, onSettings }: {
+  search: string; setSearch: (v: string) => void; isMobile: boolean;
+  sort: SortOrder; sortActive: boolean; onSort: () => void; onSettings: () => void;
+}) {
   const { t } = useTranslation();
-  const sortActive = sort !== "default";
   return (
     <div style={{
-      paddingTop:"calc(20px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))",paddingBottom:24,
-      background:"linear-gradient(to bottom, rgba(0,0,0,0.38) 60%, transparent 100%)",
+      paddingTop: "calc(20px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))",
+      paddingBottom: 24,
+      background: "linear-gradient(to bottom, rgba(0,0,0,0.38) 60%, transparent 100%)",
     }}>
-      <div
-        className="search-bar"
-        style={{
-          ...glassBase(20),borderRadius:50,
-          display:"flex",alignItems:"center",gap:4,
-          padding:"0 12px 0 16px",height:52,
-          transition:"border-color 0.2s,box-shadow 0.2s",
-        }}
-      >
+      <div className="search-bar" style={{
+        ...glassBase(20), borderRadius: 50, display: "flex", alignItems: "center",
+        gap: 4, padding: "0 12px 0 16px", height: 52,
+        transition: "border-color 0.2s,box-shadow 0.2s",
+      }}>
         <input
-          id="search-input"
-          name="search"
-          value={search} onChange={e=>setSearch(e.target.value)}
-          placeholder={t.searchPlaceholder}
+          value={search} onChange={e => setSearch(e.target.value)}
+          placeholder={t.searchPlaceholder} aria-label={t.search}
           style={{
-            flex:1,background:"transparent",border:"none",outline:"none",
-            fontSize:"0.95rem",color:G.textPrimary,fontFamily:"inherit",letterSpacing:"0.01em",
+            flex: 1, background: "transparent", border: "none", outline: "none",
+            fontSize: "0.95rem", color: G.textPrimary, fontFamily: "inherit", letterSpacing: "0.01em",
           }}
         />
-
-        {search&&(
-          <button onClick={()=>setSearch("")} aria-label={t.close} style={{background:"none",border:"none",cursor:"pointer",lineHeight:0,padding:6}}>
-            <X size={16} color={G.textMuted}/>
+        {search && (
+          <button onClick={() => setSearch("")} aria-label={t.close} style={{ background: "none", border: "none", cursor: "pointer", lineHeight: 0, padding: 6 }}>
+            <X size={16} color={G.textMuted} />
           </button>
         )}
-
-        {/* Sort button — amber tint when active */}
         <button
-          className="icon-btn"
-          onClick={onSort}
-          aria-label={t.sort}
-          title={t.sort}
+          className="icon-btn" onClick={onSort} aria-label={t.sort} title={t.sort}
           style={{
-            position:"relative",
-            background:sortActive?"rgba(255,200,60,0.12)":"transparent",
-            borderRadius:50,
-            outline:sortActive?`1px solid rgba(255,200,60,0.30)`:"none",
+            position: "relative", background: sortActive ? "rgba(255,200,60,0.12)" : "transparent",
+            borderRadius: 50, outline: sortActive ? "1px solid rgba(255,200,60,0.30)" : "none",
           }}
         >
-          <SlidersHorizontal size={17} color={sortActive?"rgba(255,210,70,0.90)":G.textSecondary}/>
-          {sortActive&&(
-            <span style={{
-              position:"absolute",top:4,right:4,width:6,height:6,borderRadius:"50%",
-              background:"rgba(255,200,60,0.90)",
-            }}/>
-          )}
+          <SlidersHorizontal size={17} color={sortActive ? "rgba(255,210,70,0.90)" : G.textSecondary} />
+          {sortActive && <span style={{ position: "absolute", top: 4, right: 4, width: 6, height: 6, borderRadius: "50%", background: "rgba(255,200,60,0.90)" }} />}
         </button>
-
-        <button className="icon-btn" onClick={onSettings} aria-label={t.settings}>
-          <Settings size={18} color={G.textSecondary}/>
+        <button className="icon-btn" onClick={onSettings} aria-label={t.settings} title={t.settings}>
+          <Settings size={18} color={G.textSecondary} />
         </button>
       </div>
     </div>
@@ -1402,138 +1088,111 @@ function KeepSearchBar({search,setSearch,isMobile,sort,onSort,onSettings}:{
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   GRID / MASONRY VIEWS
+   GRID
    ════════════════════════════════════════════════════════════════════ */
 type ViewProps = {
-  pinned:Note[];unpinned:Note[];cols:number;theme:Theme;
-  isMobile:boolean;isTablet:boolean;tab:Tab;
-  onOpen:(n:Note)=>void;onPin:(n:Note)=>void;
-  onArchive:(n:Note)=>void;onTrash:(n:Note)=>void;
-  onReminder:(n:Note)=>void;
-  masonry?:boolean;
-  now: number;
+  pinned: Note[]; unpinned: Note[]; cols: number; theme: Theme;
+  isMobile: boolean; isTablet: boolean; tab: Tab;
+  onOpen: (n: Note) => void; onPin: (n: Note) => void;
+  onArchive: (n: Note) => void; onTrash: (n: Note) => void;
+  onReminder: (n: Note) => void; now: number;
+  language: Language; t: Translation;
 };
 
-function GridView(p:ViewProps){
-  const cp={...p};
-  const g=(items:Note[])=>(
-    <div style={{display:"grid",gridTemplateColumns:`repeat(${p.cols},1fr)`,gap:p.isMobile?14:18}}>
-      {items.map(n=><NoteCard key={n.id} note={n} {...cp}/>)}
+function GridView(p: ViewProps) {
+  const g = (items: Note[]) => (
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${p.cols},1fr)`, gap: p.isMobile ? 14 : 18 }}>
+      {items.map(n => <NoteCard key={n.id} note={n} {...p} />)}
     </div>
   );
-  return(
-    <div style={{paddingTop:4}}>
-      {p.pinned.length>0&&<><p className="section-label">Закреплённые</p>{g(p.pinned)}<p className="section-label" style={{marginTop:24}}>Остальные</p></>}
+  return (
+    <div style={{ paddingTop: 4 }}>
+      {p.pinned.length > 0 && (
+        <>
+          <p className="section-label">{p.t.pinnedSection}</p>
+          {g(p.pinned)}
+          <p className="section-label" style={{ marginTop: 24 }}>{p.t.othersSection}</p>
+        </>
+      )}
       {g(p.unpinned)}
     </div>
   );
 }
 
-function MasonryView(p:ViewProps){
-  const cp={...p,masonry:true};
-  const m=(items:Note[])=>(
-    <div className="masonry" style={{"--cols":p.cols} as React.CSSProperties}>
-      {items.map(n=><NoteCard key={n.id} note={n} {...cp}/>)}
-    </div>
-  );
-  return(
-    <div style={{paddingTop:4}}>
-      {p.pinned.length>0&&<><p className="section-label">Закреплённые</p>{m(p.pinned)}<p className="section-label" style={{marginTop:24}}>Остальные</p></>}
-      {m(p.unpinned)}
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   NOTE CARD
-   ════════════════════════════════════════════════════════════════════ */
-function NoteCard({note,theme,isMobile,isTablet,tab,masonry,onOpen,onPin,onArchive,onTrash,onReminder,now}:ViewProps&{note:Note}){
-  const { t } = useTranslation();
-  const accent   = theme.accents[note.accentIdx%theme.accents.length];
-  const minH     = masonry?0:isMobile?130:isTablet?140:160;
-  const pad      = isMobile?"14px 16px 12px":"18px 20px 14px";
+function NoteCard({ note, theme, isMobile, isTablet, tab, onOpen, onPin, onArchive, onTrash, onReminder, now, language, t }: ViewProps & { note: Note; key?: React.Key }) {
+  const accent = theme.accents[note.accentIdx % theme.accents.length];
+  const minH = isMobile ? 130 : isTablet ? 140 : 160;
+  const pad = isMobile ? "14px 16px 12px" : "18px 20px 14px";
   const hasReminder = !!note.reminder;
 
-  return(
-    <div className="card" onClick={()=>onOpen(note)}>
-      <div className="card-glass" style={{minHeight:minH}}>
-        <div className="glass-ring"/>
-        <div className="glass-sheen"/>
-        <div className="card-accent" style={{background:`linear-gradient(145deg,${accent} 0%,rgba(255,255,255,0.01) 70%)`}}/>
-        <div style={{position:"relative",zIndex:20,padding:pad,minHeight:minH,display:"flex",flexDirection:"column"}}>
-
-          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:8}}>
-            <h3 style={{margin:0,fontWeight:700,fontSize:isMobile?"0.90rem":isTablet?"0.96rem":"1.06rem",
-              lineHeight:1.3,color:G.textPrimary,letterSpacing:"-0.02em",flex:1}}>
-              {note.title}
+  return (
+    <div className="card" onClick={() => onOpen(note)}>
+      <div className="card-glass" style={{ minHeight: minH }}>
+        <div className="glass-ring" />
+        <div className="glass-sheen" />
+        <div className="card-accent" style={{ background: `linear-gradient(145deg,${accent} 0%,rgba(255,255,255,0.01) 70%)` }} />
+        <div style={{ position: "relative", zIndex: 20, padding: pad, minHeight: minH, display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+            <h3 style={{ margin: 0, fontWeight: 700, fontSize: isMobile ? "0.90rem" : isTablet ? "0.96rem" : "1.06rem", lineHeight: 1.3, color: G.textPrimary, letterSpacing: "-0.02em", flex: 1 }}>
+              {note.title || t.untitled}
             </h3>
             <button
-              className={`card-pin${note.pinned?" pinned":""}`}
-              onClick={e=>{e.stopPropagation();onPin(note);}}
-              title={note.pinned?t.unpin:t.pin}
-              aria-label={note.pinned?t.unpinNote:t.pinNote}
-              style={{background:"none",border:"none",cursor:"pointer",padding:2,flexShrink:0,lineHeight:0}}
+              className={`card-pin${note.pinned ? " pinned" : ""}`}
+              onClick={e => { e.stopPropagation(); onPin(note); }}
+              title={note.pinned ? t.unpin : t.pin}
+              aria-label={note.pinned ? t.unpinNote : t.pinNote}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 4, flexShrink: 0, lineHeight: 0 }}
             >
               {note.pinned
-                ?<PinOff size={14} color="rgba(255,255,255,0.70)" strokeWidth={1.8}/>
-                :<Pin    size={14} color={G.textSecondary}         strokeWidth={1.8}/>}
+                ? <PinOff size={14} color="rgba(255,255,255,0.70)" strokeWidth={1.8} />
+                : <Pin size={14} color={G.textSecondary} strokeWidth={1.8} />}
             </button>
           </div>
 
           <p style={{
-            margin:"0 0 auto",
-            fontSize:isMobile?"0.76rem":isTablet?"0.80rem":"0.84rem",
-            color:G.textSecondary,lineHeight:1.65,fontWeight:400,whiteSpace:"pre-line",
-            ...(masonry?{}:{display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}),
-            paddingBottom:12,
+            margin: "0 0 auto", fontSize: isMobile ? "0.76rem" : isTablet ? "0.80rem" : "0.84rem",
+            color: G.textSecondary, lineHeight: 1.65, fontWeight: 400, whiteSpace: "pre-line",
+            display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden",
+            paddingBottom: 12,
           }}>
             {stripHtml(note.body)}
           </p>
 
-          {/* Reminder badge — always visible when set */}
-          {hasReminder&&(
+          {hasReminder && note.reminder && (
             <button
-              onClick={e=>{e.stopPropagation();onReminder(note);}}
-              aria-label="View or edit reminder"
+              onClick={e => { e.stopPropagation(); onReminder(note); }}
+              aria-label={t.reminder}
               style={{
-                alignSelf:"flex-start",display:"flex",alignItems:"center",gap:5,
-                background:"rgba(255,200,60,0.12)",border:"1px solid rgba(255,200,60,0.28)",
-                borderRadius:8,padding:"3px 8px 3px 6px",marginBottom:8,cursor:"pointer",
-                color:"rgba(255,210,80,0.90)",fontSize:"0.68rem",fontWeight:600,fontFamily:"inherit",
-                transition:"background 0.18s",
+                alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 5,
+                background: "rgba(255,200,60,0.12)", border: "1px solid rgba(255,200,60,0.28)",
+                borderRadius: 8, padding: "3px 8px 3px 6px", marginBottom: 8, cursor: "pointer",
+                color: "rgba(255,210,80,0.90)", fontSize: "0.68rem", fontWeight: 600, fontFamily: "inherit",
+                transition: "background 0.18s",
               }}
-              onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background="rgba(255,200,60,0.20)"}
-              onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background="rgba(255,200,60,0.12)"}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,200,60,0.20)"}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,200,60,0.12)"}
             >
-              <BellRing size={10} strokeWidth={2}/>
-              {note.reminder!.toLocaleString("ru-RU",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+              <BellRing size={10} strokeWidth={2} />
+              {note.reminder.toLocaleString(language, t.dateFormatShort as any)}
             </button>
           )}
 
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:"auto"}}>
-            <div 
-              className="note-time"
-              data-timestamp={note.updatedAt.toISOString()}
-              style={{display:"flex",alignItems:"center",gap:4,color:G.textMuted,fontSize:"0.68rem"}}
-            >
-              <Clock size={9} strokeWidth={1.8}/>
-              <span>{fmtDate(note.updatedAt, now)}</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, color: G.textMuted, fontSize: "0.68rem" }}>
+              <Clock size={9} strokeWidth={1.8} />
+              <span>{fmtDate(note.updatedAt, t.localeTag, t, now)}</span>
             </div>
-            <div
-              className={`card-actions${isMobile?" actions-always":""}`}
-              style={{display:"flex",gap:4}}
-              onClick={e=>e.stopPropagation()}
-            >
-              <MiniAction onClick={()=>onReminder(note)} title="Напоминание">
-                <Bell size={11} color={hasReminder?"rgba(255,200,60,0.80)":G.textSecondary} strokeWidth={1.8}/>
+            <div className={`card-actions${isMobile ? " actions-always" : ""}`} style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
+              <MiniAction onClick={() => onReminder(note)} title={t.reminder}>
+                <Bell size={11} color={hasReminder ? "rgba(255,200,60,0.80)" : G.textSecondary} strokeWidth={1.8} />
               </MiniAction>
-              {tab!=="archive"&&(
-                <MiniAction onClick={()=>onArchive(note)} title="Архивировать">
-                  <Archive size={11} color={G.textSecondary} strokeWidth={1.8}/>
+              {tab !== "archive" && (
+                <MiniAction onClick={() => onArchive(note)} title={t.archive}>
+                  <Archive size={11} color={G.textSecondary} strokeWidth={1.8} />
                 </MiniAction>
               )}
-              <MiniAction onClick={()=>onTrash(note)} title="Удалить">
-                <Trash2 size={11} color={G.textSecondary} strokeWidth={1.8}/>
+              <MiniAction onClick={() => onTrash(note)} title={tab === "trash" ? t.deleteForeverAction : t.delete}>
+                <Trash2 size={11} color={G.textSecondary} strokeWidth={1.8} />
               </MiniAction>
             </div>
           </div>
@@ -1543,12 +1202,11 @@ function NoteCard({note,theme,isMobile,isTablet,tab,masonry,onOpen,onPin,onArchi
   );
 }
 
-function MiniAction({children,onClick,title}:{children:React.ReactNode;onClick:()=>void;title:string}){
-  const { t } = useTranslation();
-  return(
+function MiniAction({ children, onClick, title }: { children: ReactNode; onClick: () => void; title: string }) {
+  return (
     <button onClick={onClick} title={title} aria-label={title} style={{
-      ...glassBase(10),width:26,height:26,borderRadius:8,
-      border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
+      ...glassBase(10), width: 26, height: 26, borderRadius: 8,
+      border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
     }}>
       {children}
     </button>
@@ -1556,28 +1214,29 @@ function MiniAction({children,onClick,title}:{children:React.ReactNode;onClick:(
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   EMPTY STATE
+   EMPTY / LOADING
    ════════════════════════════════════════════════════════════════════ */
-function EmptyState({tab,search}:{tab:Tab;search:string}){
-  return(
-    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:260,gap:14}}>
-      <div style={{...glassBase(16),width:52,height:52,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center"}}>
-        <FileText size={22} color={G.textMuted}/>
+function EmptyState({ tab, search, t }: { tab: Tab; search: string; t: Translation }) {
+  const msg = search ? t.noSearchResults
+    : tab === "all" ? t.noNotes
+    : tab === "archive" ? t.noNotesArchive : t.noNotesTrash;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 260, gap: 14 }}>
+      <div style={{ ...glassBase(16), width: 52, height: 52, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <FileText size={22} color={G.textMuted} />
       </div>
-      <p style={{color:G.textMuted,fontSize:"0.84rem",letterSpacing:"0.02em",margin:0}}>
-        {search?"Ничего не найдено":tab==="all"?"Заметок пока нет":tab==="archive"?"Архив пуст":"Корзина пуста"}
-      </p>
+      <p style={{ color: G.textMuted, fontSize: "0.84rem", letterSpacing: "0.02em", margin: 0 }}>{msg}</p>
     </div>
   );
 }
 
-function LoadingState(){
-  return(
-    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:240}}>
-      <div style={{...glassBase(16),padding:"22px 26px",textAlign:"center"}}>
-        <div style={{marginBottom:14,fontSize:"0.95rem",fontWeight:700,color:G.textPrimary}}>Загрузка заметок...</div>
-        <div style={{height:4,width:180,background:"rgba(255,255,255,0.10)",borderRadius:999,overflow:"hidden"}}>
-          <div style={{width:80,height:4,background:"rgba(255,200,60,0.90)",animation:"loadingBar 1.2s ease-in-out infinite"}}/>
+function LoadingState({ t }: { t: Translation }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 240 }}>
+      <div style={{ ...glassBase(16), padding: "22px 26px", textAlign: "center" }}>
+        <div style={{ marginBottom: 14, fontSize: "0.95rem", fontWeight: 700, color: G.textPrimary }}>{t.loadingNotes}</div>
+        <div style={{ height: 4, width: 180, background: "rgba(255,255,255,0.10)", borderRadius: 999, overflow: "hidden" }}>
+          <div style={{ width: 80, height: 4, background: "rgba(255,200,60,0.90)", animation: "loadingBar 1.2s ease-in-out infinite" }} />
         </div>
       </div>
       <style>{`@keyframes loadingBar{0%{transform:translateX(-100%);}50%{transform:translateX(0%);}100%{transform:translateX(100%);}}`}</style>
@@ -1588,29 +1247,27 @@ function LoadingState(){
 /* ════════════════════════════════════════════════════════════════════
    BOTTOM NAV
    ════════════════════════════════════════════════════════════════════ */
-function BottomNav({tab,setTab,isMobile}:{tab:Tab;setTab:(t:Tab)=>void;isMobile:boolean}){
-  const items:[Tab,typeof FileText,string][]=[
-    ["all",FileText,"Заметки"],["archive",Archive,"Архив"],["trash",Trash2,"Корзина"],
+function BottomNav({ tab, setTab, isMobile, t }: { tab: Tab; setTab: (t: Tab) => void; isMobile: boolean; t: Translation }) {
+  const items: [Tab, typeof FileText, string][] = [
+    ["all", FileText, t.tabNotes],
+    ["archive", Archive, t.tabArchive],
+    ["trash", Trash2, t.tabTrash],
   ];
-  return(
-    <div style={{position:"fixed",bottom:isMobile?"calc(12px + env(safe-area-inset-bottom, 0px))":24,left:"50%",transform:"translateX(-50%)",width:isMobile?"calc(100% - 32px)":"56%",minWidth:260,maxWidth:420,zIndex:40}}>
-      <div style={{...glassBase(28),borderRadius:30,padding:"10px 8px",
-        display:"flex",alignItems:"center",justifyContent:"space-around",position:"relative"}}>
-        <div style={{position:"absolute",inset:0,borderRadius:"inherit",pointerEvents:"none",zIndex:10,padding:1,
-          background:"linear-gradient(160deg,rgba(255,255,255,0.28) 0%,rgba(255,255,255,0.04) 60%)",
-          WebkitMask:"linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)",
-          WebkitMaskComposite:"xor",maskComposite:"exclude"}}/>
-        {items.map(([id,Icon,label])=>{
-          const active=tab===id;
-          return(
-            <button key={id} onClick={()=>setTab(id)} aria-label={label} style={{
-              display:"flex",flexDirection:"column",alignItems:"center",gap:4,
-              padding:"4px 20px",borderRadius:20,border:"none",cursor:"pointer",
-              background:"transparent",fontFamily:"inherit",
-              color:active?G.textPrimary:G.textMuted,position:"relative",transition:"color 0.2s",
+  return (
+    <div style={{ position: "fixed", bottom: isMobile ? "calc(12px + env(safe-area-inset-bottom, 0px))" : 24, left: "50%", transform: "translateX(-50%)", width: isMobile ? "calc(100% - 32px)" : "56%", minWidth: 260, maxWidth: 420, zIndex: 40 }}>
+      <div style={{ ...glassBase(28), borderRadius: 30, padding: "10px 8px", display: "flex", alignItems: "center", justifyContent: "space-around", position: "relative" }}>
+        <div style={{ position: "absolute", inset: 0, borderRadius: "inherit", pointerEvents: "none", zIndex: 10, padding: 1, background: "linear-gradient(160deg,rgba(255,255,255,0.28) 0%,rgba(255,255,255,0.04) 60%)", WebkitMask: "linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)", WebkitMaskComposite: "xor", maskComposite: "exclude" }} />
+        {items.map(([id, Icon]) => {
+          const active = tab === id;
+          return (
+            <button key={id} onClick={() => setTab(id)} aria-label={id} style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+              padding: "4px 20px", borderRadius: 20, border: "none", cursor: "pointer",
+              background: "transparent", fontFamily: "inherit",
+              color: active ? G.textPrimary : G.textMuted, position: "relative", transition: "color 0.2s",
             }}>
-              <Icon size={20} strokeWidth={active?2.2:1.5}/>
-              {active&&<div style={{position:"absolute",bottom:-2,left:"50%",transform:"translateX(-50%)",width:18,height:2,borderRadius:2,background:"rgba(255,255,255,0.70)"}}/>}
+              <Icon size={20} strokeWidth={active ? 2.2 : 1.5} />
+              {active && <div style={{ position: "absolute", bottom: -2, left: "50%", transform: "translateX(-50%)", width: 18, height: 2, borderRadius: 2, background: "rgba(255,255,255,0.70)" }} />}
             </button>
           );
         })}
@@ -1622,26 +1279,23 @@ function BottomNav({tab,setTab,isMobile}:{tab:Tab;setTab:(t:Tab)=>void;isMobile:
 /* ════════════════════════════════════════════════════════════════════
    FAB
    ════════════════════════════════════════════════════════════════════ */
-function FabBtn({onClick,isMobile}:{onClick:()=>void;isMobile:boolean}){
-  const { t } = useTranslation();
-  const sz=isMobile?52:56;
-  return(
+function FabBtn({ onClick, isMobile, t }: { onClick: () => void; isMobile: boolean; t: Translation }) {
+  const sz = isMobile ? 52 : 56;
+  return (
     <button onClick={onClick} aria-label={t.createNewNote} style={{
       ...glassBase(16),
-      position:"fixed",
-      bottom:isMobile?"calc(76px + env(safe-area-inset-bottom, 0px))":32,
-      right:isMobile?20:32,
-      width:sz,height:sz,
-      borderRadius:16,border:"none",cursor:"pointer",
-      display:"flex",alignItems:"center",justifyContent:"center",
-      background:G.bgHov,
-      zIndex:40,
-      transition:"transform 0.22s cubic-bezier(0.34,1.56,0.64,1),background 0.2s,box-shadow 0.2s",
+      position: "fixed",
+      bottom: isMobile ? "calc(76px + env(safe-area-inset-bottom, 0px))" : 32,
+      right: isMobile ? 20 : 32,
+      width: sz, height: sz, borderRadius: 16, border: "none", cursor: "pointer",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      background: G.bgHov, zIndex: 40,
+      transition: "transform 0.22s cubic-bezier(0.34,1.56,0.64,1),background 0.2s,box-shadow 0.2s",
     }}
-    onMouseEnter={e=>{const el=e.currentTarget as HTMLElement;el.style.transform="scale(1.12)";el.style.background="rgba(255,255,255,0.16)";el.style.boxShadow="0 20px 60px rgba(0,0,0,0.60),inset 0 1px 0 rgba(255,255,255,0.25)";}}
-    onMouseLeave={e=>{const el=e.currentTarget as HTMLElement;el.style.transform="scale(1)";el.style.background=G.bgHov;el.style.boxShadow=G.shadow;}}
+      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "scale(1.12)"; el.style.background = "rgba(255,255,255,0.16)"; }}
+      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "scale(1)"; el.style.background = G.bgHov; }}
     >
-      <Plus size={isMobile?22:24} color={G.textPrimary} strokeWidth={2}/>
+      <Plus size={isMobile ? 22 : 24} color={G.textPrimary} strokeWidth={2} />
     </button>
   );
 }
@@ -1649,78 +1303,60 @@ function FabBtn({onClick,isMobile}:{onClick:()=>void;isMobile:boolean}){
 /* ════════════════════════════════════════════════════════════════════
    SORT SHEET
    ════════════════════════════════════════════════════════════════════ */
-const SORT_OPTIONS: { id: SortOrder; label: string; sub: string; Icon: typeof Shuffle }[] = [
-  { id:"default", label:"По умолчанию",   sub:"Порядок добавления",     Icon:Shuffle      },
-  { id:"created", label:"Дата создания",  sub:"Сначала новые",          Icon:CalendarDays },
-  { id:"updated", label:"Дата изменения", sub:"Недавно отредактированные", Icon:RefreshCw },
-];
-
-function SortSheet({current,onSelect,onClose}:{
-  current:SortOrder; onSelect:(o:SortOrder)=>void; onClose:()=>void;
-}){
-  return(
-    <div
-      style={{position:"fixed",inset:0,zIndex:60,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}
-      onClick={e=>{if(e.target===e.currentTarget)onClose();}}
-    >
-      {/* Backdrop */}
-      <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.52)",backdropFilter:"blur(3px)"}} onClick={onClose}/>
-
-      {/* Sheet */}
+function SortSheet({ current, onSelect, onClose, t }: {
+  current: SortOrder; onSelect: (o: SortOrder) => void; onClose: () => void; t: Translation;
+}) {
+  const opts: { id: SortOrder; label: string; sub: string; Icon: typeof Shuffle }[] = [
+    { id: "default", label: t.sortDefault, sub: t.sortDefaultSub, Icon: Shuffle },
+    { id: "created", label: t.sortByCreated, sub: t.sortCreatedSub, Icon: CalendarDays },
+    { id: "updated", label: t.sortByUpdated, sub: t.sortUpdatedSub, Icon: RefreshCw },
+  ];
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.52)", backdropFilter: "blur(3px)" }} onClick={onClose} />
       <div className="sheet-in" style={{
-        position:"relative",zIndex:1,
-        background:"rgba(18,18,24,0.96)",
-        backdropFilter:"blur(40px)",WebkitBackdropFilter:"blur(40px)",
-        borderTop:"1px solid rgba(255,255,255,0.14)",
-        borderRadius:"24px 24px 0 0",
-        boxShadow:"0 -16px 60px rgba(0,0,0,0.60), inset 0 1px 0 rgba(255,255,255,0.12)",
-        padding:"0 0 env(safe-area-inset-bottom,16px)",
+        position: "relative", zIndex: 1,
+        background: "rgba(18,18,24,0.96)", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)",
+        borderTop: "1px solid rgba(255,255,255,0.14)", borderRadius: "24px 24px 0 0",
+        boxShadow: "0 -16px 60px rgba(0,0,0,0.60), inset 0 1px 0 rgba(255,255,255,0.12)",
+        padding: "0 0 env(safe-area-inset-bottom,16px)",
       }}>
-        {/* Drag handle */}
-        <div style={{display:"flex",justifyContent:"center",padding:"12px 0 4px"}}>
-          <div style={{width:36,height:4,borderRadius:2,background:"rgba(255,255,255,0.18)"}}/>
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.18)" }} />
         </div>
-
-        {/* Title */}
-        <div style={{padding:"8px 24px 16px",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
-          <SlidersHorizontal size={16} color={G.textMuted}/>
-          <span style={{fontWeight:700,fontSize:"0.96rem",color:G.textPrimary,letterSpacing:"-0.01em"}}>Сортировка</span>
+        <div style={{ padding: "8px 24px 16px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <SlidersHorizontal size={16} color={G.textMuted} />
+          <span style={{ fontWeight: 700, fontSize: "0.96rem", color: G.textPrimary, letterSpacing: "-0.01em" }}>{t.sortBy}</span>
         </div>
-
-        {/* Options */}
-        <div style={{padding:"8px 12px 20px",display:"flex",flexDirection:"column",gap:4}}>
-          {SORT_OPTIONS.map(({id,label,sub,Icon})=>{
-            const active = current===id;
-            return(
-              <button key={id} onClick={()=>onSelect(id)} aria-label={`Sort by ${label}`} style={{
-                display:"flex",alignItems:"center",gap:14,padding:"14px 16px",
-                borderRadius:16,border:"none",cursor:"pointer",fontFamily:"inherit",
-                background:active?"rgba(255,255,255,0.07)":"transparent",
-                transition:"background 0.16s",textAlign:"left",
+        <div style={{ padding: "8px 12px 20px", display: "flex", flexDirection: "column", gap: 4 }}>
+          {opts.map(({ id, label, sub, Icon }) => {
+            const active = current === id;
+            return (
+              <button key={id} onClick={() => onSelect(id)} style={{
+                display: "flex", alignItems: "center", gap: 14, padding: "14px 16px",
+                borderRadius: 16, border: "none", cursor: "pointer", fontFamily: "inherit",
+                background: active ? "rgba(255,255,255,0.07)" : "transparent",
+                transition: "background 0.16s", textAlign: "left",
               }}
-              onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background="rgba(255,255,255,0.06)"}
-              onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=active?"rgba(255,255,255,0.07)":"transparent"}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = active ? "rgba(255,255,255,0.07)" : "transparent"}
               >
                 <div style={{
-                  width:40,height:40,borderRadius:12,flexShrink:0,
-                  background:active?"rgba(255,255,255,0.10)":"rgba(255,255,255,0.05)",
-                  border:`1px solid ${active?"rgba(255,255,255,0.20)":G.border}`,
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  transition:"all 0.16s",
+                  width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+                  background: active ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)",
+                  border: `1px solid ${active ? "rgba(255,255,255,0.20)" : G.border}`,
+                  display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.16s",
                 }}>
-                  <Icon size={18} color={active?G.textPrimary:G.textSecondary} strokeWidth={1.7}/>
+                  <Icon size={18} color={active ? G.textPrimary : G.textSecondary} strokeWidth={1.7} />
                 </div>
-                <div style={{flex:1}}>
-                  <p style={{margin:0,fontWeight:active?700:500,fontSize:"0.92rem",color:active?G.textPrimary:G.textSecondary}}>{label}</p>
-                  <p style={{margin:"2px 0 0",fontSize:"0.74rem",color:G.textMuted}}>{sub}</p>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontWeight: active ? 700 : 500, fontSize: "0.92rem", color: active ? G.textPrimary : G.textSecondary }}>{label}</p>
+                  <p style={{ margin: "2px 0 0", fontSize: "0.74rem", color: G.textMuted }}>{sub}</p>
                 </div>
-                {active&&(
-                  <div style={{
-                    width:22,height:22,borderRadius:"50%",flexShrink:0,
-                    background:"rgba(255,255,255,0.90)",
-                    display:"flex",alignItems:"center",justifyContent:"center",
-                  }}>
-                    <Check size={12} color="#111" strokeWidth={2.5}/>
+                {active && (
+                  <div style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0, background: "rgba(255,255,255,0.90)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Check size={12} color="#111" strokeWidth={2.5} />
                   </div>
                 )}
               </button>
@@ -1735,120 +1371,108 @@ function SortSheet({current,onSelect,onClose}:{
 /* ════════════════════════════════════════════════════════════════════
    REMINDER MODAL
    ════════════════════════════════════════════════════════════════════ */
-function ReminderModal({note,onSave,onClose}:{
-  note:Note; onSave:(d:Date|null)=>void; onClose:()=>void;
-}){
-  const now   = new Date();
-  const pad   = (n:number)=>String(n).padStart(2,"0");
-  const toVal = (d:Date)=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+function ReminderModal({ note, onSave, onClose, language, t }: {
+  note: Note; onSave: (d: Date | null) => void; onClose: () => void; language: Language; t: Translation;
+}) {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const toVal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const [val, setVal] = useState(note.reminder ? toVal(note.reminder) : "");
 
-  const [val, setVal] = useState(note.reminder?toVal(note.reminder):"");
-
-  const todayAt=(h:number,m=0)=>{
-    const d=new Date(now);d.setHours(h,m,0,0);
-    if(d<=now){d.setDate(d.getDate()+1);}
+  const todayAt = (h: number, m = 0) => {
+    const d = new Date(now); d.setHours(h, m, 0, 0);
+    if (d <= now) d.setDate(d.getDate() + 1);
     return d;
   };
-  const tomorrowAt=(h:number)=>{const d=new Date(now);d.setDate(d.getDate()+1);d.setHours(h,0,0,0);return d;};
-  const nextMonday=()=>{const d=new Date(now);const diff=(8-d.getDay())%7||7;d.setDate(d.getDate()+diff);d.setHours(8,0,0,0);return d;};
+  const tomorrowAt = (h: number) => { const d = new Date(now); d.setDate(d.getDate() + 1); d.setHours(h, 0, 0, 0); return d; };
+  const nextMonday = () => {
+    const d = new Date(now); const diff = (8 - d.getDay()) % 7 || 7;
+    d.setDate(d.getDate() + diff); d.setHours(8, 0, 0, 0); return d;
+  };
 
-  const quickPicks=[
-    {label:"Сегодня",       sub:"20:00",  val:todayAt(20)},
-    {label:"Завтра утром",  sub:"08:00",  val:tomorrowAt(8)},
-    {label:"Следующая неделя", sub:"Пн 08:00", val:nextMonday()},
+  const quickPicks = [
+    { label: t.reminderToday, sub: "20:00", val: todayAt(20) },
+    { label: t.reminderTomorrow, sub: "08:00", val: tomorrowAt(8) },
+    { label: t.reminderNextWeek, sub: "Mon 08:00", val: nextMonday() },
   ];
 
-  const fmt=(d:Date)=>d.toLocaleString("ru-RU",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"});
+  const fmt = (d: Date) => d.toLocaleString(language, t.dateFormatReminder as any);
 
-  return(
-    <div
-      style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",
-        background:"rgba(0,0,0,0.55)",backdropFilter:"blur(4px)",padding:24}}
-      onClick={e=>{if(e.target===e.currentTarget)onClose();}}
-    >
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", padding: 24 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal-in" style={{
-        ...glassBase(32),width:"100%",maxWidth:360,
-        border:"1px solid rgba(255,255,255,0.26)",
-        boxShadow:"0 32px 80px rgba(0,0,0,0.65),inset 0 1px 0 rgba(255,255,255,0.22)",
-        borderRadius:24,overflow:"hidden",position:"relative",
+        ...glassBase(32), width: "100%", maxWidth: 360,
+        border: "1px solid rgba(255,255,255,0.26)",
+        boxShadow: "0 32px 80px rgba(0,0,0,0.65),inset 0 1px 0 rgba(255,255,255,0.22)",
+        borderRadius: 24, overflow: "hidden", position: "relative",
       }}>
-        {/* ring */}
-        <div style={{position:"absolute",inset:0,borderRadius:"inherit",pointerEvents:"none",zIndex:1,padding:1,
-          background:"linear-gradient(160deg,rgba(255,255,255,0.38) 0%,rgba(255,255,255,0.05) 50%,transparent 100%)",
-          WebkitMask:"linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)",
-          WebkitMaskComposite:"xor",maskComposite:"exclude"}}/>
-
-        <div style={{position:"relative",zIndex:2,padding:"22px 22px 20px"}}>
-          {/* Header */}
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-            <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <CalendarClock size={18} color="rgba(255,200,60,0.90)"/>
-              <span style={{fontWeight:700,fontSize:"1rem",color:G.textPrimary}}>Напоминание</span>
+        <div style={{ position: "absolute", inset: 0, borderRadius: "inherit", pointerEvents: "none", zIndex: 1, padding: 1, background: "linear-gradient(160deg,rgba(255,255,255,0.38) 0%,rgba(255,255,255,0.05) 50%,transparent 100%)", WebkitMask: "linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)", WebkitMaskComposite: "xor", maskComposite: "exclude" }} />
+        <div style={{ position: "relative", zIndex: 2, padding: "22px 22px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <CalendarClock size={18} color="rgba(255,200,60,0.90)" />
+              <span style={{ fontWeight: 700, fontSize: "1rem", color: G.textPrimary }}>{t.reminder}</span>
             </div>
-            <button onClick={onClose} aria-label="Close reminder dialog" style={{background:"none",border:"none",cursor:"pointer",lineHeight:0,padding:4}}>
-              <X size={16} color={G.textMuted}/>
+            <button onClick={onClose} aria-label={t.close} style={{ background: "none", border: "none", cursor: "pointer", lineHeight: 0, padding: 4 }}>
+              <X size={16} color={G.textMuted} />
             </button>
           </div>
 
-          {/* Quick picks */}
-          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:18}}>
-            {quickPicks.map(qp=>(
-              <button key={qp.label} onClick={()=>setVal(toVal(qp.val))} aria-label={`Set reminder: ${qp.label}`} style={{
-                display:"flex",alignItems:"center",justifyContent:"space-between",
-                padding:"11px 14px",borderRadius:14,border:`1px solid ${G.border}`,
-                background:val===toVal(qp.val)?"rgba(255,200,60,0.12)":G.bg,
-                cursor:"pointer",fontFamily:"inherit",transition:"all 0.18s",
-                outline:val===toVal(qp.val)?"1px solid rgba(255,200,60,0.35)":"none",
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
+            {quickPicks.map(qp => (
+              <button key={qp.label} onClick={() => setVal(toVal(qp.val))} style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "11px 14px", borderRadius: 14, border: `1px solid ${G.border}`,
+                background: val === toVal(qp.val) ? "rgba(255,200,60,0.12)" : G.bg,
+                cursor: "pointer", fontFamily: "inherit", transition: "all 0.18s",
+                outline: val === toVal(qp.val) ? "1px solid rgba(255,200,60,0.35)" : "none",
               }}
-              onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background="rgba(255,255,255,0.08)"}
-              onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=val===toVal(qp.val)?"rgba(255,200,60,0.12)":G.bg}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = val === toVal(qp.val) ? "rgba(255,200,60,0.12)" : G.bg}
               >
-                <span style={{fontWeight:600,fontSize:"0.86rem",color:G.textPrimary}}>{qp.label}</span>
-                <span style={{fontSize:"0.76rem",color:G.textSecondary}}>{fmt(qp.val)}</span>
+                <span style={{ fontWeight: 600, fontSize: "0.86rem", color: G.textPrimary }}>{qp.label}</span>
+                <span style={{ fontSize: "0.76rem", color: G.textSecondary }}>{fmt(qp.val)}</span>
               </button>
             ))}
           </div>
 
-          {/* Custom datetime */}
-          <div style={{marginBottom:18}}>
-            <p style={{margin:"0 0 8px",fontSize:"0.68rem",fontWeight:600,color:G.textMuted,
-              textTransform:"uppercase",letterSpacing:"0.08em"}}>Своя дата и время</p>
-            <input
-              id="custom-datetime"
-              name="custom-datetime"
-              type="datetime-local" value={val}
-              min={toVal(new Date(now.getTime()+60000))}
-              onChange={e=>setVal(e.target.value)}
+          <div style={{ marginBottom: 18 }}>
+            <p style={{ margin: "0 0 8px", fontSize: "0.68rem", fontWeight: 600, color: G.textMuted, textTransform: "uppercase", letterSpacing: "0.08em" }}>{t.reminderCustom}</p>
+            <input type="datetime-local" value={val} min={toVal(new Date(now.getTime() + 60000))}
+              onChange={e => setVal(e.target.value)}
               style={{
-                width:"100%",background:"rgba(255,255,255,0.05)",
-                border:`1px solid ${G.border}`,borderRadius:12,
-                padding:"10px 14px",outline:"none",fontFamily:"inherit",
-                fontSize:"0.86rem",color:G.textPrimary,colorScheme:"dark",
-              }}
-            />
+                width: "100%", background: "rgba(255,255,255,0.05)",
+                border: `1px solid ${G.border}`, borderRadius: 12,
+                padding: "10px 14px", outline: "none", fontFamily: "inherit",
+                fontSize: "0.86rem", color: G.textPrimary, colorScheme: "dark",
+              }} />
           </div>
 
-          {/* Actions */}
-          <div style={{display:"flex",gap:8}}>
-            {note.reminder&&(
-              <button onClick={()=>onSave(null)} aria-label="Delete reminder" style={{
-                flex:1,padding:"11px 0",borderRadius:14,border:`1px solid rgba(255,100,100,0.28)`,
-                background:"rgba(255,80,80,0.08)",cursor:"pointer",fontFamily:"inherit",
-                fontSize:"0.84rem",fontWeight:600,color:"rgba(255,120,120,0.90)",transition:"all 0.18s",
-              }}>Удалить</button>
+          <div style={{ display: "flex", gap: 8 }}>
+            {note.reminder && (
+              <button onClick={() => onSave(null)} aria-label={t.reminderDelete} style={{
+                flex: 1, padding: "11px 0", borderRadius: 14, border: "1px solid rgba(255,100,100,0.28)",
+                background: "rgba(255,80,80,0.08)", cursor: "pointer", fontFamily: "inherit",
+                fontSize: "0.84rem", fontWeight: 600, color: "rgba(255,120,120,0.90)", transition: "all 0.18s",
+              }}>{t.reminderDelete}</button>
             )}
-            <button
-              onClick={()=>{if(val)onSave(new Date(val));}}
-              disabled={!val}
-              aria-label="Save reminder"
+              <button onClick={() => {
+                if (val) {
+                  if ("Notification" in window && Notification.permission === "default") {
+                    Notification.requestPermission().catch(() => {});
+                  }
+                  onSave(new Date(val));
+                }
+              }} disabled={!val}
+              aria-label={t.reminderSave}
               style={{
-                flex:2,padding:"11px 0",borderRadius:14,border:"1px solid rgba(255,200,60,0.35)",
-                background:val?"rgba(255,200,60,0.14)":"rgba(255,255,255,0.04)",
-                cursor:val?"pointer":"not-allowed",fontFamily:"inherit",
-                fontSize:"0.84rem",fontWeight:700,
-                color:val?"rgba(255,210,80,0.95)":G.textMuted,transition:"all 0.18s",
-              }}
-            >Сохранить</button>
+                flex: 2, padding: "11px 0", borderRadius: 14, border: "1px solid rgba(255,200,60,0.35)",
+                background: val ? "rgba(255,200,60,0.14)" : "rgba(255,255,255,0.04)",
+                cursor: val ? "pointer" : "not-allowed", fontFamily: "inherit",
+                fontSize: "0.84rem", fontWeight: 700,
+                color: val ? "rgba(255,210,80,0.95)" : G.textMuted, transition: "all 0.18s",
+              }}>{t.reminderSave}</button>
           </div>
         </div>
       </div>
@@ -1859,104 +1483,66 @@ function ReminderModal({note,onSave,onClose}:{
 /* ════════════════════════════════════════════════════════════════════
    SETTINGS
    ════════════════════════════════════════════════════════════════════ */
-function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,onDeleteAccount,language,onLanguageChange,translations}:{
-  themeId:ThemeId;setThemeId:(id:ThemeId)=>void;
-  onBack:()=>void;
-  currentUser:AuthUser|null;
-  onLogin:(u:AuthUser)=>void;
-  onLogout:()=>void;
-  onDeleteAccount:(password:string)=>Promise<string|null>;
-  language:Language;
-  onLanguageChange:(language:Language)=>void;
-  translations:Translation;
-}){
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const t = translations;
+function SettingsScreen({ themeId, setThemeId, onBack, currentUser, onLogout, onDeleteAccount, language }: {
+  themeId: ThemeId; setThemeId: (id: ThemeId) => void;
+  onBack: () => void; currentUser: AuthUser | null;
+  onLogout: () => void; onDeleteAccount: (password: string) => Promise<string | null>;
+  language: Language;
+}) {
+  const { t, setLanguage } = useTranslation();
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
-  // Shared layout tokens to keep all major sections aligned with the
-  // "Color Theme" / "Coffee Theme" reference width (measured ~666.67px).
-  // Using width:100% + maxWidth + box-sizing:border-box prevents overflow
-  // while allowing natural responsiveness on mobile.
-  const contentWrapperStyle: React.CSSProperties = {
-    width: "100%",
-    maxWidth: 666,
-    marginLeft: "auto",
-    marginRight: "auto",
-    boxSizing: "border-box",
-    paddingBottom: 64,
-    overflow: "hidden",
+  const block: CSSProperties = {
+    width: "100%", maxWidth: 666, boxSizing: "border-box", marginBottom: 36,
+    overflow: "hidden", marginLeft: "auto", marginRight: "auto",
   };
 
-  const sectionBlockStyle: React.CSSProperties = {
-    width: "100%",
-    maxWidth: 666,
-    boxSizing: "border-box",
-    marginBottom: 36,
-    overflow: "hidden",
-    marginLeft: "auto",
-    marginRight: "auto",
+  const handleLanguageChange = (next: Language) => {
+    setLanguage(next);
+    window.localStorage.setItem("preferred-lang", next);
+    document.documentElement.lang = next;
   };
 
-  const sectionGridStyle: React.CSSProperties = {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 10,
-    width: "100%",
-    maxWidth: 666,
-    boxSizing: "border-box",
-    overflow: "hidden",
-  };
-
-  return(
-    <div style={contentWrapperStyle} className="settings-page-root">
-      <div style={{display:"flex",alignItems:"center",gap:14,paddingTop:"calc(28px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))",paddingBottom:28, width:"100%", maxWidth:"100%", boxSizing:"border-box"}}>
-        <button onClick={onBack} aria-label="Go back" style={{...glassBase(16),width:38,height:38,borderRadius:12,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center", flexShrink:0}}>
-          <ChevronLeft size={18} color={G.textSecondary}/>
+  return (
+    <div className="settings-page-root" style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box", paddingBottom: 64 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, paddingTop: "calc(28px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))", paddingBottom: 28 }}>
+        <button onClick={onBack} aria-label={t.close} style={{ ...glassBase(16), width: 38, height: 38, borderRadius: 12, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <ChevronLeft size={18} color={G.textSecondary} />
         </button>
-        <h1 style={{fontWeight:700,fontSize:"1.3rem",color:G.textPrimary,margin:0,letterSpacing:"-0.02em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", minWidth:0}}>{t.settings}</h1>
+        <h1 style={{ fontWeight: 700, fontSize: "1.3rem", color: G.textPrimary, margin: 0, letterSpacing: "-0.02em" }}>{t.settings}</h1>
       </div>
 
-      {/* ── Account ── - constrained to theme width */}
-      <div style={sectionBlockStyle} className="settings-section-container">
-        <SLabel label={t.account}/>
-        <div style={{width:"100%", maxWidth:"100%", boxSizing:"border-box", overflow:"hidden"}}>
-          {currentUser
-            ? <AccountCard user={currentUser} onLogout={onLogout} translations={t}/>
-            : <AuthPanel onLogin={onLogin}/>
-          }
-        </div>
+      <div style={block} className="settings-section-container">
+        <SLabel label={t.account} />
+        {currentUser
+          ? <AccountCard user={currentUser} onLogout={onLogout} t={t} />
+          : <AuthPanel />}
       </div>
 
-      {/* ── Themes ── - reference section, defines visual width */}
-      <div style={sectionBlockStyle} className="settings-section-container">
-        <SLabel Icon={Palette} label={t.theme}/>
-        <div className="settings-theme-grid" style={sectionGridStyle}>
-          {THEMES.map(th=>{
-            const active=th.id===themeId;
-            return(
-              <button key={th.id} onClick={()=>setThemeId(th.id)} aria-label={`Select ${th.name} theme`} aria-pressed={active} style={{
-                ...glassBase(20),padding:0,
-                border:active?`1px solid rgba(255,255,255,0.50)`:`1px solid ${G.border}`,
-                boxShadow:active?"0 16px 48px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.28)":G.shadow,
-                cursor:"pointer",borderRadius:18,overflow:"hidden",transition:"all 0.25s",
-                boxSizing:"border-box",
-                flex:"0 0 auto",
-                // Prevent theme buttons from forcing container wider than parent
-                maxWidth:"100%",
+      <div style={block} className="settings-section-container">
+        <SLabel Icon={Palette} label={t.theme} />
+        <div className="settings-theme-grid" style={{ display: "flex", flexWrap: "wrap", gap: 10, width: "100%", boxSizing: "border-box" }}>
+          {THEMES.map(th => {
+            const active = th.id === themeId;
+            const name = themeNameByLang(th.id, language);
+            return (
+              <button key={th.id} onClick={() => setThemeId(th.id)} aria-label={name} aria-pressed={active} title={name} style={{
+                ...glassBase(20), padding: 0,
+                border: active ? "1px solid rgba(255,255,255,0.50)" : `1px solid ${G.border}`,
+                boxShadow: active ? "0 16px 48px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.28)" : G.shadow,
+                cursor: "pointer", borderRadius: 18, overflow: "hidden", transition: "all 0.25s",
+                boxSizing: "border-box", flex: "0 0 auto", maxWidth: "100%",
               }}>
-                <div style={{height:56,background:th.bg,position:"relative",overflow:"hidden"}}>
-                  {th.orbs.slice(0,2).map((o,i)=>(
-                    <div key={i} style={{position:"absolute",top:i===0?"-30%":"20%",left:i===0?"-10%":"52%",
-                      width:o.size*0.3,height:o.size*0.3,borderRadius:"50%",
-                      background:`radial-gradient(circle,${o.color} 0%,transparent 70%)`}}/>
+                <div style={{ height: 56, background: th.bg, position: "relative", overflow: "hidden" }}>
+                  {th.orbs.slice(0, 2).map((o, i) => (
+                    <div key={i} style={{ position: "absolute", top: i === 0 ? "-30%" : "20%", left: i === 0 ? "-10%" : "52%", width: o.size * 0.3, height: o.size * 0.3, borderRadius: "50%", background: `radial-gradient(circle,${o.color} 0%,transparent 70%)` }} />
                   ))}
-                  {active&&<div style={{position:"absolute",top:8,right:8,width:20,height:20,borderRadius:"50%",
-                    background:"rgba(255,255,255,0.90)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    <Check size={12} color="#111" strokeWidth={2.5}/>
+                  {active && <div style={{ position: "absolute", top: 8, right: 8, width: 20, height: 20, borderRadius: "50%", background: "rgba(255,255,255,0.90)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Check size={12} color="#111" strokeWidth={2.5} />
                   </div>}
                 </div>
-                <div style={{padding:"10px 14px 12px",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  <span style={{fontSize:"1.25rem"}}>{th.emoji}</span>
+                <div style={{ padding: "10px 0 12px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: "1.35rem", lineHeight: 1 }}>{th.emoji}</span>
                 </div>
               </button>
             );
@@ -1964,179 +1550,114 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
         </div>
       </div>
 
-      {/* ── Interface Language ── */}
-      <div style={sectionBlockStyle} className="settings-section-container">
-        <SLabel Icon={LanguagesIcon} label={t.language}/>
-        <div style={{width:"100%", maxWidth:"100%", boxSizing:"border-box", overflow:"hidden"}}>
-          <select
-            id="lang-select"
-            aria-label={t.selectLanguage}
-            value={language}
-            onChange={event=>onLanguageChange(event.target.value as Language)}
-            style={{
-              width:"100%",
-              maxWidth:"100%",
-              boxSizing:"border-box",
-              padding:"12px 14px",
-              borderRadius:12,
-              border:`1px solid ${G.border}`,
-              background:"rgba(255,255,255,0.06)",
-              color:G.textPrimary,
-              fontFamily:"inherit",
-              fontSize:"0.86rem",
-              outline:"none",
-              colorScheme:"dark",
-              overflow:"hidden",
-              textOverflow:"ellipsis",
-            }}
-          >
-            {LANGUAGE_OPTIONS.map(option=><option key={option.code} value={option.code} style={{background:"#17171d"}}>{option.nativeName}</option>)}
-          </select>
-        </div>
+      <div style={block} className="settings-section-container">
+        <SLabel Icon={LanguagesIcon} label={t.language} />
+        <select aria-label={t.selectLanguage} value={language} onChange={e => handleLanguageChange(e.target.value as Language)}
+          style={{
+            width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 12,
+            border: `1px solid ${G.border}`, background: "rgba(255,255,255,0.06)",
+            color: G.textPrimary, fontFamily: "inherit", fontSize: "0.86rem", outline: "none",
+            colorScheme: "dark",
+          }}>
+          <option value="ru" style={{ background: "#17171d" }}>Русский</option>
+          <option value="en" style={{ background: "#17171d" }}>English</option>
+          <option value="ko" style={{ background: "#17171d" }}>한국어</option>
+        </select>
       </div>
 
-      {/* ── Danger Zone ── */}
       {currentUser && (
-        <div style={sectionBlockStyle} className="settings-section-container">
-          <SLabel Icon={Trash2} label={t.danger}/>
+        <div style={block} className="settings-section-container">
+          <SLabel Icon={Trash2} label={t.danger} />
           <div style={{
-            ...glassBase(20),
-            width:"100%",
-            maxWidth:"100%",
-            boxSizing:"border-box",
-            overflow:"hidden",
-            padding:"18px 20px",
-            borderRadius:18,
-            border:"1px solid rgba(255,100,100,0.28)",
-            background:"rgba(145,20,35,0.13)",
+            ...glassBase(20), padding: "18px 20px", borderRadius: 18,
+            border: "1px solid rgba(255,100,100,0.28)", background: "rgba(145,20,35,0.13)",
           }}>
-            <div style={{
-              display:"flex",
-              flexWrap:"wrap",
-              alignItems:"flex-start",
-              justifyContent:"space-between",
-              gap:16,
-              width:"100%",
-              maxWidth:"100%",
-              boxSizing:"border-box",
-            }}>
-              <div style={{flex:"1 1 180px", minWidth:0, maxWidth:"100%", boxSizing:"border-box", overflow:"hidden"}}>
-                <p style={{margin:0,fontWeight:700,fontSize:"0.92rem",color:"rgba(255,190,190,0.98)", maxWidth:"100%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{t.deleteAccount}</p>
-                <p style={{margin:"5px 0 0",fontSize:"0.76rem",lineHeight:1.55,color:"rgba(255,220,220,0.62)", maxWidth:"100%", overflow:"hidden", display:"-webkit-box", WebkitLineClamp:3, WebkitBoxOrient:"vertical" as any, wordBreak:"break-word"}}>
-                  {t.deleteDescription}
-                </p>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+              <div style={{ flex: "1 1 180px", minWidth: 0 }}>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: "0.92rem", color: "rgba(255,190,190,0.98)" }}>{t.deleteAccount}</p>
+                <p style={{ margin: "5px 0 0", fontSize: "0.76rem", lineHeight: 1.55, color: "rgba(255,220,220,0.62)" }}>{t.deleteDescription}</p>
               </div>
-              <button onClick={()=>setDeleteDialogOpen(true)} aria-label="Open delete account confirmation" style={{
-                padding:"9px 12px", borderRadius:10, flexShrink:0,
-                border:"1px solid rgba(255,105,105,0.55)", background:"rgba(230,55,65,0.20)",
-                color:"rgba(255,210,210,0.98)", cursor:"pointer", fontFamily:"inherit",
-                fontSize:"0.76rem", fontWeight:700,
-                maxWidth:"100%",
-                boxSizing:"border-box",
-                whiteSpace:"nowrap",
-                overflow:"hidden",
-                textOverflow:"ellipsis",
+              <button onClick={() => setDeleteOpen(true)} style={{
+                padding: "9px 12px", borderRadius: 10, flexShrink: 0,
+                border: "1px solid rgba(255,105,105,0.55)", background: "rgba(230,55,65,0.20)",
+                color: "rgba(255,210,210,0.98)", cursor: "pointer", fontFamily: "inherit",
+                fontSize: "0.76rem", fontWeight: 700,
               }}>{t.deleteAccount}</button>
             </div>
           </div>
         </div>
       )}
 
-      {deleteDialogOpen && currentUser && (
+      {deleteOpen && currentUser && (
         <DeleteAccountModal
           email={currentUser.email}
-          onClose={()=>setDeleteDialogOpen(false)}
+          onClose={() => setDeleteOpen(false)}
           onDelete={onDeleteAccount}
-          translations={t}
+          t={t}
         />
       )}
     </div>
   );
 }
 
-function languageSuffix(t: Translation): string {
-  if (t === TRANSLATIONS.en) return " will be deleted.";
-  if (t === TRANSLATIONS.ko) return " 계정이 삭제됩니다.";
-  return " будут удалены.";
-}
-
-/* ── Account deletion confirmation ── */
-function DeleteAccountModal({email,onClose,onDelete,translations}:{
-  email:string;
-  onClose:()=>void;
-  onDelete:(password:string)=>Promise<string|null>;
-  translations:Translation;
-}){
-  const t = translations;
+function DeleteAccountModal({ email, onClose, onDelete, t }: {
+  email: string; onClose: () => void; onDelete: (pw: string) => Promise<string | null>; t: Translation;
+}) {
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(false);
-
   const submit = async () => {
-    if (!password) {
-      setError("Введите пароль для подтверждения.");
-      return;
-    }
-    setError("");
-    setDeleting(true);
+    if (!password) { setError(t.authErrPasswordRequired); return; }
+    setError(""); setDeleting(true);
     const result = await onDelete(password);
     setDeleting(false);
     if (result) setError(result);
   };
 
+  // Pick the right "will be deleted" suffix based on current language.
+  const suffix = t.deleteSuffix;
+
   return (
-    <div
-      role="presentation"
-      onMouseDown={event=>{if (event.target === event.currentTarget && !deleting) onClose();}}
-      style={{position:"fixed",inset:0,zIndex:70,display:"flex",alignItems:"center",justifyContent:"center",
-        padding:20,background:"rgba(0,0,0,0.68)",backdropFilter:"blur(5px)"}}
-    >
-      <div role="dialog" aria-modal="true" aria-labelledby="delete-account-title" className="modal-in" style={{
-        ...glassBase(28),width:"100%",maxWidth:420,borderRadius:22,overflow:"hidden",
-        border:"1px solid rgba(255,115,115,0.38)",boxShadow:"0 28px 80px rgba(0,0,0,0.70)",
+    <div role="presentation" onMouseDown={e => { if (e.target === e.currentTarget && !deleting) onClose(); }}
+      style={{ position: "fixed", inset: 0, zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.68)", backdropFilter: "blur(5px)" }}>
+      <div role="dialog" aria-modal="true" className="modal-in" style={{
+        ...glassBase(28), width: "100%", maxWidth: 420, borderRadius: 22, overflow: "hidden",
+        border: "1px solid rgba(255,115,115,0.38)", boxShadow: "0 28px 80px rgba(0,0,0,0.70)",
       }}>
-        <div style={{padding:"22px 22px 20px"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,marginBottom:14}}>
-            <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <div style={{width:34,height:34,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(235,55,65,0.18)"}}>
-                <Trash2 size={17} color="rgba(255,145,145,0.95)"/>
+        <div style={{ padding: "22px 22px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(235,55,65,0.18)" }}>
+                <Trash2 size={17} color="rgba(255,145,145,0.95)" />
               </div>
-              <h2 id="delete-account-title" style={{margin:0,fontSize:"1rem",fontWeight:700,color:"rgba(255,215,215,0.98)"}}>{t.deleteConfirmTitle}</h2>
+              <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "rgba(255,215,215,0.98)" }}>{t.deleteConfirmTitle}</h2>
             </div>
-            <button type="button" onClick={onClose} disabled={deleting} aria-label="Закрыть" style={{background:"transparent",border:"none",padding:4,cursor:deleting?"not-allowed":"pointer",lineHeight:0}}>
-              <X size={18} color={G.textSecondary}/>
+            <button type="button" onClick={onClose} disabled={deleting} aria-label={t.close} style={{ background: "transparent", border: "none", padding: 4, cursor: deleting ? "not-allowed" : "pointer", lineHeight: 0 }}>
+              <X size={18} color={G.textSecondary} />
             </button>
           </div>
-          <p style={{margin:"0 0 18px",fontSize:"0.82rem",lineHeight:1.6,color:G.textSecondary}}>
-            {t.deleteWarning} <strong style={{color:G.textPrimary}}>{email}</strong>{languageSuffix(t)}
+          <p style={{ margin: "0 0 18px", fontSize: "0.82rem", lineHeight: 1.6, color: G.textSecondary }}>
+            {t.deleteWarning} <strong style={{ color: G.textPrimary }}>{email}</strong>{suffix}
           </p>
-          <label htmlFor="delete-account-password" style={{display:"block",marginBottom:7,fontSize:"0.72rem",fontWeight:700,color:"rgba(255,220,220,0.78)"}}>
+          <label htmlFor="delete-pw" style={{ display: "block", marginBottom: 7, fontSize: "0.72rem", fontWeight: 700, color: "rgba(255,220,220,0.78)" }}>
             {t.confirmPassword}
           </label>
-          <div style={{position:"relative"}}>
-            <input
-              id="delete-account-password"
-              name="delete-account-password"
-              type={showPassword?"text":"password"}
-              value={password}
-              autoComplete="current-password"
-              autoFocus
-              disabled={deleting}
-              onChange={event=>{setPassword(event.target.value); setError("");}}
-              onKeyDown={event=>{if (event.key === "Enter") void submit();}}
-              placeholder={t.passwordPlaceholder}
-              style={{width:"100%",padding:"11px 42px 11px 13px",borderRadius:12,outline:"none",fontFamily:"inherit",fontSize:"0.86rem",
-                color:G.textPrimary,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,160,160,0.30)"}}
-            />
-            <button type="button" aria-label={showPassword?"Скрыть пароль":"Показать пароль"} onClick={()=>setShowPassword(value=>!value)} disabled={deleting} style={{position:"absolute",right:11,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",cursor:"pointer",lineHeight:0,padding:2}}>
-              {showPassword ? <EyeOff size={16} color={G.textMuted}/> : <Eye size={16} color={G.textMuted}/>}
+          <div style={{ position: "relative" }}>
+            <input id="delete-pw" type={showPw ? "text" : "password"} value={password} autoComplete="current-password" autoFocus
+              disabled={deleting} onChange={e => { setPassword(e.target.value); setError(""); }}
+              onKeyDown={e => { if (e.key === "Enter") void submit(); }} placeholder={t.passwordPlaceholder}
+              style={{ width: "100%", padding: "11px 42px 11px 13px", borderRadius: 12, outline: "none", fontFamily: "inherit", fontSize: "0.86rem", color: G.textPrimary, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,160,160,0.30)" }} />
+            <button type="button" aria-label={showPw ? t.hidePassword : t.showPassword} onClick={() => setShowPw(v => !v)} disabled={deleting}
+              style={{ position: "absolute", right: 11, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", cursor: "pointer", lineHeight: 0, padding: 2 }}>
+              {showPw ? <EyeOff size={16} color={G.textMuted} /> : <Eye size={16} color={G.textMuted} />}
             </button>
           </div>
-          {error && <p role="alert" style={{margin:"9px 0 0",fontSize:"0.75rem",lineHeight:1.45,color:"rgba(255,145,145,0.96)"}}>{error}</p>}
-          <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:22}}>
-            <button type="button" onClick={onClose} disabled={deleting} aria-label="Cancel delete account" style={{padding:"10px 14px",borderRadius:11,border:`1px solid ${G.border}`,background:"rgba(255,255,255,0.05)",color:G.textSecondary,cursor:deleting?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"0.8rem",fontWeight:600}}>{t.cancel}</button>
-            <button type="button" onClick={()=>void submit()} disabled={deleting || !password} aria-label="Delete account forever" style={{padding:"10px 14px",borderRadius:11,border:"1px solid rgba(255,105,105,0.55)",background:deleting||!password?"rgba(180,50,55,0.18)":"rgba(225,55,65,0.42)",color:"white",cursor:deleting||!password?"not-allowed":"pointer",fontFamily:"inherit",fontSize:"0.8rem",fontWeight:700}}>
+          {error && <p role="alert" style={{ margin: "9px 0 0", fontSize: "0.75rem", lineHeight: 1.45, color: "rgba(255,145,145,0.96)" }}>{error}</p>}
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 22 }}>
+            <button type="button" onClick={onClose} disabled={deleting} style={{ padding: "10px 14px", borderRadius: 11, border: `1px solid ${G.border}`, background: "rgba(255,255,255,0.05)", color: G.textSecondary, cursor: deleting ? "not-allowed" : "pointer", fontFamily: "inherit", fontSize: "0.8rem", fontWeight: 600 }}>{t.cancel}</button>
+            <button type="button" onClick={() => void submit()} disabled={deleting || !password}
+              style={{ padding: "10px 14px", borderRadius: 11, border: "1px solid rgba(255,105,105,0.55)", background: deleting || !password ? "rgba(180,50,55,0.18)" : "rgba(225,55,65,0.42)", color: "white", cursor: deleting || !password ? "not-allowed" : "pointer", fontFamily: "inherit", fontSize: "0.8rem", fontWeight: 700 }}>
               {deleting ? t.deleting : t.deleteForever}
             </button>
           </div>
@@ -2146,196 +1667,119 @@ function DeleteAccountModal({email,onClose,onDelete,translations}:{
   );
 }
 
-/* ── Logged-in account card ── - now strictly constrained to parent width */
-function AccountCard({user,onLogout,translations}:{user:AuthUser;onLogout:()=>void;translations:Translation}){
-  const t = translations;
-  return(
+function AccountCard({ user, onLogout, t }: { user: AuthUser; onLogout: () => void; t: Translation }) {
+  return (
     <div style={{
-      ...glassBase(20),
-      width:"100%",
-      maxWidth:"100%",
-      boxSizing:"border-box",
-      overflow:"hidden",
-      padding:"18px 20px",
-      display:"flex",
-      alignItems:"center",
-      gap:16,
-      borderRadius:18
+      ...glassBase(20), padding: "18px 20px", display: "flex", alignItems: "center", gap: 16, borderRadius: 18,
     }}>
-      <div style={{flex:"1 1 auto",minWidth:0, maxWidth:"100%", overflow:"hidden", boxSizing:"border-box"}}>
-        <p style={{margin:0,fontWeight:700,fontSize:"0.92rem",color:G.textPrimary,
-          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap", maxWidth:"100%"}}>{user.name}</p>
-        <p style={{margin:"2px 0 0",fontSize:"0.74rem",color:G.textMuted,
-          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap", maxWidth:"100%"}}>{user.email}</p>
+      <div style={{ flex: "1 1 auto", minWidth: 0 }}>
+        <p style={{ margin: 0, fontWeight: 700, fontSize: "0.92rem", color: G.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name || user.email}</p>
+        <p style={{ margin: "2px 0 0", fontSize: "0.74rem", color: G.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email}</p>
       </div>
-      <div title={t.synced} aria-label={t.synced} style={{display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
-        width:36,height:36,borderRadius:10,background:"rgba(0,200,80,0.10)",
-        border:"1px solid rgba(0,200,80,0.20)"}}>
-        <Shield size={15} color="rgba(0,220,100,0.80)"/>
+      <div title={t.synced} aria-label={t.synced} style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, width: 36, height: 36, borderRadius: 10, background: "rgba(0,200,80,0.10)", border: "1px solid rgba(0,200,80,0.20)" }}>
+        <Shield size={15} color="rgba(0,220,100,0.80)" />
       </div>
-      <button onClick={onLogout} title={t.logout} style={{
-        ...glassBase(12),width:36,height:36,borderRadius:10,border:"none",cursor:"pointer",
-        display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
-        boxSizing:"border-box",
+      <button onClick={onLogout} title={t.logout} aria-label={t.logout} style={{
+        ...glassBase(12), width: 36, height: 36, borderRadius: 10, border: "none", cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
       }}>
-        <LogOut size={15} color={G.textSecondary}/>
+        <LogOut size={15} color={G.textSecondary} />
       </button>
     </div>
   );
 }
 
-/* ── Auth panel (login / register) ── */
-function AuthPanel({onLogin}:{onLogin:(u:AuthUser)=>void}){
-  const [mode,   setMode]   = useState<"login"|"register">("login");
-  const [name,   setName]   = useState("");
-  const [email,  setEmail]  = useState("");
-  const [pw,     setPw]     = useState("");
+function AuthPanel() {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
   const [showPw, setShowPw] = useState(false);
-  const [err,    setErr]    = useState("");
-  const [ok,     setOk]     = useState(false);
+  const [err, setErr] = useState("");
+  const [ok, setOk] = useState(false);
 
   const submit = async () => {
     setErr(""); setOk(false);
     if (mode === "register") {
-      const error = await authRegister(email, name, pw);
-      if (error) {
-        setErr(error);
-        return;
-      }
+      const e = await authRegister(email, name, pw, t);
+      if (e) { setErr(e); return; }
       setOk(true);
-      const user = auth.currentUser;
-      if (user && user.email) {
-        onLogin({ uid: user.uid, email: user.email, name: user.displayName ?? name.trim() });
-      }
-      return;
-    }
-
-    const error = await authLogin(email, pw);
-    if (error) {
-      setErr(error);
-      return;
-    }
-    const user = auth.currentUser;
-    if (user && user.email) {
-      onLogin({ uid: user.uid, email: user.email, name: user.displayName ?? "" });
+    } else {
+      const e = await authLogin(email, pw, t);
+      if (e) { setErr(e); return; }
     }
   };
 
-  const inputStyle: React.CSSProperties = {
-    width:"100%",
-    maxWidth:"100%",
-    boxSizing:"border-box",
-    background:"rgba(255,255,255,0.04)",
-    border:`1px solid ${G.border}`,
-    borderRadius:12,
-    padding:"11px 14px",
-    outline:"none",
-    fontFamily:"inherit",
-    fontSize:"0.88rem",
-    color:G.textPrimary,
-    transition:"border-color 0.2s",
-    overflow:"hidden",
-    textOverflow:"ellipsis",
+  const inputS: CSSProperties = {
+    width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.04)",
+    border: `1px solid ${G.border}`, borderRadius: 12, padding: "11px 14px",
+    outline: "none", fontFamily: "inherit", fontSize: "0.88rem", color: G.textPrimary,
   };
 
-  return(
-    <div style={{
-      ...glassBase(20),
-      width:"100%",
-      maxWidth:"100%",
-      boxSizing:"border-box",
-      overflow:"hidden",
-      padding:"22px 24px",
-      borderRadius:20
-    }}>
-      {/* Tab row */}
-      <div style={{display:"flex",gap:8,marginBottom:22, width:"100%", maxWidth:"100%", boxSizing:"border-box", overflow:"hidden"}}>
-        {(["login","register"] as const).map(m=>(
-          <button key={m} onClick={()=>{setMode(m);setErr("");setOk(false);}} style={{
-            flex:1,padding:"9px 0",borderRadius:12,border:"none",cursor:"pointer",
-            fontFamily:"inherit",fontSize:"0.82rem",fontWeight:600,transition:"all 0.2s",
-            background:mode===m?G.bgHov:"transparent",
-            color:mode===m?G.textPrimary:G.textMuted,
-            boxShadow:mode===m?G.shadow:"none",
-            outline:mode===m?`1px solid ${G.border}`:"none",
+  return (
+    <div style={{ ...glassBase(20), padding: "22px 24px", borderRadius: 20 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 22 }}>
+        {(["login", "register"] as const).map(m => (
+          <button key={m} onClick={() => { setMode(m); setErr(""); setOk(false); }} style={{
+            flex: 1, padding: "9px 0", borderRadius: 12, border: "none", cursor: "pointer",
+            fontFamily: "inherit", fontSize: "0.82rem", fontWeight: 600, transition: "all 0.2s",
+            background: mode === m ? G.bgHov : "transparent",
+            color: mode === m ? G.textPrimary : G.textMuted,
+            boxShadow: mode === m ? G.shadow : "none",
+            outline: mode === m ? `1px solid ${G.border}` : "none",
           }}>
-            {m==="login"?"Войти":"Создать аккаунт"}
+            {m === "login" ? t.login : t.register}
           </button>
         ))}
       </div>
 
-      <form
-        onSubmit={event => { event.preventDefault(); void submit(); }}
-        style={{display:"flex",flexDirection:"column",gap:12, width:"100%", maxWidth:"100%", boxSizing:"border-box", overflow:"hidden"}}
-      >
-        {mode==="register"&&(
-          <input
-            id="name-input"
-            name="name"
-            value={name} onChange={e=>setName(e.target.value)}
-            placeholder="Имя"
-            style={inputStyle}
-            onFocus={e=>(e.target.style.borderColor="rgba(255,255,255,0.40)")}
-            onBlur={e=>(e.target.style.borderColor=G.border)}
-          />
+      <form onSubmit={e => { e.preventDefault(); void submit(); }} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {mode === "register" && (
+          <input value={name} onChange={e => setName(e.target.value)} placeholder={t.namePlaceholder}
+            aria-label={t.name} style={inputS}
+            onFocus={e => (e.target as HTMLElement).style.borderColor = "rgba(255,255,255,0.40)"}
+            onBlur={e => (e.target as HTMLElement).style.borderColor = G.border} />
         )}
-        <input
-          id="email-input"
-          value={email} onChange={e=>setEmail(e.target.value)}
-          placeholder="Email" type="email" name="email" autoComplete="email"
-          style={inputStyle}
-          onFocus={e=>(e.target.style.borderColor="rgba(255,255,255,0.40)")}
-          onBlur={e=>(e.target.style.borderColor=G.border)}
-        />
-        <div style={{position:"relative"}}>
-          <input
-            id="password-input"
-            value={pw} onChange={e=>setPw(e.target.value)}
-            placeholder="Пароль" type={showPw?"text":"password"} name="password" autoComplete="current-password"
-            style={{...inputStyle,paddingRight:42}}
-            onFocus={e=>(e.target.style.borderColor="rgba(255,255,255,0.40)")}
-            onBlur={e=>(e.target.style.borderColor=G.border)}
-          />
-          <button
-            type="button"
-            aria-label={showPw ? "Скрыть пароль" : "Показать пароль"}
-            onMouseDown={e=>e.preventDefault()}
-            onClick={()=>setShowPw(p=>!p)}
-            style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",
-              background:"none",border:"none",cursor:"pointer",lineHeight:0,padding:2}}
-          >
-            {showPw?<EyeOff size={16} color={G.textMuted}/>:<Eye size={16} color={G.textMuted}/>}
+        <input value={email} onChange={e => setEmail(e.target.value)} placeholder={t.emailPlaceholder} type="email" autoComplete="email" aria-label={t.email} style={inputS}
+          onFocus={e => (e.target as HTMLElement).style.borderColor = "rgba(255,255,255,0.40)"}
+          onBlur={e => (e.target as HTMLElement).style.borderColor = G.border} />
+        <div style={{ position: "relative" }}>
+          <input value={pw} onChange={e => setPw(e.target.value)} placeholder={t.passwordPlaceholderLogin} type={showPw ? "text" : "password"} autoComplete="current-password" aria-label={t.password}
+            style={{ ...inputS, paddingRight: 42 }}
+            onFocus={e => (e.target as HTMLElement).style.borderColor = "rgba(255,255,255,0.40)"}
+            onBlur={e => (e.target as HTMLElement).style.borderColor = G.border} />
+          <button type="button" aria-label={showPw ? t.hidePassword : t.showPassword} onMouseDown={e => e.preventDefault()} onClick={() => setShowPw(p => !p)}
+            style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", lineHeight: 0, padding: 2 }}>
+            {showPw ? <EyeOff size={16} color={G.textMuted} /> : <Eye size={16} color={G.textMuted} />}
           </button>
         </div>
-
-        {err&&<p style={{margin:0,fontSize:"0.78rem",color:"rgba(255,100,100,0.90)",padding:"0 2px"}}>{err}</p>}
-        {ok &&<p style={{margin:0,fontSize:"0.78rem",color:"rgba(80,220,120,0.90)",padding:"0 2px"}}>Аккаунт создан! Входим…</p>}
-
+        {err && <p style={{ margin: 0, fontSize: "0.78rem", color: "rgba(255,100,100,0.90)" }}>{err}</p>}
+        {ok && <p style={{ margin: 0, fontSize: "0.78rem", color: "rgba(80,220,120,0.90)" }}>{t.registerOk}</p>}
         <button type="submit" style={{
-          marginTop:4,padding:"12px 0",borderRadius:14,border:"none",cursor:"pointer",
-          background:"rgba(255,255,255,0.12)",fontFamily:"inherit",fontSize:"0.88rem",fontWeight:700,
-          color:G.textPrimary,transition:"background 0.2s,box-shadow 0.2s",
-          boxShadow:"0 8px 24px rgba(0,0,0,0.30)",
+          marginTop: 4, padding: "12px 0", borderRadius: 14, border: "none", cursor: "pointer",
+          background: "rgba(255,255,255,0.12)", fontFamily: "inherit", fontSize: "0.88rem", fontWeight: 700,
+          color: G.textPrimary, transition: "background 0.2s,box-shadow 0.2s",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.30)",
         }}
-        onMouseEnter={e=>{const el=e.currentTarget as HTMLElement;el.style.background="rgba(255,255,255,0.20)";}}
-        onMouseLeave={e=>{const el=e.currentTarget as HTMLElement;el.style.background="rgba(255,255,255,0.12)";}}
+          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.20)"}
+          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"}
         >
-          {mode==="login"?"Войти":"Зарегистрироваться"}
+          {mode === "login" ? t.loginBtn : t.registerBtn}
         </button>
       </form>
-
-      <p style={{margin:"14px 0 0",fontSize:"0.72rem",color:G.textMuted,textAlign:"center",lineHeight:1.6}}>
-        Данные хранятся локально в вашем браузере.<br/>Заметки автоматически синхронизируются между сессиями.
+      <p style={{ margin: "14px 0 0", fontSize: "0.72rem", color: G.textMuted, textAlign: "center", lineHeight: 1.6 }}>
+        {t.authHint}
       </p>
     </div>
   );
 }
 
-function SLabel({Icon,label}:{Icon?:React.FC<{size?:number;color?:string}>;label:string}){
-  return(
-    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-      {Icon && <Icon size={13} color={G.textMuted}/>}
-      <span style={{fontSize:"0.68rem",fontWeight:600,color:G.textMuted,letterSpacing:"0.08em",textTransform:"uppercase"}}>{label}</span>
+function SLabel({ Icon, label }: { Icon?: FC<{ size?: number; color?: string }>; label: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+      {Icon && <Icon size={13} color={G.textMuted} />}
+      <span style={{ fontSize: "0.68rem", fontWeight: 600, color: G.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</span>
     </div>
   );
 }
@@ -2343,86 +1787,67 @@ function SLabel({Icon,label}:{Icon?:React.FC<{size?:number;color?:string}>;label
 /* ════════════════════════════════════════════════════════════════════
    EDITOR MODAL
    ════════════════════════════════════════════════════════════════════ */
-function EditorModal({creating,title,body,onTitle,onBody,onClose,onSave,isMobile,isTablet}:{
-  creating:boolean;title:string;body:string;
-  onTitle:(v:string)=>void;onBody:(v:string)=>void;
-  onClose:()=>void;onSave:()=>void;
-  isMobile:boolean;isTablet:boolean;
-}){
-  useEffect(()=>{
-    const h=(e:KeyboardEvent)=>{
-      if((e.metaKey||e.ctrlKey)&&e.key==="s"){e.preventDefault();onSave();}
-      if(e.key==="Escape")onClose();
+function EditorModal({ creating, title, body, onTitle, onBody, onClose, onSave, isMobile, isTablet, language, t }: {
+  creating: boolean; title: string; body: string;
+  onTitle: (v: string) => void; onBody: (v: string) => void;
+  onClose: () => void; onSave: () => void;
+  isMobile: boolean; isTablet: boolean; language: Language; t: Translation;
+}) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); onSave(); }
+      if (e.key === "Escape") onClose();
     };
-    window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
-  },[onSave,onClose]);
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onSave, onClose]);
 
-  // Подсчёт слов (без HTML-тегов)
   const wc = stripHtml(body).trim().split(/\s+/).filter(Boolean).length;
-  const today=new Date().toLocaleDateString("ru-RU",{day:"numeric",month:"long",year:"numeric"});
-  const mW=isMobile?"100%":isTablet?"82%":"62%";
-  const mH=isMobile?"92dvh":"88vh";
-  // Force border radius on all devices including mobile (CSS may be overridden by inline styles)
-  const br = isMobile ? 20 : (G.radius + 4); // 20px on mobile, 24px on desktop/tablet
-  const mobileBottom=isMobile?12:0;
+  const today = new Date().toLocaleDateString(language, t.dateFormatLong as any);
+  const mW = isMobile ? "100%" : isTablet ? "82%" : "62%";
+  const mH = isMobile ? "92dvh" : "88vh";
+  const br = isMobile ? 20 : G.radius + 4;
 
-  return(
-    <div
-      className="modal-overlay"
-      style={{position:"fixed",inset:0,zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",
-        background:G.overlay,backdropFilter:isMobile?"none":"blur(2px)",padding:isMobile?mobileBottom:24}}
-      onClick={e=>{if(e.target===e.currentTarget)onClose();}}
-    >
+  return (
+    <div className="modal-overlay"
+      style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: G.overlay, backdropFilter: isMobile ? "none" : "blur(2px)", padding: isMobile ? 12 : 24 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal-in modal-mobile-safe" style={{
-        ...glassBase(32),width:mW,maxWidth:isMobile?"100%":isTablet?760:720,height:mH,
-        borderRadius: br + "px",border:`1px solid rgba(255,255,255,0.28)`,
-        boxShadow:"0 32px 80px rgba(0,0,0,0.65),inset 0 1px 0 rgba(255,255,255,0.22),inset 0 -1px 0 rgba(0,0,0,0.20)",
-        display:"flex",flexDirection:"column",overflow:"hidden",position:"relative",
+        ...glassBase(32), width: mW, maxWidth: isMobile ? "100%" : isTablet ? 760 : 720, height: mH,
+        borderRadius: br, border: "1px solid rgba(255,255,255,0.28)",
+        boxShadow: "0 32px 80px rgba(0,0,0,0.65),inset 0 1px 0 rgba(255,255,255,0.22)",
+        display: "flex", flexDirection: "column", overflow: "hidden", position: "relative",
       }}>
-        <div style={{position:"absolute",inset:0,borderRadius:"inherit",pointerEvents:"none",zIndex:10,padding:1,
-          background:"linear-gradient(160deg,rgba(255,255,255,0.40) 0%,rgba(255,255,255,0.06) 45%,rgba(255,255,255,0.01) 100%)",
-          WebkitMask:"linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)",
-          WebkitMaskComposite:"xor",maskComposite:"exclude"}}/>
-        <div style={{position:"absolute",inset:0,borderRadius:"inherit",pointerEvents:"none",zIndex:9,
-          background:"linear-gradient(45deg,rgba(255,255,255,0.05) 0%,transparent 55%,rgba(255,255,255,0.03) 100%)"}}/>
-
-        <div style={{position:"relative",zIndex:20,display:"flex",flexDirection:"column",height:"100%"}}>
-          {/* Header */}
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 20px",borderBottom:`1px solid rgba(255,255,255,0.08)`}}>
+        <div style={{ position: "absolute", inset: 0, borderRadius: "inherit", pointerEvents: "none", zIndex: 10, padding: 1, background: "linear-gradient(160deg,rgba(255,255,255,0.40) 0%,rgba(255,255,255,0.06) 45%,rgba(255,255,255,0.01) 100%)", WebkitMask: "linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)", WebkitMaskComposite: "xor", maskComposite: "exclude" }} />
+        <div style={{ position: "relative", zIndex: 20, display: "flex", flexDirection: "column", height: "100%" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
             <GlassChip onClick={onClose}>
-              <X size={14} color={G.textSecondary}/>
-              <span style={{fontSize:"0.78rem",color:G.textSecondary,fontWeight:500}}>Закрыть</span>
+              <X size={14} color={G.textSecondary} />
+              <span style={{ fontSize: "0.78rem", color: G.textSecondary, fontWeight: 500 }}>{t.close}</span>
             </GlassChip>
-            <span style={{fontSize:"0.66rem",fontWeight:500,color:G.textMuted,letterSpacing:"0.08em",textTransform:"uppercase"}}>
-              {creating?"Новая заметка":"Редактировать"}
+            <span style={{ fontSize: "0.66rem", fontWeight: 500, color: G.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              {creating ? t.newNote : t.editingNote}
             </span>
             <GlassChip onClick={onSave} highlight>
-              <Check size={14} color={G.textPrimary}/>
-              <span style={{fontSize:"0.78rem",color:G.textPrimary,fontWeight:600}}>Сохранить</span>
+              <Check size={14} color={G.textPrimary} />
+              <span style={{ fontSize: "0.78rem", color: G.textPrimary, fontWeight: 600 }}>{t.save}</span>
             </GlassChip>
           </div>
 
-          <div style={{padding:"20px 24px 0"}}>
-            <input
-              id="note-title-input"
-              name="note-title"
-              value={title} onChange={e=>onTitle(e.target.value)} placeholder="Заголовок..." autoFocus
-              style={{width:"100%",background:"transparent",border:"none",outline:"none",fontFamily:"inherit",fontWeight:300,
-                fontSize:isMobile?"1.5rem":"1.75rem",letterSpacing:"-0.025em",color:G.textPrimary}}/>
+          <div style={{ padding: "20px 24px 0" }}>
+            <input value={title} onChange={e => onTitle(e.target.value)} placeholder={t.noteTitlePlaceholder} autoFocus
+              aria-label={t.noteTitlePlaceholder}
+              style={{ width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: "inherit", fontWeight: 300, fontSize: isMobile ? "1.5rem" : "1.75rem", letterSpacing: "-0.025em", color: G.textPrimary }} />
           </div>
 
-          <div style={{padding:"6px 24px 12px",display:"flex",alignItems:"center",gap:8,color:G.textMuted,fontSize:"0.68rem",borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
-            <Clock size={10}/><span>{today}</span>
-            <span style={{opacity:0.5}}>·</span>
-            <Hash size={10}/><span>{wc} слов</span>
+          <div style={{ padding: "6px 24px 12px", display: "flex", alignItems: "center", gap: 8, color: G.textMuted, fontSize: "0.68rem", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <Clock size={10} /><span>{today}</span>
+            <span style={{ opacity: 0.5 }}>·</span>
+            <Hash size={10} /><span>{t.wordsCount(wc)}</span>
           </div>
 
-          <div className="scroll-host" style={{flex:1,overflowY:"auto",padding:"16px 24px"}}>
-            <RichTextEditor
-              content={body}
-              onChange={onBody}
-              placeholder="Начните писать..."
-            />
+          <div className="scroll-host" style={{ flex: 1, overflowY: "auto", padding: "12px 24px 24px" }}>
+            <RichTextEditor content={body} onChange={onBody} placeholder={t.noteContentPlaceholder} />
           </div>
         </div>
       </div>
@@ -2430,12 +1855,12 @@ function EditorModal({creating,title,body,onTitle,onBody,onClose,onSave,isMobile
   );
 }
 
-function GlassChip({children,onClick,highlight}:{children:React.ReactNode;onClick:()=>void;highlight?:boolean}){
-  return(
+function GlassChip({ children, onClick, highlight }: { children: ReactNode; onClick: () => void; highlight?: boolean }) {
+  return (
     <button onClick={onClick} style={{
-      ...glassBase(16),display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:12,
-      border:`1px solid ${highlight?"rgba(255,255,255,0.35)":G.border}`,
-      background:highlight?G.bgHov:G.bg,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",
+      ...glassBase(16), display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 12,
+      border: `1px solid ${highlight ? "rgba(255,255,255,0.35)" : G.border}`,
+      background: highlight ? G.bgHov : G.bg, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s",
     }}>{children}</button>
   );
 }

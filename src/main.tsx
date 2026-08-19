@@ -1,13 +1,17 @@
+/// <reference types="vite/client" />
 import { createRoot } from "react-dom/client";
-import App from "./app/App.tsx";
+import App from "./app/App";
 import "./styles/index.css";
 import { LanguageProvider } from "./i18n";
 import { initNativeShell } from "./native";
 
 void initNativeShell();
 
-createRoot(document.getElementById("root")!).render(
-  <LanguageProvider>
-    <App />
-  </LanguageProvider>
-);
+const rootEl = document.getElementById("root");
+if (rootEl) {
+  createRoot(rootEl).render(
+    <LanguageProvider>
+      <App />
+    </LanguageProvider>
+  );
+}

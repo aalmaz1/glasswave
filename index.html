@@ -1,39 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0b0b1a" />
     <meta name="color-scheme" content="dark" />
     <title>GlassWave</title>
-    <meta name="description" content="This web application enables users to create, edit, and manage notes with a modern, visually appealing interface, enhancing productivity and ease of use." />
+    <meta name="description" content="GlassWave — modern cross-platform note-taking app with glassmorphism design. Create, organize, and sync notes across devices." />
     <meta name="robots" content="index, follow" />
-    <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
-
-    <!-- Theme initialization script - runs before React loads to prevent flash -->
-    <script>
-      (function() {
-        const LS_GUEST_THEME = "noova_guest_theme";
-        const RANDOM_THEME_CANDIDATES = ["sunset", "ice", "mono", "cyber", "aurora", "rose", "cosmos", "forest"];
-        let themeId = "sunset";
-
-        // Guest - load saved guest theme or pick random
-        try {
-          const savedGuestTheme = localStorage.getItem(LS_GUEST_THEME);
-          if (savedGuestTheme && RANDOM_THEME_CANDIDATES.includes(savedGuestTheme)) {
-            themeId = savedGuestTheme;
-          } else {
-            themeId = RANDOM_THEME_CANDIDATES[Math.floor(Math.random() * RANDOM_THEME_CANDIDATES.length)];
-            localStorage.setItem(LS_GUEST_THEME, themeId);
-          }
-        } catch (e) {
-          themeId = RANDOM_THEME_CANDIDATES[Math.floor(Math.random() * RANDOM_THEME_CANDIDATES.length)];
-          localStorage.setItem(LS_GUEST_THEME, themeId);
-        }
-
-        document.documentElement.setAttribute('data-theme', themeId);
-      })();
-    </script>
+    <style>
+      html, body { height: 100%; margin: 0; background: #130500; }
+      #root { height: 100%; }
+      body { overflow: hidden; }
+    </style>
   </head>
 
   <body>

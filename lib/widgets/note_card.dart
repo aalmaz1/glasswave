@@ -21,12 +21,20 @@ class NoteCard extends ConsumerStatefulWidget {
 class _NoteCardState extends ConsumerState<NoteCard> {
   bool _isHovered = false;
 
+  String _dateLocale(String langCode) {
+    switch (langCode) {
+      case 'ru': return 'ru_RU';
+      case 'ko': return 'ko_KR';
+      default: return 'en_US';
+    }
+  }
+
   String _fmtDate(DateTime d, String locale) {
     final diff = DateTime.now().difference(d);
     if (diff.inMinutes < 60) return tr('note_just_now');
     if (diff.inHours < 24) return "${diff.inHours}${tr('note_hours_ago')}";
     if (diff.inDays < 7) return "${diff.inDays}${tr('note_days_ago')}";
-    return DateFormat("d MMM", locale == 'ru' ? 'ru_RU' : 'en_US').format(d);
+    return DateFormat("d MMM", _dateLocale(locale)).format(d);
   }
 
   @override
@@ -45,8 +53,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
         duration: const Duration(milliseconds: 280),
         curve: Curves.easeOut,
         transform: Matrix4.identity()
-          ..translateByDouble(0.0, _isHovered && !isMobile ? -6.0 : 0.0, 0.0, 0.0)
-          ..scaleByDouble(isMobile ? 1.0 : (_isHovered ? 1.02 : 1.0), isMobile ? 1.0 : (_isHovered ? 1.02 : 1.0), isMobile ? 1.0 : (_isHovered ? 1.02 : 1.0), 1.0),
+          ..translate(0.0, _isHovered && !isMobile ? -6.0 : 0.0, 0.0)
+          ..scale(isMobile ? 1.0 : (_isHovered ? 1.02 : 1.0), isMobile ? 1.0 : (_isHovered ? 1.02 : 1.0), 1.0),
         child: GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EditorScreen(note: widget.note))),
           child: GlassContainer(
@@ -196,7 +204,7 @@ class _NoteCardState extends ConsumerState<NoteCard> {
 
   Widget _buildReminderBadge(DateTime d) {
     final locale = context.locale.languageCode;
-    final dateLocale = locale == 'ru' ? 'ru_RU' : 'en_US';
+    final dateLocale = _dateLocale(locale);
     return GestureDetector(
       onTap: () {
         showDialog(
