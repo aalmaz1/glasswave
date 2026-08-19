@@ -6,6 +6,16 @@ def ciVersionName = System.getenv('VERSION_NAME')?.trim()
 def appVersionCode = ciVersionCode ? Integer.parseInt(ciVersionCode) : 1
 def appVersionName = ciVersionName ?: '1.0.0'
 
+// Release signing: CI decodes a keystore from the ANDROID_KEYSTORE_BASE64
+// secret and exposes KEYSTORE_FILE / KEYSTORE_PASSWORD / KEY_ALIAS /
+// KEY_PASSWORD. Without them we keep the debug fallback so local builds stay
+// installable — but debug-signed APKs cannot be updated across CI builds,
+// because every runner generates a fresh debug key.
+def releaseKeystorePath = System.getenv('KEYSTORE_FILE')?.trim()
+def hasReleaseKeystore = releaseKeystorePath != null
+        && !releaseKeystorePath.isEmpty()
+        && file(releaseKeystorePath).exists()
+
 android {
     namespace = "com.glasswave.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -19,12 +29,26 @@ android {
         versionName = appVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
+    signingConfigs {
+        release {
+            if (hasReleaseKeystore) {
+                storeFile file(releaseKeystorePath)
+                storePassword System.getenv('KEYSTORE_PASSWORD')
+                keyAlias System.getenv('KEY_ALIAS')
+                keyPassword System.getenv('KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            // Installable release APK without a Play Store keystore.
-            signingConfig signingConfigs.debug
+            if (hasReleaseKeystore) {
+                signingConfig signingConfigs.release
+            } else {
+                logger.warn('KEYSTORE_* environment variables are not configured — release APK will be debug-signed.')
+                signingConfig signingConfigs.debug
+            }
         }
     }
 }

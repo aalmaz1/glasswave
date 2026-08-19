@@ -1,0 +1,25 @@
+{
+  "name": "GlassWave — Notes",
+  "short_name": "GlassWave",
+  "description": "Modern cross-platform note-taking app with glassmorphism design. Create, organize, and sync notes across devices.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0b0b1a",
+  "background_color": "#130500",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

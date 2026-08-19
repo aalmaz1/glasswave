@@ -81,6 +81,11 @@ export interface Translation {
   editingNote: string;
   todayAt: string;
 
+  // Error boundary
+  errorTitle: string;
+  errorMessage: string;
+  errorReload: string;
+
   // Reminder modal
   reminder: string;
   setReminder: string;
@@ -244,6 +249,9 @@ const ru: Translation = {
   saving: "Сохранение...",
   saved: "Сохранено",
   noteSyncError: "Не удалось синхронизировать изменения заметки. Проверьте подключение и повторите попытку.",
+  errorTitle: "Что-то пошло не так",
+  errorMessage: "Произошла непредвиденная ошибка. Перезагрузите страницу — ваши заметки в безопасности.",
+  errorReload: "Перезагрузить",
   close: "Закрыть",
   closeEditor: "Закрыть редактор",
   newNote: "Новая заметка",
@@ -402,6 +410,9 @@ const en: Translation = {
   saving: "Saving...",
   saved: "Saved",
   noteSyncError: "Could not sync your note changes. Check your connection and try again.",
+  errorTitle: "Something went wrong",
+  errorMessage: "An unexpected error occurred. Reload the page — your notes are safe.",
+  errorReload: "Reload",
   close: "Close",
   closeEditor: "Close editor",
   newNote: "New note",
@@ -560,6 +571,9 @@ const ko: Translation = {
   saving: "저장 중...",
   saved: "저장됨",
   noteSyncError: "노트 변경 사항을 동기화할 수 없습니다. 연결을 확인한 후 다시 시도하세요.",
+  errorTitle: "문제가 발생했습니다",
+  errorMessage: "예기치 않은 오류가 발생했습니다. 페이지를 새로고침하세요. 노트는 안전하게 저장되어 있습니다.",
+  errorReload: "새로고침",
   close: "닫기",
   closeEditor: "편집기 닫기",
   newNote: "새 노트",

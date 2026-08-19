@@ -1,17 +1,71 @@
 rules_version = '2';
+
+// Security model: every document is private to its owner.
+// Hardening on top of ownership checks:
+//  - field whitelist (hasOnly) — clients cannot smuggle arbitrary fields
+//  - type & size validation — protects quota from abuse
+//  - ownerUid is immutable after create — notes cannot be reassigned
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // ─── User profile ────────────────────────────────────────────────────
+    function validUserData(data) {
+      return data.keys().hasOnly(['email', 'name', 'themeId', 'createdAt'])
+        && data.email is string
+        && data.email.size() <= 320
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 120
+        && data.themeId is string
+        && data.themeId.size() <= 32
+        && data.createdAt is timestamp;
+    }
+
     match /users/{userId} {
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow read, delete: if signedIn() && request.auth.uid == userId;
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && validUserData(request.resource.data);
+      // email is set at registration and must not change client-side
+      allow update: if signedIn()
+        && request.auth.uid == userId
+        && validUserData(request.resource.data)
+        && request.resource.data.email == resource.data.email;
+    }
+
+    // ─── Notes ───────────────────────────────────────────────────────────
+    function validNoteData(data) {
+      return data.keys().hasOnly([
+          'ownerUid', 'id', 'title', 'body', 'accentIdx',
+          'pinned', 'archived', 'trashed', 'updatedAt', 'reminder'])
+        && data.ownerUid is string
+        && data.id is number
+        && data.title is string
+        && data.title.size() <= 500
+        && data.body is string
+        && data.body.size() <= 200000
+        && data.accentIdx is number
+        && data.pinned is bool
+        && data.archived is bool
+        && data.trashed is bool
+        && data.updatedAt is timestamp
+        && (data.reminder == null || data.reminder is timestamp);
     }
 
     match /notes/{noteId} {
-      allow create: if request.auth != null
-                    && request.resource.data.ownerUid == request.auth.uid;
-      allow read: if request.auth != null && resource.data.ownerUid == request.auth.uid;
-      allow update, delete: if request.auth != null
-                            && resource.data.ownerUid == request.auth.uid;
+      allow read: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && validNoteData(request.resource.data);
+      allow update: if signedIn()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && validNoteData(request.resource.data);
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
     }
   }
 }
