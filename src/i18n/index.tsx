@@ -43,6 +43,28 @@ export interface Translation {
   noNotesArchive: string;
   noNotesTrash: string;
   noSearchResults: string;
+  emptyTrash: string;
+  emptyTrashConfirmTitle: string;
+  emptyTrashConfirmBody: string;
+  confirmDeleteNoteTitle: string;
+  confirmDeleteNoteBody: string;
+  unsavedChangesTitle: string;
+  unsavedChangesBody: string;
+  unsavedSave: string;
+  unsavedDiscard: string;
+  fmtH1: string;
+  fmtH2: string;
+  fmtBold: string;
+  fmtItalic: string;
+  fmtStrike: string;
+  fmtUnderline: string;
+  fmtBullet: string;
+  fmtOrdered: string;
+  fmtQuote: string;
+  fmtCode: string;
+  fmtHr: string;
+  fmtUndo: string;
+  fmtRedo: string;
   loadingNotes: string;
   loadMore: string;
   notesLoadError: string;
@@ -210,10 +232,32 @@ const ru: Translation = {
   createNote: "Создать заметку",
   createNewNote: "Создать новую заметку",
   noNotes: "Заметок пока нет",
-  noNotesSubtitle: "Создайте первую заметку или загрузите из RSS",
+  noNotesSubtitle: "Создайте первую заметку — она сохранится на этом устройстве.",
   noNotesArchive: "Архив пуст",
   noNotesTrash: "Корзина пуста",
   noSearchResults: "Ничего не найдено",
+  emptyTrash: "Очистить корзину",
+  emptyTrashConfirmTitle: "Очистить корзину?",
+  emptyTrashConfirmBody: "Все заметки в корзине будут удалены навсегда. Это нельзя отменить.",
+  confirmDeleteNoteTitle: "Удалить заметку навсегда?",
+  confirmDeleteNoteBody: "Заметка будет удалена без возможности восстановления.",
+  unsavedChangesTitle: "Сохранить изменения?",
+  unsavedChangesBody: "У этой заметки есть несохранённый текст.",
+  unsavedSave: "Сохранить",
+  unsavedDiscard: "Не сохранять",
+  fmtH1: "Заголовок 1",
+  fmtH2: "Заголовок 2",
+  fmtBold: "Жирный",
+  fmtItalic: "Курсив",
+  fmtStrike: "Зачёркнутый",
+  fmtUnderline: "Подчёркнутый",
+  fmtBullet: "Маркированный список",
+  fmtOrdered: "Нумерованный список",
+  fmtQuote: "Цитата",
+  fmtCode: "Блок кода",
+  fmtHr: "Разделитель",
+  fmtUndo: "Отменить",
+  fmtRedo: "Повторить",
   loadingNotes: "Загрузка заметок...",
   loadMore: "Показать ещё",
   notesLoadError: "Не удалось загрузить заметки. Проверьте подключение и повторите попытку.",
@@ -294,7 +338,7 @@ const ru: Translation = {
   haveAccount: "Уже есть аккаунт?",
   guestMode: "Гостевой режим",
   loading: "Загрузка...",
-  authHint: "Данные хранятся локально в вашем браузере. Заметки автоматически синхронизируются между сессиями.",
+  authHint: "Без аккаунта заметки хранятся только в этом браузере. После входа они синхронизируются между устройствами.",
   showPassword: "Показать пароль",
   hidePassword: "Скрыть пароль",
   closeModal: "Закрыть",
@@ -376,10 +420,32 @@ const en: Translation = {
   createNote: "Create note",
   createNewNote: "Create new note",
   noNotes: "No notes yet",
-  noNotesSubtitle: "Create your first note or load from RSS",
+  noNotesSubtitle: "Create your first note to get started.",
   noNotesArchive: "Archive is empty",
   noNotesTrash: "Trash is empty",
   noSearchResults: "Nothing found",
+  emptyTrash: "Empty trash",
+  emptyTrashConfirmTitle: "Empty trash?",
+  emptyTrashConfirmBody: "Every note in the trash will be permanently deleted. This cannot be undone.",
+  confirmDeleteNoteTitle: "Delete this note forever?",
+  confirmDeleteNoteBody: "The note will be permanently deleted and cannot be restored.",
+  unsavedChangesTitle: "Save changes?",
+  unsavedChangesBody: "This note has unsaved text.",
+  unsavedSave: "Save",
+  unsavedDiscard: "Don't save",
+  fmtH1: "Heading 1",
+  fmtH2: "Heading 2",
+  fmtBold: "Bold",
+  fmtItalic: "Italic",
+  fmtStrike: "Strikethrough",
+  fmtUnderline: "Underline",
+  fmtBullet: "Bullet list",
+  fmtOrdered: "Numbered list",
+  fmtQuote: "Quote",
+  fmtCode: "Code block",
+  fmtHr: "Horizontal rule",
+  fmtUndo: "Undo",
+  fmtRedo: "Redo",
   loadingNotes: "Loading notes...",
   loadMore: "Load more",
   notesLoadError: "Could not load notes. Check your connection and try again.",
@@ -455,7 +521,7 @@ const en: Translation = {
   haveAccount: "Already have an account?",
   guestMode: "Guest mode",
   loading: "Loading...",
-  authHint: "Data is stored locally in your browser. Notes are automatically synced between sessions.",
+  authHint: "Without an account, notes stay in this browser. After you sign in, they sync across devices.",
   showPassword: "Show password",
   hidePassword: "Hide password",
   closeModal: "Close",
@@ -537,10 +603,32 @@ const ko: Translation = {
   createNote: "노트 만들기",
   createNewNote: "새 노트 만들기",
   noNotes: "노트 없음",
-  noNotesSubtitle: "첫 번째 노트를 만들거나 RSS 에서 불러오세요",
+  noNotesSubtitle: "첫 노트를 만들어 시작하세요.",
   noNotesArchive: "보관함이 비어 있습니다",
   noNotesTrash: "휴지통이 비어 있습니다",
   noSearchResults: "검색 결과 없음",
+  emptyTrash: "휴지통 비우기",
+  emptyTrashConfirmTitle: "휴지통을 비울까요?",
+  emptyTrashConfirmBody: "휴지통의 모든 노트가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+  confirmDeleteNoteTitle: "이 노트를 영구 삭제할까요?",
+  confirmDeleteNoteBody: "노트는 영구적으로 삭제되며 복원할 수 없습니다.",
+  unsavedChangesTitle: "변경 사항을 저장할까요?",
+  unsavedChangesBody: "이 노트에 저장되지 않은 내용이 있습니다.",
+  unsavedSave: "저장",
+  unsavedDiscard: "저장 안 함",
+  fmtH1: "제목 1",
+  fmtH2: "제목 2",
+  fmtBold: "굵게",
+  fmtItalic: "기울임",
+  fmtStrike: "취소선",
+  fmtUnderline: "밑줄",
+  fmtBullet: "글머리 기호 목록",
+  fmtOrdered: "번호 매기기 목록",
+  fmtQuote: "인용",
+  fmtCode: "코드 블록",
+  fmtHr: "구분선",
+  fmtUndo: "실행 취소",
+  fmtRedo: "다시 실행",
   loadingNotes: "노트 로딩 중...",
   loadMore: "더 보기",
   notesLoadError: "노트를 불러올 수 없습니다. 연결을 확인한 후 다시 시도하세요.",
@@ -616,7 +704,7 @@ const ko: Translation = {
   haveAccount: "이미 계정이 있으신가요?",
   guestMode: "게스트 모드",
   loading: "로딩 중...",
-  authHint: "데이터는 브라우저에 로컬로 저장됩니다. 노트는 세션 간에 자동 동기화됩니다.",
+  authHint: "계정 없이 사용하면 노트는 이 브라우저에만 저장됩니다. 로그인하면 기기 간에 동기화됩니다.",
   showPassword: "비밀번호 표시",
   hidePassword: "비밀번호 숨기기",
   closeModal: "닫기",

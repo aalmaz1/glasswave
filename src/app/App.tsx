@@ -6,7 +6,7 @@ import {
   Settings, ChevronLeft, Eye, EyeOff,
   Pin, PinOff, Shield, Bell, BellRing, CalendarClock,
   SlidersHorizontal, Palette, Shuffle, CalendarDays, RefreshCw, Languages as LanguagesIcon,
-  User,
+  User, RotateCcw,
   type LucideIcon,
 } from "lucide-react";
 import { RichTextEditor } from "./components/RichTextEditor";
@@ -382,15 +382,28 @@ function buildCSS(): string {
    ════════════════════════════════════════════════════════════════════ */
 type Note = {
   firestoreId?: string;
-  id: number; title: string; body: string; updatedAt: Date;
+  id: number; title: string; body: string; updatedAt: Date; createdAt: Date;
   accentIdx: number; pinned: boolean; archived: boolean; trashed: boolean;
   reminder: Date | null;
 };
 
 type FirestoreNote = {
   ownerUid: string; id: number; title: string; body: string; accentIdx: number;
-  pinned: boolean; archived: boolean; trashed: boolean; updatedAt: any; reminder: any;
+  pinned: boolean; archived: boolean; trashed: boolean; updatedAt: any; createdAt?: any; reminder: any;
 };
+
+function coerceDate(value: any): Date | null {
+  if (!value) return null;
+  if (typeof value.toDate === "function") return value.toDate();
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/** Old notes have no createdAt — fall back to the millisecond id, then updatedAt. */
+function inferCreatedAt(id: number, updatedAt: Date, raw?: any): Date {
+  return coerceDate(raw) ?? (id > 1e12 ? new Date(id) : updatedAt);
+}
 
 type Screen    = "dashboard" | "settings";
 type Tab       = "all" | "archive" | "trash";
@@ -423,23 +436,20 @@ async function setUserTheme(uid: string, themeId: ThemeId) {
 }
 
 function noteFromFirestore(data: FirestoreNote & { firestoreId: string }): Note {
-  const toDate = (value: any) => {
-    if (!value) return null;
-    if (typeof value.toDate === "function") return value.toDate();
-    if (value instanceof Date) return value;
-    return new Date(value);
-  };
+  const updatedAt = coerceDate(data.updatedAt) ?? new Date();
+  const id = Number(data.id ?? Date.now());
   return {
     firestoreId: data.firestoreId,
-    id: Number(data.id ?? Date.now()),
+    id,
     title: String(data.title ?? ""),
     body: String(data.body ?? ""),
     accentIdx: Number(data.accentIdx ?? 0),
     pinned: Boolean(data.pinned),
     archived: Boolean(data.archived),
     trashed: Boolean(data.trashed),
-    updatedAt: toDate(data.updatedAt) ?? new Date(),
-    reminder: toDate(data.reminder),
+    updatedAt,
+    createdAt: inferCreatedAt(id, updatedAt, data.createdAt),
+    reminder: coerceDate(data.reminder),
   };
 }
 
@@ -462,7 +472,9 @@ async function writeNoteToFirestore(note: Note, ownerUid: string) {
   const payload = {
     ownerUid, id: note.id, title: note.title, body: note.body, accentIdx: note.accentIdx,
     pinned: note.pinned, archived: note.archived, trashed: note.trashed,
-    updatedAt: serverTimestamp(), reminder: note.reminder ? note.reminder : null,
+    updatedAt: serverTimestamp(),
+    createdAt: note.createdAt ?? new Date(),
+    reminder: note.reminder ? note.reminder : null,
   };
   if (note.firestoreId) {
     await updateDoc(doc(db, NOTES_COLLECTION, note.firestoreId), payload);
@@ -569,11 +581,17 @@ function loadGuestNotes(): Note[] | null {
     const raw = localStorage.getItem(LS_GUEST_NOTES);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as any[];
-    return parsed.map(n => ({
-      ...n,
-      updatedAt: new Date(n.updatedAt),
-      reminder: n.reminder ? new Date(n.reminder) : null,
-    }));
+    return parsed.map(n => {
+      const updatedAt = new Date(n.updatedAt);
+      const id = Number(n.id ?? Date.now());
+      return {
+        ...n,
+        id,
+        updatedAt,
+        createdAt: inferCreatedAt(id, updatedAt, n.createdAt),
+        reminder: n.reminder ? new Date(n.reminder) : null,
+      };
+    });
   } catch { return null; }
 }
 
@@ -618,6 +636,7 @@ async function migrateGuestNotesToFirestore(uid: string): Promise<void> {
           archived: n.archived,
           trashed: n.trashed,
           updatedAt: n.updatedAt,
+          createdAt: n.createdAt ?? inferCreatedAt(n.id, n.updatedAt),
           reminder: n.reminder,
         });
       });
@@ -634,88 +653,16 @@ async function migrateGuestNotesToFirestore(uid: string): Promise<void> {
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   SEED / RSS
+   SEED
    ════════════════════════════════════════════════════════════════════ */
 const SEED: Note[] = [
-  {id:1,title:"Product Roadmap Q3",  body:"<p>Launch mobile redesign by August 15. Milestones: design handoff Jul 20, beta Aug 1, soft launch Aug 10. Coordinate with Elena on onboarding flow.</p>",updatedAt:new Date("2026-07-11T14:30:00"),accentIdx:0,pinned:true, archived:false,trashed:false,reminder:null},
-  {id:2,title:"Design Sprint Notes", body:"<p>Decided on glassmorphism for v2. Action items: component library, Figma tokens, user testing schedule.</p>",updatedAt:new Date("2026-07-10T09:15:00"),accentIdx:1,pinned:false,archived:false,trashed:false,reminder:null},
-  {id:3,title:"Reading List",        body:"<ul><li>Thinking in Systems — Meadows</li><li>A Pattern Language — Alexander</li><li>Working in Public — Nadia Eghbal</li><li>Finite and Infinite Games — Carse</li></ul>",updatedAt:new Date("2026-07-09T18:00:00"),accentIdx:2,pinned:true, archived:false,trashed:false,reminder:null},
-  {id:4,title:"API Integration",     body:"<p>Auth: /v2/auth/token. Rate limit 1000 req/min. Headers: X-API-Key, Content-Type. Exponential backoff from 500ms.</p>",updatedAt:new Date("2026-07-08T11:45:00"),accentIdx:3,pinned:false,archived:false,trashed:false,reminder:null},
+  {id:1,title:"Product Roadmap Q3",  body:"<p>Launch mobile redesign by August 15. Milestones: design handoff Jul 20, beta Aug 1, soft launch Aug 10. Coordinate with Elena on onboarding flow.</p>",updatedAt:new Date("2026-07-11T14:30:00"),createdAt:new Date("2026-07-01T10:00:00"),accentIdx:0,pinned:true, archived:false,trashed:false,reminder:null},
+  {id:2,title:"Design Sprint Notes", body:"<p>Decided on glassmorphism for v2. Action items: component library, Figma tokens, user testing schedule.</p>",updatedAt:new Date("2026-07-10T09:15:00"),createdAt:new Date("2026-07-03T11:00:00"),accentIdx:1,pinned:false,archived:false,trashed:false,reminder:null},
+  {id:3,title:"Reading List",        body:"<ul><li>Thinking in Systems — Meadows</li><li>A Pattern Language — Alexander</li><li>Working in Public — Nadia Eghbal</li><li>Finite and Infinite Games — Carse</li></ul>",updatedAt:new Date("2026-07-09T18:00:00"),createdAt:new Date("2026-07-02T16:00:00"),accentIdx:2,pinned:true, archived:false,trashed:false,reminder:null},
+  {id:4,title:"API Integration",     body:"<p>Auth: /v2/auth/token. Rate limit 1000 req/min. Headers: X-API-Key, Content-Type. Exponential backoff from 500ms.</p>",updatedAt:new Date("2026-07-08T11:45:00"),createdAt:new Date("2026-07-04T09:00:00"),accentIdx:3,pinned:false,archived:false,trashed:false,reminder:null},
 ];
 
 function getFallbackNotes(): Note[] { return SEED.map(n => ({ ...n })); }
-
-function parseRSS(xmlString: string): Note[] {
-  try {
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlString, "text/xml");
-    const items = xmlDoc.querySelectorAll("item");
-    const notes: Note[] = [];
-    items.forEach((item, index) => {
-      const title = item.querySelector("title")?.textContent?.trim() || "—";
-      let content = "";
-      const descEl = item.querySelector("description");
-      if (descEl?.textContent) {
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = descEl.textContent;
-        content = `<p>${(tempDiv.textContent || "").trim()}</p>`;
-      }
-      const dateStr = item.querySelector("pubDate")?.textContent?.trim() || "";
-      const parsedDate = dateStr ? new Date(dateStr) : new Date();
-      const updatedAt = isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
-      notes.push({
-        id: Date.now() + index, title, body: content, updatedAt,
-        accentIdx: index % 4, pinned: false, archived: false, trashed: false, reminder: null,
-      });
-    });
-    return notes;
-  } catch (error) { console.error("RSS parse error:", error); return []; }
-}
-
-async function loadRssNotes(): Promise<Note[] | null> {
-  const RSS_URL = 'https://feeds.feedburner.com/rsscna/engnews/';
-  const stripHtml = (html: string): string => html
-      .replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
-
-  const fetchWithTimeout = async (url: string, ms = 10000): Promise<Response> => {
-    const ctrl = new AbortController();
-    const id = setTimeout(() => ctrl.abort(), ms);
-    try { const r = await fetch(url, { signal: ctrl.signal }); clearTimeout(id); return r; }
-    catch (e) { clearTimeout(id); throw e; }
-  };
-
-  try {
-    const r = await fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(RSS_URL)}`);
-    if (r.ok) {
-      const data = await r.json();
-      if (data?.contents) {
-        const notes = parseRSS(data.contents);
-        if (notes.length) return notes;
-      }
-    }
-  } catch (e) { /* fall through */ }
-
-  try {
-    const r = await fetchWithTimeout(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_URL)}`);
-    if (!r.ok) return null;
-    const data = await r.json();
-    if (data?.status === 'ok' && Array.isArray(data.items) && data.items.length) {
-      return data.items.map((it: any, i: number) => {
-        const content = stripHtml(it.description || it.content || "");
-        const d = it.pubDate ? new Date(it.pubDate) : new Date();
-        return {
-          id: Date.now() + i, title: (it.title || "—").trim(),
-          body: `<p>${content}</p>`,
-          updatedAt: isNaN(d.getTime()) ? new Date() : d,
-          accentIdx: i % 4, pinned: false, archived: false, trashed: false, reminder: null,
-        };
-      });
-    }
-  } catch (e) { /* fall through */ }
-  return null;
-}
 
 function stripHtml(html: string): string {
   if (!html) return "";
@@ -768,9 +715,15 @@ export default function App() {
     const saved = loadGuestNotes();
     return saved && saved.length ? saved : getFallbackNotes();
   });
-  const [rssLoadedOnce, setRssLoadedOnce] = useState(false);
   const [notesQueryVersion, setNotesQueryVersion] = useState(0);
   const [noteSyncError, setNoteSyncError] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<
+    | { type: "delete-note"; note: Note }
+    | { type: "empty-trash" }
+    | null
+  >(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const editorRequestCloseRef = useRef<(() => void) | null>(null);
 
   const width = useWidth();
   const isMobile = width < 768;
@@ -795,19 +748,6 @@ export default function App() {
     const id = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(id);
   }, []);
-
-  // Guest: attempt RSS load once only (don't overwrite user-created notes)
-  useEffect(() => {
-    if (currentUser || rssLoadedOnce) return;
-    setRssLoadedOnce(true);
-    const saved = loadGuestNotes();
-    if (saved && saved.length) return; // already has notes (e.g. seed persisted)
-    loadRssNotes().then(notes => {
-      // The fetch can take seconds; re-check at resolution so a note the user
-      // created meanwhile is never clobbered by the demo feed.
-      if (notes && notes.length && !isGuestNotesDirty()) setLocalNotes(notes);
-    });
-  }, [currentUser, rssLoadedOnce]);
 
   // Persist guest notes
   useEffect(() => {
@@ -869,7 +809,7 @@ export default function App() {
         || stripHtml(n.body).toLowerCase().includes(s);
     });
     const sorted = [...src];
-    if (sort === "created") sorted.sort((a, b) => b.id - a.id);
+    if (sort === "created") sorted.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id);
     else if (sort === "updated") sorted.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
     return sorted;
   }, [allNotes, tab, search, sort]);
@@ -959,8 +899,9 @@ export default function App() {
         setLocalNotes(prev => prev.map(n => n.id === editing.id
           ? { ...n, title: noteTitle, body, updatedAt: new Date() } : n));
       } else {
+        const created = new Date();
         setLocalNotes(prev => [{
-          id: Date.now(), title: noteTitle, body, updatedAt: new Date(),
+          id: created.getTime(), title: noteTitle, body, updatedAt: created, createdAt: created,
           accentIdx: Math.floor(Math.random() * theme.accents.length),
           pinned: false, archived: false, trashed: false, reminder: null,
         }, ...prev]);
@@ -968,12 +909,14 @@ export default function App() {
       closeEd();
       return;
     }
+    const nowDate = new Date();
     const payload: Note = {
       firestoreId: editing?.firestoreId,
-      id: editing?.id ?? Date.now(),
+      id: editing?.id ?? nowDate.getTime(),
       title: title || t.untitled,
       body: body,
-      updatedAt: new Date(),
+      updatedAt: nowDate,
+      createdAt: editing?.createdAt ?? nowDate,
       accentIdx: editing?.accentIdx ?? Math.floor(Math.random() * theme.accents.length),
       pinned: editing?.pinned ?? false,
       archived: editing?.archived ?? false,
@@ -1002,32 +945,79 @@ export default function App() {
   const openSettings = useCallback(() => setScreen("settings"), []);
   const openSortSheet = useCallback(() => setShowSort(true), []);
 
-  const deleteOrRestoreNote = useCallback((note: Note) => {
+  const restoreNote = useCallback((note: Note) => {
+    mutNote(note.id, { trashed: false });
+  }, [mutNote]);
+
+  const moveToTrash = useCallback((note: Note) => {
+    mutNote(note.id, { trashed: true, archived: false });
+  }, [mutNote]);
+
+  const deleteNoteForever = useCallback((note: Note) => {
     if (!currentUser) {
       markGuestNotesDirty();
       setNoteSyncError(null);
-      if (tab === "trash" && note.trashed) {
-        setLocalNotes(prev => prev.filter(n => n.id !== note.id));
-      } else {
-        setLocalNotes(prev => prev.map(n => n.id === note.id
-          ? { ...n, trashed: !n.trashed, archived: false, updatedAt: new Date() } : n));
-      }
+      setLocalNotes(prev => prev.filter(n => n.id !== note.id));
       return;
     }
     if (!note.firestoreId) return;
-    if (tab === "trash" && note.trashed) enqueueNoteWrite(deleteNoteFromFirestore(note));
-    else enqueueNoteWrite(patchNoteInFirestore(note, { trashed: !note.trashed, archived: false }, currentUser.uid));
-  }, [currentUser, tab, enqueueNoteWrite]);
+    enqueueNoteWrite(deleteNoteFromFirestore(note));
+  }, [currentUser, enqueueNoteWrite]);
+
+  const emptyTrash = useCallback(() => {
+    const trashed = allNotesRef.current.filter(n => n.trashed);
+    if (!trashed.length) return;
+    if (!currentUser) {
+      markGuestNotesDirty();
+      setNoteSyncError(null);
+      setLocalNotes(prev => prev.filter(n => !n.trashed));
+      return;
+    }
+    enqueueNoteWrite((async () => {
+      for (let start = 0; start < trashed.length; start += 450) {
+        const batch = writeBatch(db);
+        trashed.slice(start, start + 450).forEach(n => {
+          if (n.firestoreId) batch.delete(doc(db, NOTES_COLLECTION, n.firestoreId));
+        });
+        await batch.commit();
+      }
+    })());
+  }, [currentUser, enqueueNoteWrite]);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === "n") {
+        if (editorOpen || screen !== "dashboard") return;
+        e.preventDefault();
+        openNew();
+      }
+      if (k === "f") {
+        if (editorOpen || screen !== "dashboard") return;
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [editorOpen, screen, openNew]);
 
   useEffect(() => {
     return listenNativeBackButton(() => {
-      if (editorOpen) { closeEd(); return true; }
+      if (confirm) { setConfirm(null); return true; }
+      if (editorOpen) {
+        if (editorRequestCloseRef.current) editorRequestCloseRef.current();
+        else closeEd();
+        return true;
+      }
       if (showSort) { setShowSort(false); return true; }
       if (reminderNoteId !== null) { setReminderNoteId(null); return true; }
       if (screen === "settings") { setScreen("dashboard"); return true; }
       return false;
     });
-  }, [editorOpen, showSort, reminderNoteId, screen, closeEd]);
+  }, [editorOpen, showSort, reminderNoteId, screen, closeEd, confirm]);
 
   const handleLogout = () => { authLogout().catch(() => {}); setCurrentUser(null); };
 
@@ -1089,6 +1079,7 @@ export default function App() {
             }}>
               <KeepSearchBar
                 search={search} setSearch={setSearch}
+                inputRef={searchInputRef}
                 isMobile={isMobile}
                 sort={sort} sortActive={sort !== "default"}
                 onSort={openSortSheet}
@@ -1108,17 +1099,35 @@ export default function App() {
             >
               {(currentUser && notesError) ? <NotesLoadError onRetry={() => setNotesQueryVersion(v => v + 1)} t={t} /> :
                 (currentUser && notesLoading) ? <LoadingState t={t} /> :
-                filtered.length === 0 ? <EmptyState tab={tab} search={search} t={t} /> :
-                <GridView
-                  pinned={pinned} unpinned={unpinned} cols={cols}
-                  theme={theme} isMobile={isMobile} isTablet={isTablet} tab={tab}
-                  onOpen={openEdit}
-                  onPin={handlePinNote}
-                  onArchive={handleArchiveNote}
-                  onTrash={deleteOrRestoreNote}
-                  onReminder={handleReminderNote}
-                  now={now} language={language} t={t}
-                />
+                filtered.length === 0 ? <EmptyState tab={tab} search={search} t={t} onCreate={openNew} /> :
+                <>
+                  {tab === "trash" && (
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+                      <button type="button" onClick={() => setConfirm({ type: "empty-trash" })}
+                        style={{
+                          ...glassBase(12), display: "inline-flex", alignItems: "center", gap: 7,
+                          padding: "8px 12px", borderRadius: 11, cursor: "pointer", fontFamily: "inherit",
+                          color: "rgba(255,170,170,0.95)", fontSize: "0.76rem", fontWeight: 600,
+                          border: "1px solid rgba(255,120,120,0.32)", background: "rgba(145,20,35,0.18)",
+                        }}>
+                        <Trash2 size={13} />
+                        {t.emptyTrash}
+                      </button>
+                    </div>
+                  )}
+                  <GridView
+                    pinned={pinned} unpinned={unpinned} cols={cols}
+                    theme={theme} isMobile={isMobile} isTablet={isTablet} tab={tab}
+                    onOpen={openEdit}
+                    onPin={handlePinNote}
+                    onArchive={handleArchiveNote}
+                    onRestore={restoreNote}
+                    onTrash={moveToTrash}
+                    onDeleteForever={n => setConfirm({ type: "delete-note", note: n })}
+                    onReminder={handleReminderNote}
+                    now={now} language={language} t={t}
+                  />
+                </>
               }
             </div>
             <BottomNav tab={tab} setTab={setTab} isMobile={isMobile} t={t} />
@@ -1160,8 +1169,24 @@ export default function App() {
           initialTitle={editing?.title ?? ""}
           initialBody={editing?.body ?? ""}
           onClose={closeEd} onSave={save}
+          requestCloseRef={editorRequestCloseRef}
           isMobile={isMobile} isTablet={isTablet}
           language={language} t={t}
+        />
+      )}
+
+      {confirm && (
+        <ConfirmDialog
+          title={confirm.type === "empty-trash" ? t.emptyTrashConfirmTitle : t.confirmDeleteNoteTitle}
+          body={confirm.type === "empty-trash" ? t.emptyTrashConfirmBody : t.confirmDeleteNoteBody}
+          confirmLabel={confirm.type === "empty-trash" ? t.emptyTrash : t.deleteForeverAction}
+          cancelLabel={t.cancel}
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => {
+            if (confirm.type === "empty-trash") emptyTrash();
+            else deleteNoteForever(confirm.note);
+            setConfirm(null);
+          }}
         />
       )}
 
@@ -1175,8 +1200,8 @@ export default function App() {
 /* ════════════════════════════════════════════════════════════════════
    SEARCH BAR
    ════════════════════════════════════════════════════════════════════ */
-const KeepSearchBar = React.memo(function KeepSearchBar({ search, setSearch, isMobile, sort, sortActive, onSort, onSettings }: {
-  search: string; setSearch: (v: string) => void; isMobile: boolean;
+const KeepSearchBar = React.memo(function KeepSearchBar({ search, setSearch, inputRef, isMobile, sort, sortActive, onSort, onSettings }: {
+  search: string; setSearch: (v: string) => void; inputRef: React.Ref<HTMLInputElement>; isMobile: boolean;
   sort: SortOrder; sortActive: boolean; onSort: () => void; onSettings: () => void;
 }) {
   const { t } = useTranslation();
@@ -1192,6 +1217,7 @@ const KeepSearchBar = React.memo(function KeepSearchBar({ search, setSearch, isM
         transition: "border-color 0.2s,box-shadow 0.2s",
       }}>
         <input
+          ref={inputRef}
           value={search} onChange={e => setSearch(e.target.value)}
           placeholder={t.searchPlaceholder} aria-label={t.search}
           style={{
@@ -1229,7 +1255,8 @@ type ViewProps = {
   pinned: Note[]; unpinned: Note[]; cols: number; theme: Theme;
   isMobile: boolean; isTablet: boolean; tab: Tab;
   onOpen: (n: Note) => void; onPin: (n: Note) => void;
-  onArchive: (n: Note) => void; onTrash: (n: Note) => void;
+  onArchive: (n: Note) => void; onRestore: (n: Note) => void;
+  onTrash: (n: Note) => void; onDeleteForever: (n: Note) => void;
   onReminder: (n: Note) => void; now: number;
   language: Language; t: Translation;
 };
@@ -1256,7 +1283,7 @@ const GridView = React.memo(function GridView(p: ViewProps) {
 
 // Memoized: card state updates (draft typing, timers, etc.) must not re-render
 // every card — notes are referentially stable between Firestore snapshots.
-const NoteCard = React.memo(function NoteCard({ note, theme, isMobile, isTablet, tab, onOpen, onPin, onArchive, onTrash, onReminder, now, language, t }: ViewProps & { note: Note }) {
+const NoteCard = React.memo(function NoteCard({ note, theme, isMobile, isTablet, tab, onOpen, onPin, onArchive, onRestore, onTrash, onDeleteForever, onReminder, now, language, t }: ViewProps & { note: Note }) {
   const accent = theme.accents[note.accentIdx % theme.accents.length];
   const minH = isMobile ? 130 : isTablet ? 140 : 160;
   const pad = isMobile ? "14px 16px 12px" : "18px 20px 14px";
@@ -1320,17 +1347,28 @@ const NoteCard = React.memo(function NoteCard({ note, theme, isMobile, isTablet,
               <span>{fmtDate(note.updatedAt, t.localeTag, t, now)}</span>
             </div>
             <div className={`card-actions${isMobile ? " actions-always" : ""}`} style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
-              <MiniAction onClick={() => onReminder(note)} title={t.reminder}>
-                <Bell size={11} color={hasReminder ? "rgba(255,200,60,0.80)" : G.textSecondary} strokeWidth={1.8} />
-              </MiniAction>
-              {tab !== "archive" && (
-                <MiniAction onClick={() => onArchive(note)} title={t.archive}>
-                  <Archive size={11} color={G.textSecondary} strokeWidth={1.8} />
-                </MiniAction>
+              {tab === "trash" ? (
+                <>
+                  <MiniAction onClick={() => onRestore(note)} title={t.restore}>
+                    <RotateCcw size={11} color={G.textSecondary} strokeWidth={1.8} />
+                  </MiniAction>
+                  <MiniAction onClick={() => onDeleteForever(note)} title={t.deleteForeverAction}>
+                    <Trash2 size={11} color="rgba(255,140,140,0.90)" strokeWidth={1.8} />
+                  </MiniAction>
+                </>
+              ) : (
+                <>
+                  <MiniAction onClick={() => onReminder(note)} title={t.reminder}>
+                    <Bell size={11} color={hasReminder ? "rgba(255,200,60,0.80)" : G.textSecondary} strokeWidth={1.8} />
+                  </MiniAction>
+                  <MiniAction onClick={() => onArchive(note)} title={note.archived ? t.unarchive : t.archive}>
+                    <Archive size={11} color={G.textSecondary} strokeWidth={1.8} />
+                  </MiniAction>
+                  <MiniAction onClick={() => onTrash(note)} title={t.delete}>
+                    <Trash2 size={11} color={G.textSecondary} strokeWidth={1.8} />
+                  </MiniAction>
+                </>
               )}
-              <MiniAction onClick={() => onTrash(note)} title={tab === "trash" ? t.deleteForeverAction : t.delete}>
-                <Trash2 size={11} color={G.textSecondary} strokeWidth={1.8} />
-              </MiniAction>
             </div>
           </div>
         </div>
@@ -1394,16 +1432,28 @@ function NotesLoadError({ onRetry, t }: { onRetry: () => void; t: Translation })
 /* ════════════════════════════════════════════════════════════════════
    EMPTY / LOADING
    ════════════════════════════════════════════════════════════════════ */
-function EmptyState({ tab, search, t }: { tab: Tab; search: string; t: Translation }) {
+function EmptyState({ tab, search, t, onCreate }: { tab: Tab; search: string; t: Translation; onCreate: () => void }) {
   const msg = search ? t.noSearchResults
     : tab === "all" ? t.noNotes
     : tab === "archive" ? t.noNotesArchive : t.noNotesTrash;
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 260, gap: 14 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 260, gap: 14, textAlign: "center" }}>
       <div style={{ ...glassBase(16), width: 52, height: 52, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <FileText size={22} color={G.textMuted} />
       </div>
       <p style={{ color: G.textMuted, fontSize: "0.84rem", letterSpacing: "0.02em", margin: 0 }}>{msg}</p>
+      {!search && tab === "all" && (
+        <>
+          <p style={{ color: G.textMuted, fontSize: "0.76rem", margin: 0, maxWidth: 280, lineHeight: 1.5 }}>{t.noNotesSubtitle}</p>
+          <button type="button" onClick={onCreate} style={{
+            ...glassBase(14), display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 14px",
+            borderRadius: 11, cursor: "pointer", fontFamily: "inherit", color: G.textPrimary, fontSize: "0.78rem", fontWeight: 600,
+          }}>
+            <Plus size={14} />
+            {t.createNote}
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -1435,17 +1485,18 @@ const BottomNav = React.memo(function BottomNav({ tab, setTab, isMobile, t }: { 
     <div style={{ position: "fixed", bottom: isMobile ? "calc(12px + env(safe-area-inset-bottom, 0px))" : 24, left: "50%", transform: "translateX(-50%)", width: isMobile ? "calc(100% - 32px)" : "56%", minWidth: 260, maxWidth: 420, zIndex: 40 }}>
       <div style={{ ...glassBase(28), borderRadius: 30, padding: "10px 8px", display: "flex", alignItems: "center", justifyContent: "space-around", position: "relative" }}>
         <div style={{ position: "absolute", inset: 0, borderRadius: "inherit", pointerEvents: "none", zIndex: 10, padding: 1, background: "linear-gradient(160deg,rgba(255,255,255,0.28) 0%,rgba(255,255,255,0.04) 60%)", WebkitMask: "linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)", WebkitMaskComposite: "xor", maskComposite: "exclude" }} />
-        {items.map(([id, Icon]) => {
+        {items.map(([id, Icon, label]) => {
           const active = tab === id;
           return (
-            <button key={id} onClick={() => setTab(id)} aria-label={id} style={{
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-              padding: "4px 20px", borderRadius: 20, border: "none", cursor: "pointer",
+            <button key={id} onClick={() => setTab(id)} aria-label={label} style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+              padding: "4px 16px 6px", borderRadius: 20, border: "none", cursor: "pointer",
               background: "transparent", fontFamily: "inherit",
               color: active ? G.textPrimary : G.textMuted, position: "relative", transition: "color 0.2s",
             }}>
               <Icon size={20} strokeWidth={active ? 2.2 : 1.5} />
-              {active && <div style={{ position: "absolute", bottom: -2, left: "50%", transform: "translateX(-50%)", width: 18, height: 2, borderRadius: 2, background: "rgba(255,255,255,0.70)" }} />}
+              <span style={{ fontSize: "0.62rem", fontWeight: active ? 700 : 500, letterSpacing: "0.02em", lineHeight: 1 }}>{label}</span>
+              {active && <div style={{ position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)", width: 18, height: 2, borderRadius: 2, background: "rgba(255,255,255,0.70)" }} />}
             </button>
           );
         })}
@@ -1463,7 +1514,7 @@ const FabBtn = React.memo(function FabBtn({ onClick, isMobile, t }: { onClick: (
     <button onClick={onClick} aria-label={t.createNewNote} style={{
       ...glassBase(16),
       position: "fixed",
-      bottom: isMobile ? "calc(76px + env(safe-area-inset-bottom, 0px))" : 32,
+      bottom: isMobile ? "calc(92px + env(safe-area-inset-bottom, 0px))" : 32,
       right: isMobile ? 20 : 32,
       width: sz, height: sz, borderRadius: 16, border: "none", cursor: "pointer",
       display: "flex", alignItems: "center", justifyContent: "center",
@@ -1720,8 +1771,13 @@ function SettingsScreen({ themeId, setThemeId, onBack, currentUser, onLogout, on
                     <Check size={12} color="#111" strokeWidth={2.5} />
                   </div>}
                 </div>
-                <div style={{ padding: "10px 0 12px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ fontSize: "1.35rem", lineHeight: 1 }}>{th.emoji}</span>
+                <div style={{ padding: "8px 6px 10px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                  <span style={{ fontSize: "1.2rem", lineHeight: 1 }}>{th.emoji}</span>
+                  <span style={{
+                    fontSize: "0.62rem", fontWeight: 600, lineHeight: 1.2, textAlign: "center",
+                    color: active ? G.textPrimary : G.textSecondary, maxWidth: "100%",
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>{name}</span>
                 </div>
               </button>
             );
@@ -1967,26 +2023,44 @@ function SLabel({ Icon, label }: { Icon?: LucideIcon; label: string }) {
 /* ════════════════════════════════════════════════════════════════════
    EDITOR MODAL
    ════════════════════════════════════════════════════════════════════ */
-function EditorModal({ creating, initialTitle, initialBody, onClose, onSave, isMobile, isTablet, language, t }: {
+function EditorModal({ creating, initialTitle, initialBody, onClose, onSave, requestCloseRef, isMobile, isTablet, language, t }: {
   creating: boolean; initialTitle: string; initialBody: string;
   onClose: () => void; onSave: (title: string, body: string) => void;
+  requestCloseRef: React.MutableRefObject<(() => void) | null>;
   isMobile: boolean; isTablet: boolean; language: Language; t: Translation;
 }) {
   // Draft state is local to the editor: every keystroke used to re-render the
   // whole app (note grid, nav, orbs) because the draft lived in App.
   const [title, setTitle] = useState(initialTitle);
   const [body, setBody] = useState(initialBody);
+  const [leaveOpen, setLeaveOpen] = useState(false);
   const saveRef = useRef(onSave);
   saveRef.current = onSave;
+  const dirty = title !== initialTitle || body !== initialBody;
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const leaveOpenRef = useRef(leaveOpen);
+  leaveOpenRef.current = leaveOpen;
+
+  const requestClose = useCallback(() => {
+    if (leaveOpenRef.current) { setLeaveOpen(false); return; }
+    if (dirtyRef.current) { setLeaveOpen(true); return; }
+    onClose();
+  }, [onClose]);
+
+  useEffect(() => {
+    requestCloseRef.current = requestClose;
+    return () => { requestCloseRef.current = null; };
+  }, [requestClose, requestCloseRef]);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveRef.current(title, body); }
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") requestClose();
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [onClose, title, body]);
+  }, [requestClose, title, body]);
 
   const wc = stripHtml(body).trim().split(/\s+/).filter(Boolean).length;
   const today = new Date().toLocaleDateString(language, t.dateFormatLong as any);
@@ -1997,7 +2071,7 @@ function EditorModal({ creating, initialTitle, initialBody, onClose, onSave, isM
   return (
     <div className="modal-overlay"
       style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: G.overlay, backdropFilter: isMobile ? "none" : "blur(2px)", padding: isMobile ? 12 : 24 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      onClick={e => { if (e.target === e.currentTarget) requestClose(); }}>
       <div className="modal-in modal-mobile-safe" style={{
         ...glassBase(32), width: mW, maxWidth: isMobile ? "100%" : isTablet ? 760 : 720, height: mH,
         borderRadius: br, border: "1px solid rgba(255,255,255,0.28)",
@@ -2007,7 +2081,7 @@ function EditorModal({ creating, initialTitle, initialBody, onClose, onSave, isM
         <div style={{ position: "absolute", inset: 0, borderRadius: "inherit", pointerEvents: "none", zIndex: 10, padding: 1, background: "linear-gradient(160deg,rgba(255,255,255,0.40) 0%,rgba(255,255,255,0.06) 45%,rgba(255,255,255,0.01) 100%)", WebkitMask: "linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)", WebkitMaskComposite: "xor", maskComposite: "exclude" }} />
         <div style={{ position: "relative", zIndex: 20, display: "flex", flexDirection: "column", height: "100%" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.08)", minWidth: 0 }}>
-            <GlassChip onClick={onClose}>
+            <GlassChip onClick={requestClose}>
               <X size={14} color={G.textSecondary} />
               <span style={{ fontSize: "0.78rem", color: G.textSecondary, fontWeight: 500 }}>{t.close}</span>
             </GlassChip>
@@ -2036,6 +2110,62 @@ function EditorModal({ creating, initialTitle, initialBody, onClose, onSave, isM
 
           <div className="scroll-host" style={{ flex: 1, overflowY: "auto", padding: "12px 24px 24px" }}>
             <RichTextEditor content={body} onChange={setBody} placeholder={t.noteContentPlaceholder} />
+          </div>
+        </div>
+      </div>
+      {leaveOpen && (
+        <ConfirmDialog
+          title={t.unsavedChangesTitle}
+          body={t.unsavedChangesBody}
+          confirmLabel={t.unsavedSave}
+          cancelLabel={t.cancel}
+          extraLabel={t.unsavedDiscard}
+          danger={false}
+          onCancel={() => setLeaveOpen(false)}
+          onConfirm={() => onSave(title, body)}
+          onExtra={() => onClose()}
+        />
+      )}
+    </div>
+  );
+}
+
+
+function ConfirmDialog({ title, body, confirmLabel, cancelLabel, extraLabel, danger = true, onConfirm, onCancel, onExtra }: {
+  title: string; body: string; confirmLabel: string; cancelLabel: string;
+  extraLabel?: string; danger?: boolean;
+  onConfirm: () => void; onCancel: () => void; onExtra?: () => void;
+}) {
+  return (
+    <div role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) onCancel(); }}
+      style={{ position: "fixed", inset: 0, zIndex: 80, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.62)", backdropFilter: "blur(5px)" }}>
+      <div role="dialog" aria-modal="true" aria-labelledby="confirm-title" className="modal-in" style={{
+        ...glassBase(28), width: "100%", maxWidth: 400, borderRadius: 22, overflow: "hidden",
+        border: danger ? "1px solid rgba(255,115,115,0.38)" : "1px solid rgba(255,255,255,0.22)",
+        boxShadow: "0 28px 80px rgba(0,0,0,0.70)",
+      }}>
+        <div style={{ padding: "22px 22px 20px" }}>
+          <h2 id="confirm-title" style={{ margin: "0 0 10px", fontSize: "1rem", fontWeight: 700, color: danger ? "rgba(255,215,215,0.98)" : G.textPrimary }}>{title}</h2>
+          <p style={{ margin: "0 0 20px", fontSize: "0.82rem", lineHeight: 1.55, color: G.textSecondary }}>{body}</p>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <button type="button" onClick={onCancel} style={{
+              padding: "10px 14px", borderRadius: 11, border: `1px solid ${G.border}`,
+              background: "rgba(255,255,255,0.05)", color: G.textSecondary, cursor: "pointer",
+              fontFamily: "inherit", fontSize: "0.8rem", fontWeight: 600,
+            }}>{cancelLabel}</button>
+            {extraLabel && onExtra && (
+              <button type="button" onClick={onExtra} style={{
+                padding: "10px 14px", borderRadius: 11, border: `1px solid ${G.border}`,
+                background: "rgba(255,255,255,0.08)", color: G.textPrimary, cursor: "pointer",
+                fontFamily: "inherit", fontSize: "0.8rem", fontWeight: 600,
+              }}>{extraLabel}</button>
+            )}
+            <button type="button" onClick={onConfirm} style={{
+              padding: "10px 14px", borderRadius: 11,
+              border: danger ? "1px solid rgba(255,105,105,0.55)" : "1px solid rgba(255,255,255,0.35)",
+              background: danger ? "rgba(225,55,65,0.42)" : "rgba(255,255,255,0.16)",
+              color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: "0.8rem", fontWeight: 700,
+            }}>{confirmLabel}</button>
           </div>
         </div>
       </div>

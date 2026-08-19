@@ -41,7 +41,7 @@ service cloud.firestore {
     function validNoteData(data) {
       return data.keys().hasOnly([
           'ownerUid', 'id', 'title', 'body', 'accentIdx',
-          'pinned', 'archived', 'trashed', 'updatedAt', 'reminder'])
+          'pinned', 'archived', 'trashed', 'updatedAt', 'createdAt', 'reminder'])
         && data.ownerUid is string
         && data.id is number
         && data.title is string
@@ -53,6 +53,7 @@ service cloud.firestore {
         && data.archived is bool
         && data.trashed is bool
         && data.updatedAt is timestamp
+        && (!('createdAt' in data) || data.createdAt is timestamp)
         && (data.reminder == null || data.reminder is timestamp);
     }
 
@@ -64,7 +65,9 @@ service cloud.firestore {
       allow update: if signedIn()
         && resource.data.ownerUid == request.auth.uid
         && request.resource.data.ownerUid == resource.data.ownerUid
-        && validNoteData(request.resource.data);
+        && validNoteData(request.resource.data)
+        && (!('createdAt' in resource.data)
+            || request.resource.data.createdAt == resource.data.createdAt);
       allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
     }
   }
