@@ -21,13 +21,14 @@ GlassWave is an elegant note management application featuring modern glassmorphi
 - **Organization** — pin, archive, trash
 - **Search and sorting** — quick search through notes, sort by creation/update date
 - **Reminders** — set reminders for important notes
-- **RSS integration** — load content from RSS feeds
 - **Guest mode** — use without registration
 
-### 🔐 Synchronization
+### 🔐 Synchronization (web app)
 - **Firebase Firestore** — cloud synchronization across devices
 - **Local caching** — offline work with IndexedDB
-- **Authentication** — secure login via Firebase Auth
+- **Authentication** — secure login via Firebase Auth (with password reset & email verification)
+
+> The Flutter version is a **local-only** prototype (see [Mobile Version](#-mobile-version-flutter)); cloud sync currently lives in the React web app.
 
 ### 🌍 Multilingual Support
 Support for three interface languages:
@@ -79,7 +80,8 @@ cd glasswave
 
 #### 2. Firebase Setup
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root. A ready-made template is available as
+[`.env.example`](.env.example):
 
 ```env
 VITE_FIREBASE_API_KEY=your_api_key
@@ -89,6 +91,9 @@ VITE_FIREBASE_STORAGE_BUCKET=your_project.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
 ```
+
+All six variables are **required**. If any are missing, the web app shows a
+configuration error instead of connecting to an unrelated project.
 
 > ⚠️ **Important**: Do not commit the `.env` file to the repository! It's already added to `.gitignore`.
 
@@ -123,6 +128,16 @@ pnpm build
 ```
 
 Built files will appear in the `dist/` directory.
+
+### Quality Checks & Tests
+
+```bash
+npm run typecheck      # TypeScript type checking
+npm run lint           # ESLint
+npm run format:check   # Prettier
+npm run test           # Vitest unit tests
+npm run i18n:export    # Regenerate assets/translations/*.json from src/i18n
+```
 
 ---
 
@@ -166,6 +181,10 @@ npx cap open android
 ---
 
 ## 📱 Mobile Version (Flutter)
+
+> ⚠️ The Flutter app is a **local-only prototype**: notes and accounts are stored
+> on-device (`shared_preferences`) and do **not** sync to Firebase yet. Use the
+> React web app (or its Capacitor Android wrapper) for cross-device sync.
 
 ### Install Dependencies
 
@@ -236,19 +255,23 @@ flutter build windows --release
 
 ## 🌐 Localization
 
-Adding a new language:
+`src/i18n/translations.ts` is the **single source of truth** for all UI strings.
+Both the React app and the Flutter app derive their strings from it.
 
-1. Create a translation file in `assets/translations/<lang>.json`
-2. Add translations in `src/i18n/index.tsx`
-3. Update the language list in the settings component
+Adding a new language or string:
+
+1. Add the string to the `Translation` interface and all three language objects
+   in `src/i18n/translations.ts`.
+2. Run `npm run i18n:export` to regenerate `assets/translations/*.json` for the
+   Flutter app (never edit those JSON files by hand).
 
 Translation structure example:
 
-```json
+```ts
 {
-  "settings": "Settings",
-  "dashboard": "Notes",
-  "createNote": "Create note"
+  settings: "Settings",
+  dashboard: "Notes",
+  createNote: "Create note",
 }
 ```
 
@@ -280,6 +303,17 @@ firebase deploy
 
 ---
 
+## ♿ Accessibility
+
+The web app targets keyboard and screen-reader accessibility:
+
+- Note cards are focusable and open with `Enter`/`Space`.
+- Modals trap focus, restore it on close, and close with `Esc`.
+- `prefers-reduced-motion` disables animations.
+- Interactive elements carry `aria-label`/`role` where needed.
+
+---
+
 ## 🤝 Contributing
 
 We welcome contributions to GlassWave development!
@@ -292,8 +326,11 @@ We welcome contributions to GlassWave development!
 
 ### Code Style Guide
 
-- **React**: ESLint + Prettier
+- **React**: ESLint + Prettier (`npm run lint`, `npm run format`)
 - **Flutter**: `flutter analyze` + `dart format`
+
+CI builds and publishes the Android APK from `main`
+(`.github/workflows/apk_build.yml`).
 
 ---
 

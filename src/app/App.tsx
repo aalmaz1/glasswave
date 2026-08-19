@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import type { CSSProperties, ReactNode, FC } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import {
   Plus, Archive, Trash2, FileText,
   X, Hash, Clock, Check, LogOut,
@@ -12,7 +12,7 @@ import {
 import { RichTextEditor } from "./components/RichTextEditor";
 import { useTheme } from "./hooks/useTheme";
 import {
-  useTranslation, TRANSLATIONS, themeNameByLang,
+  useTranslation, themeNameByLang,
   type Language, type Translation,
 } from "../i18n";
 import { listenNativeBackButton } from "../native";
@@ -43,12 +43,16 @@ import {
   EmailAuthProvider,
   onAuthStateChanged,
   reauthenticateWithCredential,
+  sendEmailVerification,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
 } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { useFirestoreQuery } from "../hooks/useFirestoreQuery";
+import { coerceDate, inferCreatedAt, stripHtml, fmtDate, newNoteId } from "./utils";
+import { useFocusTrap } from "./hooks/useFocusTrap";
 
 /* ════════════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -238,6 +242,7 @@ function buildCSS(): string {
     transition:transform 0.32s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.28s ease;
   }
   .card:hover{transform:translateY(-6px) scale(1.02);}
+  .card:focus-visible{outline:2px solid rgba(255,255,255,0.55);outline-offset:3px;}
 
   .card-glass{
     border-radius:${G.radius}px;overflow:hidden;position:relative;
@@ -374,6 +379,16 @@ function buildCSS(): string {
     transition:background 0.18s;flex-shrink:0;
   }
   .icon-btn:hover{background:rgba(255,255,255,0.08);}
+
+  /* Respect users who prefer reduced motion (accessibility). */
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{
+      animation-duration:0.001ms!important;
+      animation-iteration-count:1!important;
+      transition-duration:0.001ms!important;
+      scroll-behavior:auto!important;
+    }
+  }
 `;
 }
 
@@ -392,19 +407,6 @@ type FirestoreNote = {
   pinned: boolean; archived: boolean; trashed: boolean; updatedAt: any; createdAt?: any; reminder: any;
 };
 
-function coerceDate(value: any): Date | null {
-  if (!value) return null;
-  if (typeof value.toDate === "function") return value.toDate();
-  if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
-  const d = new Date(value);
-  return isNaN(d.getTime()) ? null : d;
-}
-
-/** Old notes have no createdAt — fall back to the millisecond id, then updatedAt. */
-function inferCreatedAt(id: number, updatedAt: Date, raw?: any): Date {
-  return coerceDate(raw) ?? (id > 1e12 ? new Date(id) : updatedAt);
-}
-
 type Screen    = "dashboard" | "settings";
 type Tab       = "all" | "archive" | "trash";
 type SortOrder = "default" | "created" | "updated";
@@ -414,7 +416,8 @@ type UserProfile = { name: string; themeId?: ThemeId };
 
 const USERS_COLLECTION = "users";
 const NOTES_COLLECTION = "notes";
-const NOTES_FETCH_LIMIT = 500;
+/** Number of notes loaded per page (the "Load more" button fetches the next page). */
+const NOTES_PAGE_SIZE = 100;
 const DEFAULT_THEME: ThemeId = "sunset";
 const LS_GUEST_NOTES = "glasswave_guest_notes_v1";
 const LS_GUEST_DIRTY = "glasswave_guest_notes_dirty";
@@ -453,18 +456,23 @@ function noteFromFirestore(data: FirestoreNote & { firestoreId: string }): Note 
   };
 }
 
-function buildNotesQuery(ownerUid: string): Query<FirestoreNote> {
+function buildNotesQuery(ownerUid: string, max: number): Query<FirestoreNote> {
   // A `where(ownerUid) + orderBy(updatedAt)` query requires a composite
   // Firestore index. Loading the list then fails completely until that index
   // has been created in every Firebase project. Keep this query on Firestore's
   // built-in single-field index and sort the bounded result in the client.
+  //
+  // Pagination is done by growing the `limit` (Firestore returns docs in stable
+  // doc-id order for an unordered query, so a larger limit is a strict superset
+  // of a smaller one). This avoids the 500-note ceiling without a composite
+  // index and keeps a single live `onSnapshot` subscription.
   return query(
     collection(db, NOTES_COLLECTION).withConverter<FirestoreNote>({
       toFirestore: (data) => data as any,
       fromFirestore: (snap) => snap.data() as FirestoreNote,
     }),
     where("ownerUid", "==", ownerUid),
-    limit(NOTES_FETCH_LIMIT)
+    limit(max)
   );
 }
 
@@ -529,8 +537,23 @@ async function authRegister(email: string, name: string, pw: string, t: Translat
     const credential = await createUserWithEmailAndPassword(auth, email, pw);
     await updateProfile(credential.user, { displayName: name.trim() });
     await createUserProfile(credential.user.uid, email, name.trim());
+    // Best-effort: verification is not required to sign in, but it confirms the
+    // address really belongs to the user and enables password recovery.
+    sendEmailVerification(credential.user).catch(() => {});
     return null;
   } catch (err: any) { return fbError(err, t); }
+}
+
+async function authResetPassword(email: string, t: Translation): Promise<string | null> {
+  email = email.trim().toLowerCase();
+  if (!email.includes("@")) return t.authErrInvalidEmail;
+  try {
+    await sendPasswordResetEmail(auth, email);
+    return null;
+  } catch (err: any) {
+    console.error("Password reset error:", err?.code);
+    return t.authErrResetGeneric;
+  }
 }
 
 async function authLogin(email: string, pw: string, t: Translation): Promise<string | null> {
@@ -664,27 +687,6 @@ const SEED: Note[] = [
 
 function getFallbackNotes(): Note[] { return SEED.map(n => ({ ...n })); }
 
-function stripHtml(html: string): string {
-  if (!html) return "";
-  return html
-    .replace(/<\/p>|<\/h[1-6]>|<\/li>|<\/div>|<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]*>/g, '')
-    .replace(/\n+/g, '\n').trim();
-}
-
-function fmtDate(d: Date, locale: string, t: Translation, now: number = Date.now()): string {
-  const secs = Math.floor((now - d.getTime()) / 1000);
-  if (secs < 60) return t.timeJustNow;
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return t.timeMinAgo(mins);
-  const hrs = Math.floor(secs / 3600);
-  if (hrs < 24) return t.timeHoursAgo(hrs);
-  const days = Math.floor(secs / 86400);
-  if (days === 1) return t.timeYesterday;
-  if (days < 7) return t.timeDaysAgo(days);
-  return d.toLocaleDateString(locale, { day: "numeric", month: "long" });
-}
-
 function useWidth() {
   const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 1280);
   useEffect(() => {
@@ -716,6 +718,7 @@ export default function App() {
     return saved && saved.length ? saved : getFallbackNotes();
   });
   const [notesQueryVersion, setNotesQueryVersion] = useState(0);
+  const [notesLimit, setNotesLimit] = useState(NOTES_PAGE_SIZE);
   const [noteSyncError, setNoteSyncError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<
     | { type: "delete-note"; note: Note }
@@ -757,8 +760,9 @@ export default function App() {
   // Auth state
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) { setCurrentUser(null); setThemeId(DEFAULT_THEME); return; }
+      if (!user) { setCurrentUser(null); setThemeId(DEFAULT_THEME); setNotesLimit(NOTES_PAGE_SIZE); return; }
       setCurrentUser({ uid: user.uid, email: user.email ?? "", name: user.displayName ?? "" });
+      setNotesLimit(NOTES_PAGE_SIZE);
       void migrateGuestNotesToFirestore(user.uid);
       try {
         const profile = await getUserProfile(user.uid);
@@ -772,8 +776,8 @@ export default function App() {
   }, []);
 
   const notesQuery = useMemo(
-    () => currentUser ? buildNotesQuery(currentUser.uid) : null,
-    [currentUser, notesQueryVersion]
+    () => currentUser ? buildNotesQuery(currentUser.uid, notesLimit) : null,
+    [currentUser, notesQueryVersion, notesLimit]
   );
 
   const { data: firestoreData, loading: notesLoading, error: notesError } = useFirestoreQuery<FirestoreNote>(
@@ -791,6 +795,11 @@ export default function App() {
       .map(n => noteFromFirestore(n as FirestoreNote & { firestoreId: string }))
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime() || b.id - a.id);
   }, [currentUser, firestoreData, localNotes]);
+
+  // When the current page is "full", there may be more notes to load.
+  const hasMoreNotes = Boolean(
+    currentUser && Array.isArray(firestoreData) && firestoreData.length >= notesLimit
+  );
 
   // Keeps callbacks referentially stable (so memoized cards don't re-render)
   // while always reading the freshest notes list.
@@ -888,32 +897,37 @@ export default function App() {
     });
   }, [t]);
 
-  const save = useCallback((title: string, body: string) => {
-    if (!title.trim() && !body.trim()) { closeEd(); return; }
+  /**
+   * Persist a note (create or update) WITHOUT closing the editor. Returns the
+   * persisted Note so callers can track a newly-created note. Both `save` and
+   * `autosave` funnel through here, keeping writes idempotent.
+   */
+  const persistNote = useCallback((title: string, body: string): Note | null => {
+    if (!title.trim() && !body.trim()) return null;
     setNoteSyncError(null);
+    const noteTitle = title.trim() ? title : t.untitled;
     if (!currentUser) {
       // Only a real change makes guest notes migration-worthy.
-      if (!editing || editing.title !== title || editing.body !== body) markGuestNotesDirty();
-      const noteTitle = title || t.untitled;
+      if (!editing || editing.title !== noteTitle || editing.body !== body) markGuestNotesDirty();
+      const nowDate = new Date();
       if (editing) {
-        setLocalNotes(prev => prev.map(n => n.id === editing.id
-          ? { ...n, title: noteTitle, body, updatedAt: new Date() } : n));
-      } else {
-        const created = new Date();
-        setLocalNotes(prev => [{
-          id: created.getTime(), title: noteTitle, body, updatedAt: created, createdAt: created,
-          accentIdx: Math.floor(Math.random() * theme.accents.length),
-          pinned: false, archived: false, trashed: false, reminder: null,
-        }, ...prev]);
+        const updated: Note = { ...editing, title: noteTitle, body, updatedAt: nowDate };
+        setLocalNotes(prev => prev.map(n => n.id === editing.id ? updated : n));
+        return updated;
       }
-      closeEd();
-      return;
+      const created: Note = {
+        id: newNoteId(), title: noteTitle, body, updatedAt: nowDate, createdAt: nowDate,
+        accentIdx: Math.floor(Math.random() * theme.accents.length),
+        pinned: false, archived: false, trashed: false, reminder: null,
+      };
+      setLocalNotes(prev => [created, ...prev]);
+      return created;
     }
     const nowDate = new Date();
     const payload: Note = {
       firestoreId: editing?.firestoreId,
-      id: editing?.id ?? nowDate.getTime(),
-      title: title || t.untitled,
+      id: editing?.id ?? newNoteId(),
+      title: noteTitle,
       body: body,
       updatedAt: nowDate,
       createdAt: editing?.createdAt ?? nowDate,
@@ -924,8 +938,28 @@ export default function App() {
       reminder: editing?.reminder ?? null,
     };
     enqueueNoteWrite(writeNoteToFirestore(payload, currentUser.uid));
+    return payload;
+  }, [currentUser, editing, t, theme.accents.length, enqueueNoteWrite]);
+
+  const save = useCallback((title: string, body: string) => {
+    persistNote(title, body);
     closeEd();
-  }, [currentUser, editing, t, theme.accents.length, closeEd, enqueueNoteWrite]);
+  }, [persistNote, closeEd]);
+
+  /**
+   * Autosave a draft without closing the editor. For an existing note this
+   * updates it in place. For a brand-new note, the first autosave creates it
+   * and switches the editor into "edit" mode so subsequent autosaves update the
+   * same note instead of creating duplicates.
+   */
+  const autosave = useCallback((title: string, body: string) => {
+    if (!title.trim() && !body.trim()) return;
+    const created = persistNote(title, body);
+    if (!editing && created) {
+      setEditing(created);
+      setCreating(false);
+    }
+  }, [persistNote, editing]);
 
   const mutNote = useCallback((id: number, patch: Partial<Note>) => {
     if (!currentUser) {
@@ -1080,8 +1114,7 @@ export default function App() {
               <KeepSearchBar
                 search={search} setSearch={setSearch}
                 inputRef={searchInputRef}
-                isMobile={isMobile}
-                sort={sort} sortActive={sort !== "default"}
+                sortActive={sort !== "default"}
                 onSort={openSortSheet}
                 onSettings={openSettings}
               />
@@ -1127,6 +1160,19 @@ export default function App() {
                     onReminder={handleReminderNote}
                     now={now} language={language} t={t}
                   />
+                  {hasMoreNotes && (
+                    <div style={{ display: "flex", justifyContent: "center", marginTop: 20, paddingBottom: 8 }}>
+                      <button type="button" onClick={() => setNotesLimit(l => l + NOTES_PAGE_SIZE)}
+                        style={{
+                          ...glassBase(12), display: "inline-flex", alignItems: "center", gap: 7,
+                          padding: "9px 16px", borderRadius: 11, cursor: "pointer", fontFamily: "inherit",
+                          color: G.textPrimary, fontSize: "0.78rem", fontWeight: 600,
+                        }}>
+                        <RefreshCw size={14} />
+                        {t.loadMore}
+                      </button>
+                    </div>
+                  )}
                 </>
               }
             </div>
@@ -1168,7 +1214,7 @@ export default function App() {
           creating={creating}
           initialTitle={editing?.title ?? ""}
           initialBody={editing?.body ?? ""}
-          onClose={closeEd} onSave={save}
+          onClose={closeEd} onSave={save} onAutosave={autosave}
           requestCloseRef={editorRequestCloseRef}
           isMobile={isMobile} isTablet={isTablet}
           language={language} t={t}
@@ -1200,9 +1246,9 @@ export default function App() {
 /* ════════════════════════════════════════════════════════════════════
    SEARCH BAR
    ════════════════════════════════════════════════════════════════════ */
-const KeepSearchBar = React.memo(function KeepSearchBar({ search, setSearch, inputRef, isMobile, sort, sortActive, onSort, onSettings }: {
-  search: string; setSearch: (v: string) => void; inputRef: React.Ref<HTMLInputElement>; isMobile: boolean;
-  sort: SortOrder; sortActive: boolean; onSort: () => void; onSettings: () => void;
+const KeepSearchBar = React.memo(function KeepSearchBar({ search, setSearch, inputRef, sortActive, onSort, onSettings }: {
+  search: string; setSearch: (v: string) => void; inputRef: React.Ref<HTMLInputElement>;
+  sortActive: boolean; onSort: () => void; onSettings: () => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -1290,7 +1336,16 @@ const NoteCard = React.memo(function NoteCard({ note, theme, isMobile, isTablet,
   const hasReminder = !!note.reminder;
 
   return (
-    <div className="card" onClick={() => onOpen(note)}>
+    <article
+      className="card"
+      role="button"
+      tabIndex={0}
+      aria-label={note.title || t.untitled}
+      onClick={() => onOpen(note)}
+      onKeyDown={e => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(note); }
+      }}
+    >
       <div className="card-glass" style={{ minHeight: minH }}>
         <div className="glass-ring" />
         <div className="glass-sheen" />
@@ -1373,7 +1428,7 @@ const NoteCard = React.memo(function NoteCard({ note, theme, isMobile, isTablet,
           </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 });
 
@@ -1540,11 +1595,12 @@ function SortSheet({ current, onSelect, onClose, t }: {
     { id: "created", label: t.sortByCreated, sub: t.sortCreatedSub, Icon: CalendarDays },
     { id: "updated", label: t.sortByUpdated, sub: t.sortUpdatedSub, Icon: RefreshCw },
   ];
+  const trapRef = useFocusTrap<HTMLDivElement>(true, onClose);
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.52)", backdropFilter: "blur(3px)" }} onClick={onClose} />
-      <div className="sheet-in" style={{
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-label={t.sortBy} className="sheet-in" style={{
         position: "relative", zIndex: 1,
         background: "rgba(18,18,24,0.96)", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)",
         borderTop: "1px solid rgba(255,255,255,0.14)", borderRadius: "24px 24px 0 0",
@@ -1607,6 +1663,7 @@ function ReminderModal({ note, onSave, onClose, language, t }: {
   const pad = (n: number) => String(n).padStart(2, "0");
   const toVal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   const [val, setVal] = useState(note.reminder ? toVal(note.reminder) : "");
+  const trapRef = useFocusTrap<HTMLDivElement>(true, onClose);
 
   const todayAt = (h: number, m = 0) => {
     const d = new Date(now); d.setHours(h, m, 0, 0);
@@ -1630,7 +1687,7 @@ function ReminderModal({ note, onSave, onClose, language, t }: {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", padding: 24 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-in" style={{
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-label={t.reminder} className="modal-in" style={{
         ...glassBase(32), width: "100%", maxWidth: 360,
         border: "1px solid rgba(255,255,255,0.26)",
         boxShadow: "0 32px 80px rgba(0,0,0,0.65),inset 0 1px 0 rgba(255,255,255,0.22)",
@@ -1842,6 +1899,7 @@ function DeleteAccountModal({ email, onClose, onDelete, t }: {
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const trapRef = useFocusTrap<HTMLDivElement>(true, () => { if (!deleting) onClose(); });
   const submit = async () => {
     if (!password) { setError(t.authErrPasswordRequired); return; }
     setError(""); setDeleting(true);
@@ -1856,7 +1914,7 @@ function DeleteAccountModal({ email, onClose, onDelete, t }: {
   return (
     <div role="presentation" onMouseDown={e => { if (e.target === e.currentTarget && !deleting) onClose(); }}
       style={{ position: "fixed", inset: 0, zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.68)", backdropFilter: "blur(5px)" }}>
-      <div role="dialog" aria-modal="true" className="modal-in" style={{
+      <div ref={trapRef} role="dialog" aria-modal="true" className="modal-in" style={{
         ...glassBase(28), width: "100%", maxWidth: 420, borderRadius: 22, overflow: "hidden",
         border: "1px solid rgba(255,115,115,0.38)", boxShadow: "0 28px 80px rgba(0,0,0,0.70)",
       }}>
@@ -1880,6 +1938,7 @@ function DeleteAccountModal({ email, onClose, onDelete, t }: {
           </label>
           <div style={{ position: "relative" }}>
             <input id="delete-pw" type={showPw ? "text" : "password"} value={password} autoComplete="current-password" autoFocus
+              data-autofocus
               disabled={deleting} onChange={e => { setPassword(e.target.value); setError(""); }}
               onKeyDown={e => { if (e.key === "Enter") void submit(); }} placeholder={t.passwordPlaceholder}
               style={{ width: "100%", padding: "11px 42px 11px 13px", borderRadius: 12, outline: "none", fontFamily: "inherit", fontSize: "0.86rem", color: G.textPrimary, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,160,160,0.30)" }} />
@@ -1933,6 +1992,8 @@ function AuthPanel() {
   const [showPw, setShowPw] = useState(false);
   const [err, setErr] = useState("");
   const [ok, setOk] = useState(false);
+  const [resetMsg, setResetMsg] = useState("");
+  const [resetErr, setResetErr] = useState("");
 
   const submit = async () => {
     setErr(""); setOk(false);
@@ -1944,6 +2005,13 @@ function AuthPanel() {
       const e = await authLogin(email, pw, t);
       if (e) { setErr(e); return; }
     }
+  };
+
+  const handleForgot = async () => {
+    setResetErr(""); setResetMsg("");
+    const e = await authResetPassword(email, t);
+    if (e) setResetErr(e);
+    else setResetMsg(t.resetSent);
   };
 
   const inputS: CSSProperties = {
@@ -2003,6 +2071,16 @@ function AuthPanel() {
         >
           {mode === "login" ? t.loginBtn : t.registerBtn}
         </button>
+        {mode === "login" && (
+          <button type="button" onClick={() => void handleForgot()}
+            style={{ marginTop: 2, background: "none", border: "none", cursor: "pointer",
+              fontFamily: "inherit", fontSize: "0.76rem", fontWeight: 600, color: G.textSecondary,
+              textDecoration: "underline", textUnderlineOffset: 3, padding: "4px 0", alignSelf: "flex-start" }}>
+            {t.forgotPassword}
+          </button>
+        )}
+        {resetMsg && <p role="status" style={{ margin: 0, fontSize: "0.78rem", color: "rgba(80,220,120,0.90)" }}>{resetMsg}</p>}
+        {resetErr && <p role="alert" style={{ margin: 0, fontSize: "0.78rem", color: "rgba(255,100,100,0.90)" }}>{resetErr}</p>}
       </form>
       <p style={{ margin: "14px 0 0", fontSize: "0.72rem", color: G.textMuted, textAlign: "center", lineHeight: 1.6 }}>
         {t.authHint}
@@ -2023,9 +2101,10 @@ function SLabel({ Icon, label }: { Icon?: LucideIcon; label: string }) {
 /* ════════════════════════════════════════════════════════════════════
    EDITOR MODAL
    ════════════════════════════════════════════════════════════════════ */
-function EditorModal({ creating, initialTitle, initialBody, onClose, onSave, requestCloseRef, isMobile, isTablet, language, t }: {
+function EditorModal({ creating, initialTitle, initialBody, onClose, onSave, onAutosave, requestCloseRef, isMobile, isTablet, language, t }: {
   creating: boolean; initialTitle: string; initialBody: string;
   onClose: () => void; onSave: (title: string, body: string) => void;
+  onAutosave: (title: string, body: string) => void;
   requestCloseRef: React.MutableRefObject<(() => void) | null>;
   isMobile: boolean; isTablet: boolean; language: Language; t: Translation;
 }) {
@@ -2034,6 +2113,9 @@ function EditorModal({ creating, initialTitle, initialBody, onClose, onSave, req
   const [title, setTitle] = useState(initialTitle);
   const [body, setBody] = useState(initialBody);
   const [leaveOpen, setLeaveOpen] = useState(false);
+  // Focus trap (no onEscape — the editor already handles Escape via its own
+  // keydown listener, which also covers the "unsaved changes" prompt).
+  const trapRef = useFocusTrap<HTMLDivElement>(true);
   const saveRef = useRef(onSave);
   saveRef.current = onSave;
   const dirty = title !== initialTitle || body !== initialBody;
@@ -2041,6 +2123,18 @@ function EditorModal({ creating, initialTitle, initialBody, onClose, onSave, req
   dirtyRef.current = dirty;
   const leaveOpenRef = useRef(leaveOpen);
   leaveOpenRef.current = leaveOpen;
+
+  const autosaveRef = useRef(onAutosave);
+  autosaveRef.current = onAutosave;
+
+  // Debounced autosave: persist the draft shortly after the user pauses typing,
+  // without closing the editor. The timer is cancelled on every keystroke and
+  // on unmount, so we never save stale text or fire after a manual save.
+  useEffect(() => {
+    if (!dirty) return;
+    const id = setTimeout(() => autosaveRef.current(title, body), 1500);
+    return () => clearTimeout(id);
+  }, [title, body, dirty]);
 
   const requestClose = useCallback(() => {
     if (leaveOpenRef.current) { setLeaveOpen(false); return; }
@@ -2072,7 +2166,7 @@ function EditorModal({ creating, initialTitle, initialBody, onClose, onSave, req
     <div className="modal-overlay"
       style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: G.overlay, backdropFilter: isMobile ? "none" : "blur(2px)", padding: isMobile ? 12 : 24 }}
       onClick={e => { if (e.target === e.currentTarget) requestClose(); }}>
-      <div className="modal-in modal-mobile-safe" style={{
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-label={creating ? t.newNote : t.edit} className="modal-in modal-mobile-safe" style={{
         ...glassBase(32), width: mW, maxWidth: isMobile ? "100%" : isTablet ? 760 : 720, height: mH,
         borderRadius: br, border: "1px solid rgba(255,255,255,0.28)",
         boxShadow: "0 32px 80px rgba(0,0,0,0.65),inset 0 1px 0 rgba(255,255,255,0.22)",
@@ -2098,6 +2192,7 @@ function EditorModal({ creating, initialTitle, initialBody, onClose, onSave, req
 
           <div style={{ padding: "20px 24px 0" }}>
             <input value={title} onChange={e => setTitle(e.target.value)} placeholder={t.noteTitlePlaceholder} autoFocus
+              data-autofocus
               aria-label={t.noteTitlePlaceholder}
               style={{ width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: "inherit", fontWeight: 300, fontSize: isMobile ? "1.5rem" : "1.75rem", letterSpacing: "-0.025em", color: G.textPrimary }} />
           </div>
@@ -2136,10 +2231,11 @@ function ConfirmDialog({ title, body, confirmLabel, cancelLabel, extraLabel, dan
   extraLabel?: string; danger?: boolean;
   onConfirm: () => void; onCancel: () => void; onExtra?: () => void;
 }) {
+  const trapRef = useFocusTrap<HTMLDivElement>(true, onCancel);
   return (
     <div role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) onCancel(); }}
       style={{ position: "fixed", inset: 0, zIndex: 80, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.62)", backdropFilter: "blur(5px)" }}>
-      <div role="dialog" aria-modal="true" aria-labelledby="confirm-title" className="modal-in" style={{
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="confirm-title" className="modal-in" style={{
         ...glassBase(28), width: "100%", maxWidth: 400, borderRadius: 22, overflow: "hidden",
         border: danger ? "1px solid rgba(255,115,115,0.38)" : "1px solid rgba(255,255,255,0.22)",
         boxShadow: "0 28px 80px rgba(0,0,0,0.70)",
