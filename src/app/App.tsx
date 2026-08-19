@@ -6,6 +6,7 @@ import {
   Settings, ChevronLeft, Eye, EyeOff,
   Pin, PinOff, Shield, Bell, BellRing, CalendarClock,
   SlidersHorizontal, Palette, Shuffle, CalendarDays, RefreshCw, Languages as LanguagesIcon,
+  type LucideIcon,
 } from "lucide-react";
 import { RichTextEditor } from "./components/RichTextEditor";
 import { useTheme } from "./hooks/useTheme";
@@ -29,6 +30,7 @@ import {
   updateDoc,
   where,
   orderBy,
+  type Query,
 } from "firebase/firestore";
 import {
   createUserWithEmailAndPassword,
@@ -435,11 +437,14 @@ function noteFromFirestore(data: FirestoreNote & { firestoreId: string }): Note 
   };
 }
 
-function buildNotesQuery(ownerUid: string) {
+function buildNotesQuery(ownerUid: string): Query<FirestoreNote> {
   // NOTE: requires a composite Firestore index (ownerUid ASC, updatedAt DESC).
   // Firebase will return an error with a one-click URL to create it on first use.
   return query(
-    collection(db, NOTES_COLLECTION),
+    collection(db, NOTES_COLLECTION).withConverter<FirestoreNote>({
+      toFirestore: (data) => data as any,
+      fromFirestore: (snap) => snap.data() as FirestoreNote,
+    }),
     where("ownerUid", "==", ownerUid),
     orderBy("updatedAt", "desc"),
     limit(NOTES_FETCH_LIMIT)
@@ -757,7 +762,7 @@ export default function App() {
     [currentUser]
   );
 
-  const { data: firestoreData, loading: notesLoading } = useFirestoreQuery<FirestoreNote[]>(
+  const { data: firestoreData, loading: notesLoading } = useFirestoreQuery<FirestoreNote>(
     () => notesQuery,
     [notesQuery]
   );
@@ -765,7 +770,8 @@ export default function App() {
   const allNotes: Note[] = useMemo(() => {
     if (!currentUser) return localNotes;
     if (!firestoreData) return [];
-    return firestoreData.map(n => noteFromFirestore(n as FirestoreNote & { firestoreId: string }));
+    const list = Array.isArray(firestoreData) ? firestoreData : [];
+    return list.map(n => noteFromFirestore(n as FirestoreNote & { firestoreId: string }));
   }, [currentUser, firestoreData, localNotes]);
 
   const filtered = useMemo(() => {
@@ -1775,7 +1781,7 @@ function AuthPanel() {
   );
 }
 
-function SLabel({ Icon, label }: { Icon?: FC<{ size?: number; color?: string }>; label: string }) {
+function SLabel({ Icon, label }: { Icon?: LucideIcon; label: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
       {Icon && <Icon size={13} color={G.textMuted} />}

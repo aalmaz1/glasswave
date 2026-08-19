@@ -34,6 +34,7 @@ export interface Translation {
   tabNotes: string;
   tabArchive: string;
   tabTrash: string;
+  search: string;
   searchPlaceholder: string;
   createNote: string;
   createNewNote: string;
@@ -196,6 +197,7 @@ const ru: Translation = {
   tabNotes: "Заметки",
   tabArchive: "Архив",
   tabTrash: "Корзина",
+  search: "Поиск",
   searchPlaceholder: "Поиск заметок...",
   createNote: "Создать заметку",
   createNewNote: "Создать новую заметку",
@@ -355,6 +357,7 @@ const en: Translation = {
   tabNotes: "Notes",
   tabArchive: "Archive",
   tabTrash: "Trash",
+  search: "Search",
   searchPlaceholder: "Search notes...",
   createNote: "Create note",
   createNewNote: "Create new note",
@@ -509,6 +512,7 @@ const ko: Translation = {
   tabNotes: "노트",
   tabArchive: "보관",
   tabTrash: "휴지통",
+  search: "검색",
   searchPlaceholder: "노트 검색...",
   createNote: "노트 만들기",
   createNewNote: "새 노트 만들기",
