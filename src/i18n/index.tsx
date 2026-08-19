@@ -45,6 +45,8 @@ export interface Translation {
   noSearchResults: string;
   loadingNotes: string;
   loadMore: string;
+  notesLoadError: string;
+  retry: string;
 
   // Note card
   untitled: string;
@@ -72,6 +74,7 @@ export interface Translation {
   save: string;
   saving: string;
   saved: string;
+  noteSyncError: string;
   close: string;
   closeEditor: string;
   newNote: string;
@@ -208,6 +211,8 @@ const ru: Translation = {
   noSearchResults: "Ничего не найдено",
   loadingNotes: "Загрузка заметок...",
   loadMore: "Показать ещё",
+  notesLoadError: "Не удалось загрузить заметки. Проверьте подключение и повторите попытку.",
+  retry: "Повторить",
 
   untitled: "Без названия",
   pin: "Закрепить",
@@ -238,6 +243,7 @@ const ru: Translation = {
   save: "Сохранить",
   saving: "Сохранение...",
   saved: "Сохранено",
+  noteSyncError: "Не удалось синхронизировать изменения заметки. Проверьте подключение и повторите попытку.",
   close: "Закрыть",
   closeEditor: "Закрыть редактор",
   newNote: "Новая заметка",
@@ -368,6 +374,8 @@ const en: Translation = {
   noSearchResults: "Nothing found",
   loadingNotes: "Loading notes...",
   loadMore: "Load more",
+  notesLoadError: "Could not load notes. Check your connection and try again.",
+  retry: "Retry",
 
   untitled: "Untitled",
   pin: "Pin",
@@ -393,6 +401,7 @@ const en: Translation = {
   save: "Save",
   saving: "Saving...",
   saved: "Saved",
+  noteSyncError: "Could not sync your note changes. Check your connection and try again.",
   close: "Close",
   closeEditor: "Close editor",
   newNote: "New note",
@@ -523,6 +532,8 @@ const ko: Translation = {
   noSearchResults: "검색 결과 없음",
   loadingNotes: "노트 로딩 중...",
   loadMore: "더 보기",
+  notesLoadError: "노트를 불러올 수 없습니다. 연결을 확인한 후 다시 시도하세요.",
+  retry: "다시 시도",
 
   untitled: "제목 없음",
   pin: "고정",
@@ -548,6 +559,7 @@ const ko: Translation = {
   save: "저장",
   saving: "저장 중...",
   saved: "저장됨",
+  noteSyncError: "노트 변경 사항을 동기화할 수 없습니다. 연결을 확인한 후 다시 시도하세요.",
   close: "닫기",
   closeEditor: "편집기 닫기",
   newNote: "새 노트",
