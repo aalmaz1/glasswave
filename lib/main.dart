@@ -9,9 +9,8 @@ import 'screens/auth_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
-
   await EasyLocalization.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
 
   runApp(
     ProviderScope(
@@ -38,12 +37,26 @@ class GlassWaveApp extends ConsumerWidget {
     return MaterialApp(
       title: 'GlassWave',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: context.localizationDelegates,
+      supportedLocales: context.supportedLocales,
+      locale: context.locale,
       theme: ThemeData(
         useMaterial3: true,
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF0B0B1A),
         textTheme: GoogleFonts.manropeTextTheme(
           ThemeData.dark().textTheme,
         ),
       ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF0B0B1A),
+        textTheme: GoogleFonts.manropeTextTheme(
+          ThemeData.dark().textTheme,
+        ),
+      ),
+      themeMode: ThemeMode.dark,
       home: user == null ? const AuthScreen() : const DashboardScreen(),
     );
   }

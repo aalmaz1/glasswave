@@ -50,13 +50,13 @@ export function useFirestoreQuery<T = unknown>(
 
     setState(prev => ({ ...prev, loading: true }));
     const unsubscribe = onSnapshot(
-      ref,
-      snapshot => {
+      ref as any,
+      (snapshot: any) => {
         const data = isDocumentSnapshot(snapshot)
           ? snapshot.exists()
             ? snapshot.data()
             : null
-          : snapshot.docs.map(doc => ({ ...(doc.data() as any), firestoreId: doc.id }));
+          : snapshot.docs.map((doc: any) => ({ ...doc.data(), firestoreId: doc.id }));
 
         setState({
           data: data as T,
@@ -65,7 +65,7 @@ export function useFirestoreQuery<T = unknown>(
           fromCache: snapshot.metadata.fromCache,
         });
       },
-      error => {
+      (error: Error) => {
         setState({ data: null, loading: false, error, fromCache: false });
       }
     );

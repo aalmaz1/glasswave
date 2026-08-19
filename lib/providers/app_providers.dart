@@ -20,6 +20,16 @@ final authProvider = StateNotifierProvider<AuthNotifier, AppUser?>((ref) {
   return AuthNotifier(service);
 });
 
+/// Error keys returned by [AuthNotifier] — translate in the UI via `tr(key)`.
+class AuthErrors {
+  static const wrongCredentials = 'auth_err_wrong_pw';
+  static const emailInUse = 'auth_err_email_in_use';
+  static const nameTooShort = 'auth_error_name';
+  static const pwTooShort = 'auth_error_pw';
+  static const sessionExpired = 'auth_err_generic';
+  static const wrongPwDelete = 'auth_err_wrong_pw';
+}
+
 class AuthNotifier extends StateNotifier<AppUser?> {
   final PersistenceService _service;
 
@@ -32,23 +42,27 @@ class AuthNotifier extends StateNotifier<AppUser?> {
   }
 
   Future<String?> login(String email, String password) async {
+    email = email.toLowerCase().trim();
+    final ok = _service.verifyPassword(email, password);
+    if (!ok) return AuthErrors.wrongCredentials;
     final users = await _service.getUsers();
-    final userData = users[email.toLowerCase()];
-    if (userData == null) return "Пользователь не найден";
-    if (userData['pw'] != password) return "Неверный пароль";
-
-    final appUser = AppUser(email: email.toLowerCase(), name: userData['name']);
+    final data = users[email];
+    final name = (data is Map && data['name'] is String) ? (data['name'] as String) : email;
+    final appUser = AppUser(email: email, name: name);
     state = appUser;
     await _service.setMe(appUser);
     return null;
   }
 
   Future<String?> register(String email, String name, String password) async {
+    email = email.toLowerCase().trim();
     final users = await _service.getUsers();
-    if (users.containsKey(email.toLowerCase())) return "Этот email уже используется";
+    if (users.containsKey(email)) return AuthErrors.emailInUse;
+    if (name.trim().length < 2) return AuthErrors.nameTooShort;
+    if (password.length < 6) return AuthErrors.pwTooShort;
 
-    await _service.saveUser(email.toLowerCase(), name, password);
-    final appUser = AppUser(email: email.toLowerCase(), name: name);
+    await _service.saveUser(email, name.trim(), password);
+    final appUser = AppUser(email: email, name: name.trim());
     state = appUser;
     await _service.setMe(appUser);
     return null;
@@ -56,10 +70,10 @@ class AuthNotifier extends StateNotifier<AppUser?> {
 
   Future<String?> deleteAccount(String password) async {
     final user = state;
-    if (user == null) return 'Сессия завершена. Войдите снова.';
-    final users = await _service.getUsers();
-    final record = users[user.email.toLowerCase()];
-    if (record == null || record['pw'] != password) return 'Неверный пароль.';
+    if (user == null) return AuthErrors.sessionExpired;
+    if (!_service.verifyPassword(user.email, password)) {
+      return AuthErrors.wrongPwDelete;
+    }
     await _service.deleteUser(user.email);
     await _service.setMe(null);
     state = null;
@@ -82,31 +96,88 @@ class AppPrefs {
 final themeProvider = StateNotifierProvider<ThemeNotifier, AppPrefs>((ref) {
   final service = ref.watch(persistenceServiceProvider);
   final user = ref.watch(authProvider);
-  return ThemeNotifier(service, user?.email);
+  final email = user?.email;
+  String? preloadedLang;
+  String? preloadedTheme;
+  if (email != null) {
+    final prefs = service.getPrefs(email);
+    preloadedLang = prefs['language'] as String?;
+    preloadedTheme = prefs['themeId'] as String?;
+  } else {
+    preloadedLang = service.getGuestLanguageRaw();
+    preloadedTheme = service.getGuestTheme();
+  }
+  final initialTheme = _parseThemeStatic(preloadedTheme, fallback: null);
+  return ThemeNotifier(service, email, initialTheme, preloadedLang ?? 'ru');
 });
+
+ThemeId _parseThemeStatic(String? raw, {ThemeId? fallback}) {
+  if (raw != null) {
+    for (final t in ThemeId.values) {
+      if (t.name == raw) return t;
+    }
+  }
+  if (fallback != null) return fallback;
+  final all = ThemeId.values;
+  return all[DateTime.now().microsecondsSinceEpoch % all.length];
+}
 
 class ThemeNotifier extends StateNotifier<AppPrefs> {
   final PersistenceService _service;
   final String? _email;
 
-  ThemeNotifier(this._service, this._email) : super(AppPrefs(themeId: ThemeId.sunset, language: 'ru')) {
+  ThemeNotifier(this._service, this._email, ThemeId initialTheme, String initialLang)
+      : super(AppPrefs(themeId: initialTheme, language: initialLang)) {
+    _loadPrefs();
+  }
+
+  void _loadPrefs() {
+    ThemeId theme;
+    String lang;
+    bool isFirstLoad = false;
     if (_email != null) {
-      _loadPrefs();
+      final raw = _service.getPrefs(_email!);
+      theme = _parseTheme(raw['themeId'] as String?, fallback: ThemeId.sunset);
+      final savedLang = raw['language'] as String?;
+      if (savedLang == null) {
+        // First login after register: keep the language currently active in UI.
+        lang = state.language;
+        isFirstLoad = true;
+      } else {
+        lang = savedLang;
+      }
+    } else {
+      // Guest: load saved prefs; pick random theme once if nothing saved.
+      final savedTheme = _service.getGuestTheme();
+      theme = _parseTheme(savedTheme, fallback: null);
+      if (savedTheme == null) isFirstLoad = true;
+      final savedLang = _service.getGuestLanguageRaw();
+      lang = savedLang ?? state.language;
+      if (savedLang == null) isFirstLoad = true;
+    }
+    state = AppPrefs(themeId: theme, language: lang);
+    if (isFirstLoad) unawaited(_persistInitial());
+  }
+
+  Future<void> _persistInitial() async {
+    // Persist the defaults that were chosen (random theme, current language).
+    if (_email != null) {
+      await _service.savePrefs(_email!, {'themeId': state.themeId.name, 'language': state.language});
+    } else {
+      await _service.setGuestTheme(state.themeId.name);
+      await _service.setGuestLanguage(state.language);
     }
   }
 
-  Future<void> _loadPrefs() async {
-    if (_email == null) return;
-    final raw = _service.getPrefs(_email);
-    if (raw.isEmpty) return;
-
-    final themeIdStr = raw['themeId'] as String?;
-    final themeId = themeIdStr != null && ThemeId.values.any((t) => t.name == themeIdStr)
-        ? ThemeId.values.firstWhere((t) => t.name == themeIdStr)
-        : ThemeId.sunset;
-    final language = raw['language'] ?? 'ru';
-
-    state = AppPrefs(themeId: themeId, language: language);
+  ThemeId _parseTheme(String? raw, {ThemeId? fallback}) {
+    if (raw != null) {
+      for (final t in ThemeId.values) {
+        if (t.name == raw) return t;
+      }
+    }
+    if (fallback != null) return fallback;
+    final all = ThemeId.values;
+    return all[DateTime.now().microsecondsSinceEpoch % all.length];
   }
 
   void setTheme(ThemeId id) {
@@ -120,9 +191,13 @@ class ThemeNotifier extends StateNotifier<AppPrefs> {
   }
 
   Future<void> _persist() async {
-    if (_email == null) return;
-    final p = {'themeId': state.themeId.name, 'language': state.language};
-    await _service.savePrefs(_email, p);
+    if (_email != null) {
+      final p = {'themeId': state.themeId.name, 'language': state.language};
+      await _service.savePrefs(_email!, p);
+    } else {
+      await _service.setGuestTheme(state.themeId.name);
+      await _service.setGuestLanguage(state.language);
+    }
   }
 }
 
@@ -137,23 +212,48 @@ class NotesNotifier extends StateNotifier<List<Note>> {
   final String? _email;
 
   NotesNotifier(this._service, this._email) : super([]) {
-    if (_email != null) {
-      _loadNotes();
-    }
+    _loadNotes();
+  }
+
+  List<Note> _defaultSeedNotes() {
+    final now = DateTime.now();
+    return [
+      Note(
+        id: now.millisecondsSinceEpoch - 3000,
+        title: 'GlassWave ✨',
+        body: 'Welcome! Press the + button to create your first note.\n\nFeatures:\n- Markdown support\n- Reminders\n- Archive & Trash\n- 12 themes\n- Cloud sync',
+        updatedAt: now.subtract(const Duration(minutes: 5)),
+        accentIdx: 0,
+        pinned: true,
+      ),
+    ];
   }
 
   void _loadNotes() {
-    if (_email == null) return;
-    state = _service.getNotes(_email) ?? [];
+    if (_email != null) {
+      state = _service.getNotes(_email!) ?? [];
+    } else {
+      final saved = _service.getGuestNotes();
+      if (saved == null) {
+        final seed = _defaultSeedNotes();
+        state = seed;
+        unawaited(_service.saveGuestNotes(seed));
+      } else {
+        state = saved;
+      }
+    }
   }
 
   Future<void> _saveNotes() async {
-    if (_email == null) return;
-    await _service.saveNotes(_email, state);
+    if (_email != null) {
+      await _service.saveNotes(_email!, state);
+    } else {
+      await _service.saveGuestNotes(state);
+    }
   }
 
   Future<void> addNote(Note note) async {
-    state = [...state, note];
+    state = [note, ...state];
     await _saveNotes();
   }
 
@@ -187,9 +287,7 @@ class NotesNotifier extends StateNotifier<List<Note>> {
     await updateNote(note.copyWith(reminder: reminder));
   }
 
-  void clearNotes() {
-    state = [];
-  }
+  void clearNotes() { state = []; }
 }
 
 final dashboardTabProvider = StateProvider<int>((ref) => 0);

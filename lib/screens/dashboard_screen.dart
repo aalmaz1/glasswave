@@ -96,7 +96,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                    child: Text(tr('dash_pinned'),
+                    child: Text(tr('pinned'),
                         style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -109,7 +109,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      child: Text(tr('dash_others'),
+                      child: Text(tr('others'),
                           style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -356,7 +356,7 @@ class _FabWithHoverState extends State<_FabWithHover> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 280),
         curve: const Cubic(0.34, 1.56, 0.64, 1.0),
-        transform: Matrix4.identity()..scaleByDouble(_isHovered ? 1.12 : 1.0, _isHovered ? 1.12 : 1.0, _isHovered ? 1.12 : 1.0, 1.0),
+          transform: Matrix4.identity()..scale(_isHovered ? 1.12 : 1.0, _isHovered ? 1.12 : 1.0, 1.0),
         child: GlassContainer(
           borderRadius: 16,
           color: _isHovered ? Colors.white.withValues(alpha: 0.16) : Colors.white.withValues(alpha: 0.12),

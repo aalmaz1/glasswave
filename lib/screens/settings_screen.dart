@@ -6,7 +6,6 @@ import '../providers/app_providers.dart';
 import '../theme/app_theme_data.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/background_orbs.dart';
-import '../models/note.dart';
 import 'auth_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -165,24 +164,15 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _logout(BuildContext ctx, WidgetRef ref) {
-    ref.read(notesProvider.notifier).clearNotes();
-    ref.read(authProvider.notifier).logout();
-    ref.read(themeProvider.notifier).setTheme(ThemeId.sunset);
-    ref.read(themeProvider.notifier).setLanguage('ru');
-    EasyLocalization.of(ctx)!.setLocale(const Locale('ru'));
-    _seedNotes(ref);
-  }
-
-  void _seedNotes(WidgetRef ref) {
-    final now = DateTime.now();
-    final seedNotes = [
-      Note(id: now.millisecondsSinceEpoch - 3000, title: tr('editor_no_title'), body: "Это ваша первая заметка.\n\n- Поддержка Markdown\n- Напоминания\n- Архивация", updatedAt: now.subtract(const Duration(minutes: 5)), accentIdx: 0, pinned: true),
-      Note(id: now.millisecondsSinceEpoch - 2000, title: tr('editor_edit'), body: "## Что можно делать?\n\n1. Создавать заметки\n2. Архивировать старые\n3. Устанавливать напоминания\n4. Сортировать по дате", updatedAt: now.subtract(const Duration(minutes: 2)), accentIdx: 1),
-      Note(id: now.millisecondsSinceEpoch - 1000, title: tr('editor_new'), body: "Используйте закрепление для важных заметок.", updatedAt: now, accentIdx: 2),
-    ];
-    for (final n in seedNotes) {
-      ref.read(notesProvider.notifier).addNote(n);
+  Future<void> _logout(BuildContext ctx, WidgetRef ref) async {
+    await ref.read(authProvider.notifier).logout();
+    // NotesNotifier is recreated by Riverpod when authProvider changes
+    // (it watches authProvider) and will auto-load guest notes from storage.
+    // Reset locale to what the guest had saved (fallback ru inside service).
+    final svc = ref.read(persistenceServiceProvider);
+    final guestLang = svc.getGuestLanguage();
+    if (ctx.mounted) {
+      await EasyLocalization.of(ctx)!.setLocale(Locale(guestLang));
     }
   }
 
@@ -194,60 +184,73 @@ class SettingsScreen extends ConsumerWidget {
         crossAxisCount: 2,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 1.8,
+        childAspectRatio: 1.5,
       ),
       itemCount: allThemes.length,
       itemBuilder: (context, index) {
         final t = allThemes[index];
         final active = t.id == current;
-        return GestureDetector(
-          onTap: () => ref.read(themeProvider.notifier).setTheme(t.id),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: active ? Colors.white.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.1), width: active ? 2 : 1),
-              boxShadow: active ? [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 8))] : [],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Stack(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: t.bg,
-                    ),
-                    child: Stack(
-                      children: t.orbs.take(2).map((orb) {
-                        return Positioned(
-                          top: 20 + (orb.top * 40),
-                          left: 20 + (orb.left * 40),
-                          child: Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: RadialGradient(
-                                colors: [orb.color, Colors.transparent],
-                                stops: const [0.0, 0.7],
+        return Semantics(
+          button: true,
+          selected: active,
+          label: t.emoji,
+          child: GestureDetector(
+            onTap: () => ref.read(themeProvider.notifier).setTheme(t.id),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: active ? Colors.white.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.1), width: active ? 2 : 1),
+                boxShadow: active ? [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 8))] : [],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      height: 56,
+                      width: double.infinity,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Container(decoration: BoxDecoration(gradient: t.bg)),
+                          ...t.orbs.take(2).map((orb) {
+                            return Positioned(
+                              top: 20 + (orb.top * 40),
+                              left: 20 + (orb.left * 40),
+                              child: Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: RadialGradient(
+                                    colors: [orb.color, Colors.transparent],
+                                    stops: const [0.0, 0.7],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                          if (active)
+                            const Positioned(
+                              top: 8,
+                              right: 8,
+                              child: CircleAvatar(
+                                radius: 10,
+                                backgroundColor: Colors.white,
+                                child: Icon(LucideIcons.check, size: 12, color: Colors.black),
                               ),
                             ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  if (active)
-                    const Positioned(
-                      top: 8,
-                      right: 8,
-                      child: CircleAvatar(
-                        radius: 10,
-                        backgroundColor: Colors.white,
-                        child: Icon(LucideIcons.check, size: 12, color: Colors.black),
+                        ],
                       ),
                     ),
-                ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      alignment: Alignment.center,
+                      child: Text(t.emoji, style: const TextStyle(fontSize: 22, height: 1)),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -273,11 +276,11 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              _langButton(context, ref, 'ru', '🇷🇺 Русский'),
+              _langButton(context, ref, 'ru', '🇷🇺 ${tr('language_ru')}'),
               const SizedBox(width: 12),
-              _langButton(context, ref, 'en', '🇬🇧 English'),
+              _langButton(context, ref, 'en', '🇬🇧 ${tr('language_en')}'),
               const SizedBox(width: 12),
-              _langButton(context, ref, 'ko', '🇰🇷 한국어'),
+              _langButton(context, ref, 'ko', '🇰🇷 ${tr('language_ko')}'),
             ],
           ),
         ],
@@ -332,7 +335,7 @@ class SettingsScreen extends ConsumerWidget {
     final error = await ref.read(authProvider.notifier).deleteAccount(password);
     if (!context.mounted) return;
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr(error))));
     } else {
       Navigator.of(context).pop();
     }

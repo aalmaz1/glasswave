@@ -58,7 +58,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         if (_error.isNotEmpty) ...[
                           const SizedBox(height: 12),
                           Text(
-                            _error,
+                            _success ? _error : tr(_error),
                             style: TextStyle(
                               color: _success ? Colors.greenAccent : Colors.redAccent,
                               fontSize: 12,
@@ -197,17 +197,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (res == null) {
         setState(() { _success = true; _error = tr('auth_success_reg'); _isLoading = false; });
         await Future.delayed(const Duration(milliseconds: 600));
-        if (mounted) Navigator.pop(context);
+        // If auth was pushed (from Settings), pop back; if it's the root
+        // screen, Riverpod rebuilds home -> Dashboard automatically.
+        if (mounted && Navigator.of(context).canPop()) Navigator.pop(context);
         return;
       }
     }
 
-    if (res == null) {
-      final email = _emailController.text.trim().toLowerCase();
-      final savedLang = ref.read(persistenceServiceProvider).getLanguage(email);
-      if (mounted) {
+    if (res == null && mounted) {
+      final savedLang = ref.read(persistenceServiceProvider).getLanguageRaw(email);
+      if (savedLang != null) {
         await EasyLocalization.of(context)!.setLocale(Locale(savedLang));
       }
+      // Same as register: pop only when on a pushed route.
+      if (Navigator.of(context).canPop()) Navigator.pop(context);
     }
 
     setState(() {
