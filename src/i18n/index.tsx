@@ -247,7 +247,7 @@ const ru: Translation = {
   close: "Закрыть",
   closeEditor: "Закрыть редактор",
   newNote: "Новая заметка",
-  editingNote: "Редактировать",
+  editingNote: "",
   todayAt: "Сегодня",
 
   reminder: "Напоминание",
@@ -405,7 +405,7 @@ const en: Translation = {
   close: "Close",
   closeEditor: "Close editor",
   newNote: "New note",
-  editingNote: "Editing",
+  editingNote: "",
   todayAt: "Today",
 
   reminder: "Reminder",
@@ -563,7 +563,7 @@ const ko: Translation = {
   close: "닫기",
   closeEditor: "편집기 닫기",
   newNote: "새 노트",
-  editingNote: "편집 중",
+  editingNote: "",
   todayAt: "오늘",
 
   reminder: "알림",

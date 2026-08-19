@@ -190,23 +190,38 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _headerAction(LucideIcons.x, tr('editor_close'), () => Navigator.pop(context)),
-                        Text(widget.note == null ? tr('editor_new') : tr('editor_edit'), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
-                        Row(
-                          children: [
-                            _headerAction(
-                              _isPreview ? LucideIcons.pencil : LucideIcons.eye,
-                              _isPreview ? tr('editor_edit_mode') : tr('editor_preview'),
-                              () => setState(() => _isPreview = !_isPreview),
+                        Flexible(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: _headerAction(LucideIcons.x, tr('editor_close'), () => Navigator.pop(context)),
+                          ),
+                        ),
+                        if (width >= 768 && widget.note == null)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(tr('editor_new'), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                          ),
+                        Flexible(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _headerAction(
+                                  _isPreview ? LucideIcons.pencil : LucideIcons.eye,
+                                  _isPreview ? tr('editor_edit_mode') : tr('editor_preview'),
+                                  () => setState(() => _isPreview = !_isPreview),
+                                ),
+                                if (width >= 768)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 12),
+                                    child: Text("⌘S · Esc", style: TextStyle(color: Colors.white.withValues(alpha: 0.15), fontSize: 10, fontFamily: 'monospace')),
+                                  ),
+                                const SizedBox(width: 8),
+                                _headerAction(LucideIcons.check, tr('editor_save'), _save, highlight: true),
+                              ],
                             ),
-                            if (width >= 768)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 12),
-                                child: Text("⌘S · Esc", style: TextStyle(color: Colors.white.withValues(alpha: 0.15), fontSize: 10, fontFamily: 'monospace')),
-                              ),
-                            const SizedBox(width: 8),
-                            _headerAction(LucideIcons.check, tr('editor_save'), _save, highlight: true),
-                          ],
+                          ),
                         ),
                       ],
                     ),
