@@ -5,41 +5,38 @@ import {
   persistentMultipleTabManager,
   type Firestore,
 } from "firebase/firestore";
-import { getAuth, type Auth } from "firebase/auth";
+import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
+import { isCompleteFirebaseConfig, resolveFirebaseConfig } from "./firebaseConfig";
 
 /**
- * Firebase configuration can be provided via environment variables
- * (see `.env.example`). When the variables are missing, Firebase is
- * NOT initialized and the app runs in localStorage-only (guest) mode —
- * just like the last public release.
+ * Firebase configuration.
+ *
+ * Defaults to the official `glasswave-4f5da` web app (Email/Password is the
+ * sign-in method this client uses). `VITE_FIREBASE_*` overrides are applied
+ * when set — pointing them at another project is the usual reason a working
+ * Email/Password toggle still yields `auth/operation-not-allowed`.
+ *
+ * The Auth emulator is NEVER attached unless `VITE_FIREBASE_AUTH_EMULATOR`
+ * is an explicit URL. A leftover emulator hook talks to a local project
+ * where Email/Password is typically disabled.
  */
 
-const REQUIRED_ENV_KEYS = [
-  "VITE_FIREBASE_API_KEY",
-  "VITE_FIREBASE_AUTH_DOMAIN",
-  "VITE_FIREBASE_PROJECT_ID",
-  "VITE_FIREBASE_STORAGE_BUCKET",
-  "VITE_FIREBASE_MESSAGING_SENDER_ID",
-  "VITE_FIREBASE_APP_ID",
-] as const;
+const firebaseConfig = resolveFirebaseConfig({
+  VITE_FIREBASE_API_KEY: import.meta.env.VITE_FIREBASE_API_KEY,
+  VITE_FIREBASE_AUTH_DOMAIN: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  VITE_FIREBASE_PROJECT_ID: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  VITE_FIREBASE_STORAGE_BUCKET: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  VITE_FIREBASE_MESSAGING_SENDER_ID: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  VITE_FIREBASE_APP_ID: import.meta.env.VITE_FIREBASE_APP_ID,
+});
 
-const missingKeys = REQUIRED_ENV_KEYS.filter((key) => !import.meta.env[key]);
-export const hasFirebaseConfig = missingKeys.length === 0;
+export const hasFirebaseConfig = isCompleteFirebaseConfig(firebaseConfig);
 
 let app: ReturnType<typeof initializeApp> | null = null;
 let db: Firestore | null = null;
 let auth: Auth | null = null;
 
 if (hasFirebaseConfig) {
-  const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID as string,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as string,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID as string,
-  };
-
   app = initializeApp(firebaseConfig);
   db = initializeFirestore(app, {
     localCache: persistentLocalCache({
@@ -47,6 +44,11 @@ if (hasFirebaseConfig) {
     }),
   });
   auth = getAuth(app);
+
+  const emulatorUrl = import.meta.env.VITE_FIREBASE_AUTH_EMULATOR?.trim();
+  if (emulatorUrl) {
+    connectAuthEmulator(auth, emulatorUrl, { disableWarnings: true });
+  }
 }
 
 export { app, db, auth };

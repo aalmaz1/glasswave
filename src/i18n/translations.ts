@@ -166,6 +166,10 @@ export interface Translation {
   authErrEmailUsed: string;
   authErrWeakPw: string;
   authErrNotAllowed: string;
+  authErrNotConfigured: string;
+  authErrUnauthorizedDomain: string;
+  authErrNetwork: string;
+  authErrInvalidApiKey: string;
   authErrTooMany: string;
   authErrGeneric: string;
   authErrLoggedOut: string;
@@ -383,7 +387,11 @@ const ru: Translation = {
   authErrBadCreds: "Неверный email или пароль",
   authErrEmailUsed: "Этот email уже зарегистрирован",
   authErrWeakPw: "Пароль должен быть не менее 6 символов",
-  authErrNotAllowed: "В Firebase не включён вход по email и паролю",
+  authErrNotAllowed: "В Firebase не включён вход по email и паролю. В консоли проекта glasswave-4f5da откройте Authentication → Sign-in method и включите Email/Password (не Email link).",
+  authErrNotConfigured: "Приложение не подключено к Firebase. Проверьте конфигурацию проекта glasswave-4f5da.",
+  authErrUnauthorizedDomain: "Этот домен не добавлен в Authorized domains в Firebase Authentication.",
+  authErrNetwork: "Нет соединения с Firebase. Проверьте интернет и повторите попытку.",
+  authErrInvalidApiKey: "Неверный Firebase API-ключ. Убедитесь, что приложение подключено к проекту glasswave-4f5da.",
   authErrTooMany: "Слишком много попыток. Повторите позже",
   authErrGeneric: "Не удалось выполнить вход. Повторите попытку",
   authErrLoggedOut: "Сессия уже завершена. Войдите снова и повторите попытку.",
@@ -590,7 +598,11 @@ const en: Translation = {
   authErrBadCreds: "Invalid email or password",
   authErrEmailUsed: "This email is already registered",
   authErrWeakPw: "Password must be at least 6 characters",
-  authErrNotAllowed: "Email/password sign-in is not enabled in Firebase",
+  authErrNotAllowed: "Email/password sign-in is not enabled in Firebase. In the glasswave-4f5da console open Authentication → Sign-in method and enable Email/Password (not Email link).",
+  authErrNotConfigured: "The app is not connected to Firebase. Check the glasswave-4f5da project configuration.",
+  authErrUnauthorizedDomain: "This domain is not listed in Firebase Authentication authorized domains.",
+  authErrNetwork: "Could not reach Firebase. Check your connection and try again.",
+  authErrInvalidApiKey: "Invalid Firebase API key. Make sure the app is connected to the glasswave-4f5da project.",
   authErrTooMany: "Too many attempts. Please try again later",
   authErrGeneric: "Sign-in failed. Please try again",
   authErrLoggedOut: "Session already ended. Sign in again and retry.",
@@ -797,7 +809,11 @@ const ko: Translation = {
   authErrBadCreds: "이메일 또는 비밀번호가 잘못되었습니다",
   authErrEmailUsed: "이미 가입된 이메일입니다",
   authErrWeakPw: "비밀번호는 6자 이상이어야 합니다",
-  authErrNotAllowed: "Firebase에서 이메일/비밀번호 로그인이 활성화되지 않았습니다",
+  authErrNotAllowed: "Firebase에서 이메일/비밀번호 로그인이 활성화되지 않았습니다. glasswave-4f5da 콘솔의 Authentication → Sign-in method에서 Email/Password를 켜세요(Email link가 아님).",
+  authErrNotConfigured: "앱이 Firebase에 연결되어 있지 않습니다. glasswave-4f5da 프로젝트 구성을 확인하세요.",
+  authErrUnauthorizedDomain: "이 도메인이 Firebase Authentication의 승인된 도메인에 없습니다.",
+  authErrNetwork: "Firebase에 연결할 수 없습니다. 네트워크를 확인한 후 다시 시도하세요.",
+  authErrInvalidApiKey: "Firebase API 키가 올바르지 않습니다. 앱이 glasswave-4f5da 프로젝트에 연결되어 있는지 확인하세요.",
   authErrTooMany: "시도 횟수가 너무 많습니다. 나중에 다시 시도하세요",
   authErrGeneric: "로그인에 실패했습니다. 다시 시도하세요",
   authErrLoggedOut: "세션이 종료되었습니다. 다시 로그인한 후 시도하세요.",

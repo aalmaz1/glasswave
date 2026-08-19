@@ -9,18 +9,18 @@ void initNativeShell();
 
 const rootEl = document.getElementById("root");
 
-/** Static, pre-i18n configuration error shown when `.env` is missing. */
-function renderConfigError(message: string) {
+/** Static, pre-i18n fallback shown if the app module fails to load. */
+function renderStartupError(message: string) {
   if (!rootEl) return;
   const lang = (navigator.language || "ru").toLowerCase();
   const title =
-    lang.startsWith("ko") ? "설정 오류" : lang.startsWith("en") ? "Configuration error" : "Ошибка конфигурации";
+    lang.startsWith("ko") ? "시작 오류" : lang.startsWith("en") ? "Startup error" : "Ошибка запуска";
   const hint =
     lang.startsWith("ko")
-      ? "Firebase 설정이 누락되었습니다. .env 파일을 만드세요 (.env.example 참조)."
+      ? "앱을 시작하지 못했습니다. 페이지를 새로고침하세요."
       : lang.startsWith("en")
-        ? "Firebase configuration is missing. Create a .env file (see .env.example)."
-        : "Отсутствует конфигурация Firebase. Создайте файл .env (см. .env.example).";
+        ? "GlassWave failed to start. Reload the page and try again."
+        : "Не удалось запустить GlassWave. Обновите страницу и повторите попытку.";
   rootEl.innerHTML = `
     <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0b1a;color:#fff;font-family:system-ui,sans-serif;padding:24px">
       <div style="max-width:460px;text-align:center">
@@ -45,7 +45,7 @@ async function bootstrap() {
     }
   } catch (error) {
     console.error("[GlassWave] Failed to start:", error);
-    renderConfigError(error instanceof Error ? error.message : String(error));
+    renderStartupError(error instanceof Error ? error.message : String(error));
   }
 }
 
