@@ -1352,9 +1352,12 @@ const NoteCard = React.memo(function NoteCard({ note, theme, isMobile, isTablet,
       className="card"
       role="button"
       tabIndex={0}
-      aria-label={note.title || t.untitled}
+      aria-labelledby={`card-title-${note.id}`}
       onClick={() => onOpen(note)}
       onKeyDown={e => {
+        // Only the card itself acts as a button — Enter/Space pressed on inner
+        // controls (pin, reminder, delete, archive) must not open the note.
+        if (e.target !== e.currentTarget) return;
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(note); }
       }}
     >
@@ -1364,7 +1367,7 @@ const NoteCard = React.memo(function NoteCard({ note, theme, isMobile, isTablet,
         <div className="card-accent" style={{ background: `linear-gradient(145deg,${accent} 0%,rgba(255,255,255,0.01) 70%)` }} />
         <div style={{ position: "relative", zIndex: 20, padding: pad, minHeight: minH, display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-            <h3 style={{ margin: 0, fontWeight: 700, fontSize: isMobile ? "0.90rem" : isTablet ? "0.96rem" : "1.06rem", lineHeight: 1.3, color: G.textPrimary, letterSpacing: "-0.02em", flex: 1 }}>
+            <h3 id={`card-title-${note.id}`} style={{ margin: 0, fontWeight: 700, fontSize: isMobile ? "0.90rem" : isTablet ? "0.96rem" : "1.06rem", lineHeight: 1.3, color: G.textPrimary, letterSpacing: "-0.02em", flex: 1 }}>
               {note.title || t.untitled}
             </h3>
             <button
