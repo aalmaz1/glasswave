@@ -43,11 +43,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Typecheck
+        # Gate the release on the compiler so broken TS never ships as an APK.
+        run: npm run typecheck
+
+      - name: Decode release keystore (if configured)
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/glasswave-release.keystore"
+          else
+            echo "No signing secrets — release APK will be debug-signed."
+          fi
+
       - name: Build web app and sync Capacitor
         run: npm run cap:sync
 
       - name: Build release APK
         working-directory: android-capacitor
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/glasswave-release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Prepare APK
