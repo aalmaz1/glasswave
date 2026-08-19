@@ -404,6 +404,7 @@ const NOTES_COLLECTION = "notes";
 const NOTES_FETCH_LIMIT = 500;
 const DEFAULT_THEME: ThemeId = "sunset";
 const LS_GUEST_NOTES = "glasswave_guest_notes_v1";
+const LS_GUEST_DIRTY = "glasswave_guest_notes_dirty";
 
 async function createUserProfile(uid: string, email: string, name: string) {
   await setDoc(doc(db, USERS_COLLECTION, uid), {
@@ -580,6 +581,58 @@ function saveGuestNotes(notes: Note[]) {
   try { localStorage.setItem(LS_GUEST_NOTES, JSON.stringify(notes)); } catch {}
 }
 
+/** Marks that the user actually edited guest notes (vs untouched seed content). */
+function markGuestNotesDirty() {
+  try { localStorage.setItem(LS_GUEST_DIRTY, "1"); } catch {}
+}
+
+function isGuestNotesDirty(): boolean {
+  try { return localStorage.getItem(LS_GUEST_DIRTY) === "1"; } catch { return false; }
+}
+
+/**
+ * Move guest notes into the user's Firestore account on first sign-in.
+ * Runs only when the guest actually created/edited notes (dirty flag), so
+ * fresh accounts are not polluted with the bundled demo seed.
+ * On failure the local copy is kept, so the migration retries at next login.
+ */
+async function migrateGuestNotesToFirestore(uid: string): Promise<void> {
+  if (!isGuestNotesDirty()) return;
+  const notes = loadGuestNotes();
+  if (!notes || notes.length === 0) {
+    try { localStorage.removeItem(LS_GUEST_DIRTY); } catch {}
+    return;
+  }
+  try {
+    // Firestore batches are capped at 500 operations — stay below the limit.
+    for (let start = 0; start < notes.length; start += 450) {
+      const batch = writeBatch(db);
+      notes.slice(start, start + 450).forEach(n => {
+        batch.set(doc(collection(db, NOTES_COLLECTION)), {
+          ownerUid: uid,
+          id: n.id,
+          title: n.title,
+          body: n.body,
+          accentIdx: n.accentIdx,
+          pinned: n.pinned,
+          archived: n.archived,
+          trashed: n.trashed,
+          updatedAt: n.updatedAt,
+          reminder: n.reminder,
+        });
+      });
+      await batch.commit();
+    }
+    try {
+      localStorage.removeItem(LS_GUEST_NOTES);
+      localStorage.removeItem(LS_GUEST_DIRTY);
+    } catch {}
+    console.info(`[GlassWave] Migrated ${notes.length} guest notes to the account.`);
+  } catch (error) {
+    console.warn("Could not migrate guest notes. Will retry at next sign-in.", error);
+  }
+}
+
 /* ════════════════════════════════════════════════════════════════════
    SEED / RSS
    ════════════════════════════════════════════════════════════════════ */
@@ -706,10 +759,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("all");
   const [editing, setEditing] = useState<Note | null>(null);
   const [creating, setCreating] = useState(false);
-  const [draftT, setDraftT] = useState("");
-  const [draftB, setDraftB] = useState("");
   const [search, setSearch] = useState("");
-  const [scrollY, setScrollY] = useState(0);
   const [reminderNoteId, setReminderNoteId] = useState<number | null>(null);
   const [sort, setSort] = useState<SortOrder>("default");
   const [showSort, setShowSort] = useState(false);
@@ -727,6 +777,19 @@ export default function App() {
   const isTablet = width >= 768 && width < 1280;
   const theme = THEMES.find(th => th.id === themeId)!;
 
+  // Parallax for background orbs WITHOUT React state: a state update per
+  // scroll frame used to re-render the whole note grid. Mutate transforms
+  // directly instead and let the browser composite.
+  const orbsRef = useRef<HTMLDivElement | null>(null);
+  const handleNotesScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const host = orbsRef.current;
+    if (!host) return;
+    const y = (e.target as HTMLDivElement).scrollTop;
+    for (let i = 0; i < host.children.length; i++) {
+      (host.children[i] as HTMLElement).style.transform = `translateY(${(y * (0.07 + i * 0.05)).toFixed(1)}px)`;
+    }
+  }, []);
+
   // Ticker every 60s for relative times
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60000);
@@ -740,7 +803,9 @@ export default function App() {
     const saved = loadGuestNotes();
     if (saved && saved.length) return; // already has notes (e.g. seed persisted)
     loadRssNotes().then(notes => {
-      if (notes && notes.length) setLocalNotes(notes);
+      // The fetch can take seconds; re-check at resolution so a note the user
+      // created meanwhile is never clobbered by the demo feed.
+      if (notes && notes.length && !isGuestNotesDirty()) setLocalNotes(notes);
     });
   }, [currentUser, rssLoadedOnce]);
 
@@ -754,6 +819,7 @@ export default function App() {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) { setCurrentUser(null); setThemeId(DEFAULT_THEME); return; }
       setCurrentUser({ uid: user.uid, email: user.email ?? "", name: user.displayName ?? "" });
+      void migrateGuestNotesToFirestore(user.uid);
       try {
         const profile = await getUserProfile(user.uid);
         setThemeId(profile?.themeId ?? DEFAULT_THEME);
@@ -786,6 +852,11 @@ export default function App() {
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime() || b.id - a.id);
   }, [currentUser, firestoreData, localNotes]);
 
+  // Keeps callbacks referentially stable (so memoized cards don't re-render)
+  // while always reading the freshest notes list.
+  const allNotesRef = useRef(allNotes);
+  allNotesRef.current = allNotes;
+
   const filtered = useMemo(() => {
     const src = allNotes.filter(n => {
       if (tab === "all") return !n.archived && !n.trashed;
@@ -803,8 +874,10 @@ export default function App() {
     return sorted;
   }, [allNotes, tab, search, sort]);
 
-  const pinned = filtered.filter(n => n.pinned);
-  const unpinned = filtered.filter(n => !n.pinned);
+  const { pinned, unpinned } = useMemo(() => ({
+    pinned: filtered.filter(n => n.pinned),
+    unpinned: filtered.filter(n => !n.pinned),
+  }), [filtered]);
   const cols = isMobile ? 1 : isTablet ? 2 : 3;
   const editorOpen = creating || editing !== null;
 
@@ -840,7 +913,7 @@ export default function App() {
           const title = n.title || t.untitled;
           const body = stripHtml(n.body).slice(0, 140);
           if ("Notification" in window && Notification.permission === "granted") {
-            try { new Notification(title, { body, icon: "/favicon.ico" }); } catch {}
+            try { new Notification(title, { body, icon: "/favicon.png" }); } catch {}
           }
           console.log("[Reminder]", title, body);
         }
@@ -851,11 +924,12 @@ export default function App() {
     return () => clearInterval(id);
   }, [allNotes, t]);
 
+  // Draft text lives inside EditorModal — typing there must NOT re-render App.
   const openEdit = useCallback((n: Note) => {
-    setEditing(n); setCreating(false); setDraftT(n.title); setDraftB(n.body);
+    setEditing(n); setCreating(false);
   }, []);
   const openNew = useCallback(() => {
-    setEditing(null); setCreating(true); setDraftT(""); setDraftB("");
+    setEditing(null); setCreating(true);
   }, []);
   const closeEd = useCallback(() => { setEditing(null); setCreating(false); }, []);
 
@@ -874,17 +948,19 @@ export default function App() {
     });
   }, [t]);
 
-  const save = useCallback(() => {
-    if (!draftT.trim() && !draftB.trim()) { closeEd(); return; }
+  const save = useCallback((title: string, body: string) => {
+    if (!title.trim() && !body.trim()) { closeEd(); return; }
     setNoteSyncError(null);
     if (!currentUser) {
-      const title = draftT || t.untitled;
+      // Only a real change makes guest notes migration-worthy.
+      if (!editing || editing.title !== title || editing.body !== body) markGuestNotesDirty();
+      const noteTitle = title || t.untitled;
       if (editing) {
         setLocalNotes(prev => prev.map(n => n.id === editing.id
-          ? { ...n, title, body: draftB, updatedAt: new Date() } : n));
+          ? { ...n, title: noteTitle, body, updatedAt: new Date() } : n));
       } else {
         setLocalNotes(prev => [{
-          id: Date.now(), title, body: draftB, updatedAt: new Date(),
+          id: Date.now(), title: noteTitle, body, updatedAt: new Date(),
           accentIdx: Math.floor(Math.random() * theme.accents.length),
           pinned: false, archived: false, trashed: false, reminder: null,
         }, ...prev]);
@@ -895,8 +971,8 @@ export default function App() {
     const payload: Note = {
       firestoreId: editing?.firestoreId,
       id: editing?.id ?? Date.now(),
-      title: draftT || t.untitled,
-      body: draftB,
+      title: title || t.untitled,
+      body: body,
       updatedAt: new Date(),
       accentIdx: editing?.accentIdx ?? Math.floor(Math.random() * theme.accents.length),
       pinned: editing?.pinned ?? false,
@@ -906,21 +982,29 @@ export default function App() {
     };
     enqueueNoteWrite(writeNoteToFirestore(payload, currentUser.uid));
     closeEd();
-  }, [draftT, draftB, currentUser, editing, t, theme.accents.length, closeEd, enqueueNoteWrite]);
+  }, [currentUser, editing, t, theme.accents.length, closeEd, enqueueNoteWrite]);
 
   const mutNote = useCallback((id: number, patch: Partial<Note>) => {
     if (!currentUser) {
+      markGuestNotesDirty();
       setNoteSyncError(null);
       setLocalNotes(prev => prev.map(n => n.id === id ? { ...n, ...patch, updatedAt: new Date() } : n));
       return;
     }
-    const note = allNotes.find(n => n.id === id);
+    const note = allNotesRef.current.find(n => n.id === id);
     if (!note) return;
     enqueueNoteWrite(patchNoteInFirestore(note, patch, currentUser.uid));
-  }, [currentUser, allNotes, enqueueNoteWrite]);
+  }, [currentUser, enqueueNoteWrite]);
+
+  const handlePinNote = useCallback((n: Note) => mutNote(n.id, { pinned: !n.pinned }), [mutNote]);
+  const handleArchiveNote = useCallback((n: Note) => mutNote(n.id, { archived: !n.archived }), [mutNote]);
+  const handleReminderNote = useCallback((n: Note) => setReminderNoteId(n.id), []);
+  const openSettings = useCallback(() => setScreen("settings"), []);
+  const openSortSheet = useCallback(() => setShowSort(true), []);
 
   const deleteOrRestoreNote = useCallback((note: Note) => {
     if (!currentUser) {
+      markGuestNotesDirty();
       setNoteSyncError(null);
       if (tab === "trash" && note.trashed) {
         setLocalNotes(prev => prev.filter(n => n.id !== note.id));
@@ -964,14 +1048,14 @@ export default function App() {
     }}>
       <style>{buildCSS()}</style>
 
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+      <div ref={orbsRef} style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
         {theme.orbs.map((o, i) => (
           <div key={i} style={{
             position: "absolute",
-            top: `calc(${o.top} - ${scrollY * (0.07 + i * 0.05)}px)`,
+            top: o.top,
             left: o.left, width: o.size, height: o.size, borderRadius: "50%",
             background: `radial-gradient(circle,${o.color} 0%,transparent 68%)`,
-            filter: "blur(2px)", transition: "top 0.12s linear",
+            filter: "blur(2px)", willChange: "transform",
           }} />
         ))}
       </div>
@@ -1007,8 +1091,8 @@ export default function App() {
                 search={search} setSearch={setSearch}
                 isMobile={isMobile}
                 sort={sort} sortActive={sort !== "default"}
-                onSort={() => setShowSort(true)}
-                onSettings={() => setScreen("settings")}
+                onSort={openSortSheet}
+                onSettings={openSettings}
               />
             </div>
             <div
@@ -1020,7 +1104,7 @@ export default function App() {
                 paddingLeft: isMobile ? 24 : isTablet ? 36 : 52,
                 paddingRight: isMobile ? 24 : isTablet ? 36 : 52,
               }}
-              onScroll={e => setScrollY((e.target as HTMLDivElement).scrollTop)}
+              onScroll={handleNotesScroll}
             >
               {(currentUser && notesError) ? <NotesLoadError onRetry={() => setNotesQueryVersion(v => v + 1)} t={t} /> :
                 (currentUser && notesLoading) ? <LoadingState t={t} /> :
@@ -1029,10 +1113,10 @@ export default function App() {
                   pinned={pinned} unpinned={unpinned} cols={cols}
                   theme={theme} isMobile={isMobile} isTablet={isTablet} tab={tab}
                   onOpen={openEdit}
-                  onPin={n => mutNote(n.id, { pinned: !n.pinned })}
-                  onArchive={n => mutNote(n.id, { archived: !n.archived })}
+                  onPin={handlePinNote}
+                  onArchive={handleArchiveNote}
                   onTrash={deleteOrRestoreNote}
-                  onReminder={n => setReminderNoteId(n.id)}
+                  onReminder={handleReminderNote}
                   now={now} language={language} t={t}
                 />
               }
@@ -1072,8 +1156,9 @@ export default function App() {
 
       {editorOpen && (
         <EditorModal
-          creating={creating} title={draftT} body={draftB}
-          onTitle={setDraftT} onBody={setDraftB}
+          creating={creating}
+          initialTitle={editing?.title ?? ""}
+          initialBody={editing?.body ?? ""}
           onClose={closeEd} onSave={save}
           isMobile={isMobile} isTablet={isTablet}
           language={language} t={t}
@@ -1090,7 +1175,7 @@ export default function App() {
 /* ════════════════════════════════════════════════════════════════════
    SEARCH BAR
    ════════════════════════════════════════════════════════════════════ */
-function KeepSearchBar({ search, setSearch, isMobile, sort, sortActive, onSort, onSettings }: {
+const KeepSearchBar = React.memo(function KeepSearchBar({ search, setSearch, isMobile, sort, sortActive, onSort, onSettings }: {
   search: string; setSearch: (v: string) => void; isMobile: boolean;
   sort: SortOrder; sortActive: boolean; onSort: () => void; onSettings: () => void;
 }) {
@@ -1135,7 +1220,7 @@ function KeepSearchBar({ search, setSearch, isMobile, sort, sortActive, onSort, 
       </div>
     </div>
   );
-}
+});
 
 /* ════════════════════════════════════════════════════════════════════
    GRID
@@ -1149,7 +1234,7 @@ type ViewProps = {
   language: Language; t: Translation;
 };
 
-function GridView(p: ViewProps) {
+const GridView = React.memo(function GridView(p: ViewProps) {
   const g = (items: Note[]) => (
     <div style={{ display: "grid", gridTemplateColumns: `repeat(${p.cols},1fr)`, gap: p.isMobile ? 14 : 18 }}>
       {items.map(n => <NoteCard key={n.id} note={n} {...p} />)}
@@ -1167,9 +1252,11 @@ function GridView(p: ViewProps) {
       {g(p.unpinned)}
     </div>
   );
-}
+});
 
-function NoteCard({ note, theme, isMobile, isTablet, tab, onOpen, onPin, onArchive, onTrash, onReminder, now, language, t }: ViewProps & { note: Note; key?: React.Key }) {
+// Memoized: card state updates (draft typing, timers, etc.) must not re-render
+// every card — notes are referentially stable between Firestore snapshots.
+const NoteCard = React.memo(function NoteCard({ note, theme, isMobile, isTablet, tab, onOpen, onPin, onArchive, onTrash, onReminder, now, language, t }: ViewProps & { note: Note }) {
   const accent = theme.accents[note.accentIdx % theme.accents.length];
   const minH = isMobile ? 130 : isTablet ? 140 : 160;
   const pad = isMobile ? "14px 16px 12px" : "18px 20px 14px";
@@ -1250,7 +1337,7 @@ function NoteCard({ note, theme, isMobile, isTablet, tab, onOpen, onPin, onArchi
       </div>
     </div>
   );
-}
+});
 
 function MiniAction({ children, onClick, title }: { children: ReactNode; onClick: () => void; title: string }) {
   return (
@@ -1338,7 +1425,7 @@ function LoadingState({ t }: { t: Translation }) {
 /* ════════════════════════════════════════════════════════════════════
    BOTTOM NAV
    ════════════════════════════════════════════════════════════════════ */
-function BottomNav({ tab, setTab, isMobile, t }: { tab: Tab; setTab: (t: Tab) => void; isMobile: boolean; t: Translation }) {
+const BottomNav = React.memo(function BottomNav({ tab, setTab, isMobile, t }: { tab: Tab; setTab: (t: Tab) => void; isMobile: boolean; t: Translation }) {
   const items: [Tab, typeof FileText, string][] = [
     ["all", FileText, t.tabNotes],
     ["archive", Archive, t.tabArchive],
@@ -1365,12 +1452,12 @@ function BottomNav({ tab, setTab, isMobile, t }: { tab: Tab; setTab: (t: Tab) =>
       </div>
     </div>
   );
-}
+});
 
 /* ════════════════════════════════════════════════════════════════════
    FAB
    ════════════════════════════════════════════════════════════════════ */
-function FabBtn({ onClick, isMobile, t }: { onClick: () => void; isMobile: boolean; t: Translation }) {
+const FabBtn = React.memo(function FabBtn({ onClick, isMobile, t }: { onClick: () => void; isMobile: boolean; t: Translation }) {
   const sz = isMobile ? 52 : 56;
   return (
     <button onClick={onClick} aria-label={t.createNewNote} style={{
@@ -1389,7 +1476,7 @@ function FabBtn({ onClick, isMobile, t }: { onClick: () => void; isMobile: boole
       <Plus size={isMobile ? 22 : 24} color={G.textPrimary} strokeWidth={2} />
     </button>
   );
-}
+});
 
 /* ════════════════════════════════════════════════════════════════════
    SORT SHEET
@@ -1880,20 +1967,26 @@ function SLabel({ Icon, label }: { Icon?: LucideIcon; label: string }) {
 /* ════════════════════════════════════════════════════════════════════
    EDITOR MODAL
    ════════════════════════════════════════════════════════════════════ */
-function EditorModal({ creating, title, body, onTitle, onBody, onClose, onSave, isMobile, isTablet, language, t }: {
-  creating: boolean; title: string; body: string;
-  onTitle: (v: string) => void; onBody: (v: string) => void;
-  onClose: () => void; onSave: () => void;
+function EditorModal({ creating, initialTitle, initialBody, onClose, onSave, isMobile, isTablet, language, t }: {
+  creating: boolean; initialTitle: string; initialBody: string;
+  onClose: () => void; onSave: (title: string, body: string) => void;
   isMobile: boolean; isTablet: boolean; language: Language; t: Translation;
 }) {
+  // Draft state is local to the editor: every keystroke used to re-render the
+  // whole app (note grid, nav, orbs) because the draft lived in App.
+  const [title, setTitle] = useState(initialTitle);
+  const [body, setBody] = useState(initialBody);
+  const saveRef = useRef(onSave);
+  saveRef.current = onSave;
+
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); onSave(); }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveRef.current(title, body); }
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [onSave, onClose]);
+  }, [onClose, title, body]);
 
   const wc = stripHtml(body).trim().split(/\s+/).filter(Boolean).length;
   const today = new Date().toLocaleDateString(language, t.dateFormatLong as any);
@@ -1923,14 +2016,14 @@ function EditorModal({ creating, title, body, onTitle, onBody, onClose, onSave, 
                 {t.newNote}
               </span>
             )}
-            <GlassChip onClick={onSave} highlight>
+            <GlassChip onClick={() => onSave(title, body)} highlight>
               <Check size={14} color={G.textPrimary} />
               <span style={{ fontSize: "0.78rem", color: G.textPrimary, fontWeight: 600 }}>{t.save}</span>
             </GlassChip>
           </div>
 
           <div style={{ padding: "20px 24px 0" }}>
-            <input value={title} onChange={e => onTitle(e.target.value)} placeholder={t.noteTitlePlaceholder} autoFocus
+            <input value={title} onChange={e => setTitle(e.target.value)} placeholder={t.noteTitlePlaceholder} autoFocus
               aria-label={t.noteTitlePlaceholder}
               style={{ width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: "inherit", fontWeight: 300, fontSize: isMobile ? "1.5rem" : "1.75rem", letterSpacing: "-0.025em", color: G.textPrimary }} />
           </div>
@@ -1942,7 +2035,7 @@ function EditorModal({ creating, title, body, onTitle, onBody, onClose, onSave, 
           </div>
 
           <div className="scroll-host" style={{ flex: 1, overflowY: "auto", padding: "12px 24px 24px" }}>
-            <RichTextEditor content={body} onChange={onBody} placeholder={t.noteContentPlaceholder} />
+            <RichTextEditor content={body} onChange={setBody} placeholder={t.noteContentPlaceholder} />
           </div>
         </div>
       </div>

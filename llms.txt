@@ -1,16 +1,15 @@
 # GlassWave
 
-GlassWave is a modern web application for creating, editing, and managing notes with a visually appealing interface.
+GlassWave is a modern single-page web application for creating, editing, and managing notes with a visually appealing glassmorphism interface.
 
 ## Links
 
-- [Home](/)
-- [About](/about)
-- [Contact](/contact)
+- [Home](/) — the entire app is one page (dashboard + settings are in-app views)
 
 ## Features
 
-- Create and edit notes
-- Modern, glassmorphism-inspired UI
-- Multiple theme options
-- Responsive design
+- Create and edit notes with a rich-text editor (Tiptap)
+- Pin, archive, trash, reminders, search, and sorting
+- Firebase sync across devices, offline support, guest mode without registration
+- Multiple color themes and a multilingual UI (English, Russian, Korean)
+- Installable as an Android app (Capacitor) or a PWA

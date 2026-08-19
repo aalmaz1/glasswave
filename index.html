@@ -8,6 +8,27 @@
     <title>GlassWave</title>
     <meta name="description" content="GlassWave — modern cross-platform note-taking app with glassmorphism design. Create, organize, and sync notes across devices." />
     <meta name="robots" content="index, follow" />
+
+    <!-- Icons & PWA -->
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+
+    <!-- Social preview -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="GlassWave — glassmorphism notes" />
+    <meta property="og:description" content="Create, organize, and sync notes across devices with an elegant glassmorphism interface." />
+    <meta property="og:image" content="./icons/icon-512.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="GlassWave — glassmorphism notes" />
+    <meta name="twitter:description" content="Create, organize, and sync notes across devices." />
+    <meta name="twitter:image" content="./icons/icon-512.png" />
+
+    <!-- Fonts: preconnect + async-friendly stylesheet instead of a blocking CSS @import -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700;800&display=swap" />
+
     <style>
       html, body { height: 100%; margin: 0; background: #130500; }
       #root { height: 100%; }
