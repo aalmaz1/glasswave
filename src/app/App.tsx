@@ -6,6 +6,7 @@ import {
   Settings, ChevronLeft, Eye, EyeOff,
   Pin, PinOff, Shield, Bell, BellRing, CalendarClock,
   SlidersHorizontal, Palette, Shuffle, CalendarDays, RefreshCw, Languages as LanguagesIcon,
+  User,
   type LucideIcon,
 } from "lucide-react";
 import { RichTextEditor } from "./components/RichTextEditor";
@@ -1589,7 +1590,7 @@ function SettingsScreen({ themeId, setThemeId, onBack, currentUser, onLogout, on
       </div>
 
       <div style={block} className="settings-section-container">
-        <SLabel label={t.account} />
+        <SLabel Icon={User} label={t.account} />
         {currentUser
           ? <AccountCard user={currentUser} onLogout={onLogout} t={t} />
           : <AuthPanel />}
@@ -1896,14 +1897,16 @@ function EditorModal({ creating, title, body, onTitle, onBody, onClose, onSave, 
       }}>
         <div style={{ position: "absolute", inset: 0, borderRadius: "inherit", pointerEvents: "none", zIndex: 10, padding: 1, background: "linear-gradient(160deg,rgba(255,255,255,0.40) 0%,rgba(255,255,255,0.06) 45%,rgba(255,255,255,0.01) 100%)", WebkitMask: "linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)", WebkitMaskComposite: "xor", maskComposite: "exclude" }} />
         <div style={{ position: "relative", zIndex: 20, display: "flex", flexDirection: "column", height: "100%" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.08)", minWidth: 0 }}>
             <GlassChip onClick={onClose}>
               <X size={14} color={G.textSecondary} />
               <span style={{ fontSize: "0.78rem", color: G.textSecondary, fontWeight: 500 }}>{t.close}</span>
             </GlassChip>
-            <span style={{ fontSize: "0.66rem", fontWeight: 500, color: G.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              {creating ? t.newNote : t.editingNote}
-            </span>
+            {!isMobile && creating && (
+              <span style={{ fontSize: "0.66rem", fontWeight: 500, color: G.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {t.newNote}
+              </span>
+            )}
             <GlassChip onClick={onSave} highlight>
               <Check size={14} color={G.textPrimary} />
               <span style={{ fontSize: "0.78rem", color: G.textPrimary, fontWeight: 600 }}>{t.save}</span>
@@ -1937,6 +1940,7 @@ function GlassChip({ children, onClick, highlight }: { children: ReactNode; onCl
       ...glassBase(16), display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 12,
       border: `1px solid ${highlight ? "rgba(255,255,255,0.35)" : G.border}`,
       background: highlight ? G.bgHov : G.bg, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s",
+      flexShrink: 0, whiteSpace: "nowrap",
     }}>{children}</button>
   );
 }
