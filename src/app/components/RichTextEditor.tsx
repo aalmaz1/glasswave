@@ -1,6 +1,5 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
 import React, { useEffect } from 'react';
 
@@ -88,7 +87,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
       }),
-      Underline,
       Placeholder.configure({
         placeholder,
         emptyNodeClass: 'is-editor-empty',
