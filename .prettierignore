@@ -1,0 +1,6 @@
+dist/
+node_modules/
+coverage/
+android-capacitor/
+package-lock.json
+assets/translations/
