@@ -367,8 +367,26 @@ const CSS = `
   }
 
   /* Settings panel alignment fix: all sections share same max-width reference (theme section) */
+  .settings-scroll-host{
+    overflow-y:auto;
+  }
   .settings-page-root{
     width:100%;max-width:100%;box-sizing:border-box;
+    padding-bottom:64px;
+  }
+  /* Desktop: the 64px bottom pad made .settings-page-root ~39px taller than
+     the 100vh host, which then showed a leftover scrollbar (overflow-y:auto).
+     Shrink the pad so the page fits. Only hide overflow on tall viewports —
+     shorter laptop windows still need to scroll to the language / danger zone. */
+  @media (min-width: 1024px) {
+    .settings-page-root{
+      padding-bottom:24px;
+    }
+  }
+  @media (min-width: 1024px) and (min-height: 820px) {
+    .settings-scroll-host{
+      overflow:hidden;
+    }
   }
   .settings-section-container{
     width:100%;max-width:666px;box-sizing:border-box;
@@ -1204,10 +1222,13 @@ export default function App(){
         /* No padding here — children handle their own horizontal padding */
       }}>
         {screen==="settings"?(
-          <div style={{
-            position:"absolute",inset:0,overflowY:"auto",
-            padding:isMobile?"0 16px":isTablet?"0 28px":"0 44px",
-          }}>
+          <div
+            className="settings-scroll-host"
+            style={{
+              position:"absolute",inset:0,
+              padding:isMobile?"0 16px":isTablet?"0 28px":"0 44px",
+            }}
+          >
           <SettingsScreen
             themeId={themeId} setThemeId={updateTheme}
             onBack={()=>setScreen("dashboard")}
@@ -1883,7 +1904,6 @@ function SettingsScreen({themeId,setThemeId,onBack,currentUser,onLogin,onLogout,
     marginLeft: "auto",
     marginRight: "auto",
     boxSizing: "border-box",
-    paddingBottom: 64,
     overflow: "hidden",
   };
 
