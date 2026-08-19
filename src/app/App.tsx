@@ -136,8 +136,14 @@ export default function App() {
   useEffect(() => {
     if (!hasFirebaseConfig || !auth) return;
     let active = true;
+    const authWatchdog = window.setTimeout(() => {
+      if (!active) return;
+      console.warn("Firebase Auth initialization timed out; continuing in guest mode.");
+      setAuthReady(true);
+    }, 10_000);
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!active) return;
+      window.clearTimeout(authWatchdog);
       setAuthReady(true);
       if (!user) {
         setCurrentUser(null);
@@ -161,6 +167,7 @@ export default function App() {
     });
     return () => {
       active = false;
+      window.clearTimeout(authWatchdog);
       unsub();
     };
   }, [setThemeId]);
@@ -643,9 +650,9 @@ export default function App() {
               }}
               onScroll={handleNotesScroll}
             >
-              {currentUser && notesError ? (
+              {currentUser && notesError && firestoreData === null ? (
                 <NotesLoadError onRetry={() => setNotesQueryVersion((v) => v + 1)} t={t} />
-              ) : currentUser && notesLoading ? (
+              ) : currentUser && notesLoading && firestoreData === null ? (
                 <LoadingState t={t} />
               ) : filtered.length === 0 ? (
                 <EmptyState tab={tab} search={search} t={t} onCreate={openNew} />

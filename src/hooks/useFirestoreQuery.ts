@@ -40,10 +40,28 @@ export function useFirestoreQuery<T = unknown>(
       return;
     }
 
-    setState((prev) => ({ ...prev, loading: true }));
+    let settled = false;
+    setState((prev) => ({ ...prev, loading: true, error: null }));
+
+    // Firestore normally emits an initial cache snapshot immediately. Browser
+    // storage locks, a suspended network stack, or a broken proxy can prevent
+    // that callback altogether, though. Never leave the product behind an
+    // endless spinner: expose the existing retry state while keeping the live
+    // listener active so a late snapshot can still recover automatically.
+    const watchdog = window.setTimeout(() => {
+      if (settled) return;
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        error: new Error("Firestore did not return an initial snapshot in time."),
+      }));
+    }, 10_000);
+
     const unsubscribe = onSnapshot(
       ref as any,
       (snapshot: any) => {
+        settled = true;
+        window.clearTimeout(watchdog);
         const data = isDocumentSnapshot(snapshot)
           ? snapshot.exists()
             ? snapshot.data()
@@ -58,11 +76,17 @@ export function useFirestoreQuery<T = unknown>(
         });
       },
       (error: Error) => {
+        settled = true;
+        window.clearTimeout(watchdog);
         setState({ data: null, loading: false, error, fromCache: false });
       }
     );
 
-    return unsubscribe;
+    return () => {
+      settled = true;
+      window.clearTimeout(watchdog);
+      unsubscribe();
+    };
   }, [ref]);
 
   return state;
