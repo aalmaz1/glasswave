@@ -102,9 +102,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
           decoration: BoxDecoration(
-            color: active ? Colors.white.withValues(alpha: 0.1) : Colors.transparent,
+            color: active ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: active ? Colors.white24 : Colors.transparent),
+            border: Border.all(color: active ? Colors.white24 : Colors.white.withValues(alpha: 0.12)),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -155,7 +155,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           backgroundColor: Colors.white.withValues(alpha: 0.12),
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Colors.white24),
+          ),
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
         child: _isLoading

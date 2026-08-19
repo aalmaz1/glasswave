@@ -1801,10 +1801,10 @@ function AuthPanel() {
           <button key={m} onClick={() => { setMode(m); setErr(""); setOk(false); }} style={{
             flex: 1, padding: "9px 0", borderRadius: 12, border: "none", cursor: "pointer",
             fontFamily: "inherit", fontSize: "0.82rem", fontWeight: 600, transition: "all 0.2s",
-            background: mode === m ? G.bgHov : "transparent",
+            background: mode === m ? G.bgHov : G.bg,
             color: mode === m ? G.textPrimary : G.textMuted,
             boxShadow: mode === m ? G.shadow : "none",
-            outline: mode === m ? `1px solid ${G.border}` : "none",
+            outline: `1px solid ${mode === m ? G.border : "rgba(255,255,255,0.12)"}`,
           }}>
             {m === "login" ? t.login : t.register}
           </button>
@@ -1834,13 +1834,14 @@ function AuthPanel() {
         {err && <p style={{ margin: 0, fontSize: "0.78rem", color: "rgba(255,100,100,0.90)" }}>{err}</p>}
         {ok && <p style={{ margin: 0, fontSize: "0.78rem", color: "rgba(80,220,120,0.90)" }}>{t.registerOk}</p>}
         <button type="submit" style={{
-          marginTop: 4, padding: "12px 0", borderRadius: 14, border: "none", cursor: "pointer",
+          marginTop: 4, padding: "12px 0", borderRadius: 14, cursor: "pointer",
+          border: `1px solid ${G.border}`,
           background: "rgba(255,255,255,0.12)", fontFamily: "inherit", fontSize: "0.88rem", fontWeight: 700,
-          color: G.textPrimary, transition: "background 0.2s,box-shadow 0.2s",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.30)",
+          color: G.textPrimary, transition: "background 0.2s,box-shadow 0.2s,border-color 0.2s",
+          boxShadow: G.shadow,
         }}
-          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.20)"}
-          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"}
+          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = "rgba(255,255,255,0.20)"; el.style.borderColor = G.borderHov; }}
+          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = "rgba(255,255,255,0.12)"; el.style.borderColor = G.border; }}
         >
           {mode === "login" ? t.loginBtn : t.registerBtn}
         </button>
