@@ -17,6 +17,11 @@ import {
 } from "../i18n";
 import { listenNativeBackButton } from "../native";
 import {
+  ensureNotificationPermission,
+  scheduleReminderNotification,
+  cancelReminderNotification,
+} from "../notifications";
+import {
   addDoc,
   collection,
   deleteDoc,
@@ -1049,7 +1054,16 @@ export default function App() {
         return (
           <ReminderModal
             note={n}
-            onSave={d => { mutNote(n.id, { reminder: d }); setReminderNoteId(null); }}
+            onSave={d => {
+              mutNote(n.id, { reminder: d });
+              const key = `${n.firestoreId || `local-${n.id}`}`;
+              if (d) {
+                scheduleReminderNotification(key, n.title || t.untitled, stripHtml(n.body).slice(0, 140), d);
+              } else {
+                cancelReminderNotification(key);
+              }
+              setReminderNoteId(null);
+            }}
             onClose={() => setReminderNoteId(null)}
             language={language} t={t}
           />
@@ -1536,9 +1550,10 @@ function ReminderModal({ note, onSave, onClose, language, t }: {
             )}
               <button onClick={() => {
                 if (val) {
-                  if ("Notification" in window && Notification.permission === "default") {
-                    Notification.requestPermission().catch(() => {});
-                  }
+                  // Native (Capacitor): triggers the Android 13+ POST_NOTIFICATIONS
+                  // runtime dialog via the LocalNotifications plugin.
+                  // Web: falls back to the browser Notification permission prompt.
+                  ensureNotificationPermission().catch(() => {});
                   onSave(new Date(val));
                 }
               }} disabled={!val}

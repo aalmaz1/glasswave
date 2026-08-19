@@ -39,4 +39,12 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 13+ (API 33+): required runtime permission to display notifications.
+         Without it the system never shows the permission dialog and the
+         notifications toggle in app settings stays disabled. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Scheduled (exact) reminders -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>
