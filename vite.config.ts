@@ -15,4 +15,18 @@ export default defineConfig({
     host: true,
     allowedHosts: true,
   },
+  build: {
+    chunkSizeWarningLimit: 850,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/")) {
+            if (id.includes("firebase/")) return "vendor-firebase";
+            if (id.includes("@tiptap/") || id.includes("prosemirror-")) return "vendor-tiptap";
+            if (id.includes("node_modules/react-dom/") || id.includes("node_modules/react/")) return "vendor-react";
+          }
+        },
+      },
+    },
+  },
 })
