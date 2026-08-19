@@ -49,7 +49,7 @@ import {
   signOut,
   updateProfile,
 } from "firebase/auth";
-import { auth, db } from "../firebase";
+import { auth, db, hasFirebaseConfig } from "../firebase";
 import { useFirestoreQuery } from "../hooks/useFirestoreQuery";
 import { coerceDate, inferCreatedAt, stripHtml, fmtDate, newNoteId } from "./utils";
 import { useFocusTrap } from "./hooks/useFocusTrap";
@@ -423,18 +423,21 @@ const LS_GUEST_NOTES = "glasswave_guest_notes_v1";
 const LS_GUEST_DIRTY = "glasswave_guest_notes_dirty";
 
 async function createUserProfile(uid: string, email: string, name: string) {
+  if (!db) return;
   await setDoc(doc(db, USERS_COLLECTION, uid), {
     email, name, themeId: DEFAULT_THEME, createdAt: serverTimestamp(),
   });
 }
 
 async function getUserProfile(uid: string): Promise<UserProfile | null> {
+  if (!db) return null;
   const snap = await getDoc(doc(db, USERS_COLLECTION, uid));
   if (!snap.exists()) return null;
   return snap.data() as UserProfile;
 }
 
 async function setUserTheme(uid: string, themeId: ThemeId) {
+  if (!db) return;
   await setDoc(doc(db, USERS_COLLECTION, uid), { themeId }, { merge: true });
 }
 
@@ -456,7 +459,8 @@ function noteFromFirestore(data: FirestoreNote & { firestoreId: string }): Note 
   };
 }
 
-function buildNotesQuery(ownerUid: string, max: number): Query<FirestoreNote> {
+function buildNotesQuery(ownerUid: string, max: number): Query<FirestoreNote> | null {
+  if (!db) return null;
   // A `where(ownerUid) + orderBy(updatedAt)` query requires a composite
   // Firestore index. Loading the list then fails completely until that index
   // has been created in every Firebase project. Keep this query on Firestore's
@@ -477,6 +481,7 @@ function buildNotesQuery(ownerUid: string, max: number): Query<FirestoreNote> {
 }
 
 async function writeNoteToFirestore(note: Note, ownerUid: string) {
+  if (!db) return;
   const payload = {
     ownerUid, id: note.id, title: note.title, body: note.body, accentIdx: note.accentIdx,
     pinned: note.pinned, archived: note.archived, trashed: note.trashed,
@@ -493,11 +498,12 @@ async function writeNoteToFirestore(note: Note, ownerUid: string) {
 }
 
 async function deleteNoteFromFirestore(note: Note) {
-  if (!note.firestoreId) return;
+  if (!db || !note.firestoreId) return;
   await deleteDoc(doc(db, NOTES_COLLECTION, note.firestoreId));
 }
 
 async function patchNoteInFirestore(note: Note, patch: Partial<Note>, ownerUid: string) {
+  if (!db) return;
   if (!note.firestoreId) return writeNoteToFirestore({ ...note, ...patch }, ownerUid);
   const payload: any = { updatedAt: serverTimestamp() };
   if (patch.title !== undefined) payload.title = patch.title;
@@ -529,6 +535,7 @@ function fbError(err: any, t: Translation): string {
 }
 
 async function authRegister(email: string, name: string, pw: string, t: Translation): Promise<string | null> {
+  if (!hasFirebaseConfig || !auth) return t.authErrNotAllowed;
   email = email.trim().toLowerCase();
   if (!email.includes("@")) return t.authErrInvalidEmail;
   if (name.trim().length < 2) return t.authErrNameShort;
@@ -545,6 +552,7 @@ async function authRegister(email: string, name: string, pw: string, t: Translat
 }
 
 async function authResetPassword(email: string, t: Translation): Promise<string | null> {
+  if (!hasFirebaseConfig || !auth) return t.authErrResetGeneric;
   email = email.trim().toLowerCase();
   if (!email.includes("@")) return t.authErrInvalidEmail;
   try {
@@ -557,26 +565,28 @@ async function authResetPassword(email: string, t: Translation): Promise<string 
 }
 
 async function authLogin(email: string, pw: string, t: Translation): Promise<string | null> {
+  if (!hasFirebaseConfig || !auth) return t.authErrNotAllowed;
   email = email.trim().toLowerCase();
   if (!email || !pw) return t.authErrEmailPassRequired;
   try { await signInWithEmailAndPassword(auth, email, pw); return null; }
   catch (err: any) { console.error("Auth Error:", err.code, err.message); return fbError(err, t); }
 }
 
-async function authLogout() { await signOut(auth); }
+async function authLogout() { if (auth) await signOut(auth); }
 
 async function deleteCurrentAccount(password: string, t: Translation): Promise<string | null> {
+  if (!hasFirebaseConfig || !auth || !db) return t.authErrNotAllowed;
   const user = auth.currentUser;
-  if (!user || !user.email) return t.authErrLoggedOut;
+  if (!user || !user.email) return t.authErrNotAllowed;
   if (!password) return t.authErrPasswordRequired;
   try {
     const credential = EmailAuthProvider.credential(user.email, password);
     await reauthenticateWithCredential(user, credential);
     const notesSnapshot = await getDocs(
-      query(collection(db, NOTES_COLLECTION), where("ownerUid", "==", user.uid))
+      query(collection(db!, NOTES_COLLECTION), where("ownerUid", "==", user.uid))
     );
     for (let start = 0; start < notesSnapshot.docs.length; start += 450) {
-      const batch = writeBatch(db);
+      const batch = writeBatch(db!);
       notesSnapshot.docs.slice(start, start + 450).forEach(n => batch.delete(n.ref));
       await batch.commit();
     }
@@ -638,7 +648,7 @@ function isGuestNotesDirty(): boolean {
  * On failure the local copy is kept, so the migration retries at next login.
  */
 async function migrateGuestNotesToFirestore(uid: string): Promise<void> {
-  if (!isGuestNotesDirty()) return;
+  if (!db || !isGuestNotesDirty()) return;
   const notes = loadGuestNotes();
   if (!notes || notes.length === 0) {
     try { localStorage.removeItem(LS_GUEST_DIRTY); } catch {}
@@ -647,9 +657,9 @@ async function migrateGuestNotesToFirestore(uid: string): Promise<void> {
   try {
     // Firestore batches are capped at 500 operations — stay below the limit.
     for (let start = 0; start < notes.length; start += 450) {
-      const batch = writeBatch(db);
+      const batch = writeBatch(db!);
       notes.slice(start, start + 450).forEach(n => {
-        batch.set(doc(collection(db, NOTES_COLLECTION)), {
+        batch.set(doc(collection(db!, NOTES_COLLECTION)), {
           ownerUid: uid,
           id: n.id,
           title: n.title,
@@ -759,6 +769,7 @@ export default function App() {
 
   // Auth state
   useEffect(() => {
+    if (!hasFirebaseConfig || !auth) return;
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) { setCurrentUser(null); setThemeId(DEFAULT_THEME); setNotesLimit(NOTES_PAGE_SIZE); return; }
       setCurrentUser({ uid: user.uid, email: user.email ?? "", name: user.displayName ?? "" });
@@ -1007,11 +1018,12 @@ export default function App() {
       setLocalNotes(prev => prev.filter(n => !n.trashed));
       return;
     }
+    if (!db) return;
     enqueueNoteWrite((async () => {
       for (let start = 0; start < trashed.length; start += 450) {
-        const batch = writeBatch(db);
+        const batch = writeBatch(db!);
         trashed.slice(start, start + 450).forEach(n => {
-          if (n.firestoreId) batch.delete(doc(db, NOTES_COLLECTION, n.firestoreId));
+          if (n.firestoreId) batch.delete(doc(db!, NOTES_COLLECTION, n.firestoreId));
         });
         await batch.commit();
       }
