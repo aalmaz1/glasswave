@@ -40,52 +40,90 @@ export function useFirestoreQuery<T = unknown>(
       return;
     }
 
-    let settled = false;
+    let disposed = false;
+    let unsubscribe: (() => void) | null = null;
+    let watchdog: number | undefined;
+
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
-    // Firestore normally emits an initial cache snapshot immediately. Browser
-    // storage locks, a suspended network stack, or a broken proxy can prevent
-    // that callback altogether, though. Never leave the product behind an
-    // endless spinner: expose the existing retry state while keeping the live
-    // listener active so a late snapshot can still recover automatically.
-    const watchdog = window.setTimeout(() => {
-      if (settled) return;
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: new Error("Firestore did not return an initial snapshot in time."),
-      }));
-    }, 10_000);
+    // Firestore's BrowserChannel can keep a long-polling request open while a
+    // tab is in the background. Browsers may then create thousands of heartbeat
+    // requests for a tab nobody is looking at. The current snapshot remains in
+    // state while hidden; resubscribing on return gets any changes made while
+    // the tab was away and, importantly, gives the listener one clear owner.
+    const stop = () => {
+      if (watchdog !== undefined) window.clearTimeout(watchdog);
+      watchdog = undefined;
+      unsubscribe?.();
+      unsubscribe = null;
+    };
 
-    const unsubscribe = onSnapshot(
-      ref as any,
-      (snapshot: any) => {
-        settled = true;
-        window.clearTimeout(watchdog);
-        const data = isDocumentSnapshot(snapshot)
-          ? snapshot.exists()
-            ? snapshot.data()
-            : null
-          : snapshot.docs.map((doc: any) => ({ ...doc.data(), firestoreId: doc.id }));
+    const start = () => {
+      if (disposed || document.visibilityState === "hidden" || unsubscribe) return;
 
-        setState({
-          data: data as T,
+      let settled = false;
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+
+      // Firestore normally emits an initial cache snapshot immediately. Storage
+      // locks, a suspended network stack, or a broken proxy can prevent that
+      // callback altogether, though. Do not leave the product behind a spinner.
+      watchdog = window.setTimeout(() => {
+        if (settled || disposed) return;
+        setState((prev) => ({
+          ...prev,
           loading: false,
-          error: null,
-          fromCache: snapshot.metadata.fromCache,
-        });
-      },
-      (error: Error) => {
-        settled = true;
-        window.clearTimeout(watchdog);
-        setState({ data: null, loading: false, error, fromCache: false });
+          error: new Error("Firestore did not return an initial snapshot in time."),
+        }));
+      }, 10_000);
+
+      unsubscribe = onSnapshot(
+        ref as any,
+        (snapshot: any) => {
+          settled = true;
+          if (watchdog !== undefined) window.clearTimeout(watchdog);
+          watchdog = undefined;
+          const data = isDocumentSnapshot(snapshot)
+            ? snapshot.exists()
+              ? snapshot.data()
+              : null
+            : snapshot.docs.map((doc: any) => ({ ...doc.data(), firestoreId: doc.id }));
+
+          setState({
+            data: data as T,
+            loading: false,
+            error: null,
+            fromCache: snapshot.metadata.fromCache,
+          });
+        },
+        (error: Error) => {
+          settled = true;
+          if (watchdog !== undefined) window.clearTimeout(watchdog);
+          watchdog = undefined;
+          unsubscribe = null;
+          setState({ data: null, loading: false, error, fromCache: false });
+        }
+      );
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        stop();
+      } else {
+        start();
       }
-    );
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    if (document.visibilityState === "hidden") {
+      setState((prev) => ({ ...prev, loading: false }));
+    } else {
+      start();
+    }
 
     return () => {
-      settled = true;
-      window.clearTimeout(watchdog);
-      unsubscribe();
+      disposed = true;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      stop();
     };
   }, [ref]);
 

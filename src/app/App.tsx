@@ -152,7 +152,16 @@ export default function App() {
         return;
       }
       const uid = user.uid;
-      setCurrentUser({ uid, email: user.email ?? "", name: user.displayName ?? "" });
+      // Auth can emit again when its token refreshes. Keep the same object for
+      // the same UID so the memoized Firestore query is not torn down and
+      // recreated on every token refresh (each recreation opens another
+      // BrowserChannel request).
+      setCurrentUser((previous) => {
+        const next = { uid, email: user.email ?? "", name: user.displayName ?? "" };
+        return previous?.uid === uid && previous.email === next.email && previous.name === next.name
+          ? previous
+          : next;
+      });
       setNotesLimit(NOTES_PAGE_SIZE);
       void migrateGuestNotesToFirestore(uid);
       try {
