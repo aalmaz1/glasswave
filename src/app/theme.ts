@@ -430,6 +430,32 @@ export function buildCSS(): string {
   }
   .icon-btn:hover{background:rgba(255,255,255,0.08);}
 
+  /* Floating Action Button — real glassmorphism, matching NoteCard layering */
+  .fab-btn{
+    transform:translateY(0);
+    transition:transform 0.32s cubic-bezier(0.34,1.56,0.64,1),filter 0.28s ease;
+    will-change:transform;
+    backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  }
+  .fab-btn:hover{transform:translateY(-3px) scale(1.04);filter:brightness(1.08);}
+  .fab-btn:active{transform:translateY(-1px) scale(0.97);transition:transform 0.12s ease;}
+  .fab-btn:focus-visible{outline:2px solid rgba(255,255,255,0.55);outline-offset:4px;border-radius:18px;}
+  .fab-btn > .card-glass{transition:box-shadow 0.28s ease,border-color 0.28s ease,background 0.28s ease;}
+  .fab-btn:hover > .card-glass{
+    background:rgba(255,255,255,0.14);
+    border-color:rgba(255,255,255,0.40);
+    box-shadow:
+      0 22px 60px rgba(0,0,0,0.60),
+      inset 0 1px 0 rgba(255,255,255,0.25),
+      inset 0 -1px 0 rgba(0,0,0,0.20),
+      0 0 24px rgba(255,255,255,0.10);
+  }
+  .fab-btn:hover > .card-glass > .glass-ring{
+    background:linear-gradient(160deg,rgba(255,255,255,0.60) 0%,rgba(255,255,255,0.14) 45%,rgba(255,255,255,0.02) 100%);
+  }
+  .fab-btn:hover > .card-glass > .glass-sheen{opacity:1;}
+  .fab-btn > .card-glass > .glass-sheen{opacity:0.7;}
+
   /* Respect users who prefer reduced motion (accessibility). */
   @media (prefers-reduced-motion: reduce){
     *,*::before,*::after{
