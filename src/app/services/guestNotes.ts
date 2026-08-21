@@ -1,17 +1,40 @@
 import { doc, writeBatch } from "firebase/firestore";
 import { db } from "../../firebase";
+import type { Translation } from "../../i18n";
 import { LS_GUEST_DIRTY, LS_GUEST_NOTES, NOTES_COLLECTION, type Note } from "../model";
 import { inferCreatedAt } from "../utils";
 
 /* ════════════════════════════════════════════════════════════════════
    GUEST LOCAL NOTES (localStorage persistence)
    ════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Signature of the bundled demo notes that older GlassWave builds wrote into
+ * guest storage. They used to flash on the dashboard before the user's real
+ * notes loaded. We no longer ship demo content at all, so any copy of these
+ * notes already sitting in localStorage is stale and should be discarded.
+ */
+const LEGACY_DEMO_NOTES: ReadonlyArray<readonly [id: number, title: string]> = [
+  [1, "Product Roadmap Q3"],
+  [2, "Design Sprint Notes"],
+  [3, "Reading List"],
+  [4, "API Integration"],
+];
+
+/** True when every stored note is one of the legacy demo notes (never edited). */
+function isLegacyDemoNotes(notes: { id: number; title: string }[]): boolean {
+  if (notes.length === 0) return false;
+  return notes.every((n) =>
+    LEGACY_DEMO_NOTES.some(([id, title]) => id === n.id && title === n.title)
+  );
+}
+
 export function loadGuestNotes(): Note[] | null {
   try {
     const raw = localStorage.getItem(LS_GUEST_NOTES);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as any[];
-    return parsed.map((n) => {
+    const notes = parsed.map((n) => {
       const updatedAt = new Date(n.updatedAt);
       const id = Number(n.id ?? Date.now());
       return {
@@ -22,6 +45,15 @@ export function loadGuestNotes(): Note[] | null {
         reminder: n.reminder ? new Date(n.reminder) : null,
       };
     });
+    // Drop demo notes a previous version may have persisted, so they can never
+    // flash ahead of the user's own notes again.
+    if (isLegacyDemoNotes(notes)) {
+      try {
+        localStorage.removeItem(LS_GUEST_NOTES);
+      } catch {}
+      return null;
+    }
+    return notes;
   } catch {
     return null;
   }
@@ -31,6 +63,42 @@ export function saveGuestNotes(notes: Note[]) {
   try {
     localStorage.setItem(LS_GUEST_NOTES, JSON.stringify(notes));
   } catch {}
+}
+
+/**
+ * Welcome/demo notes use reserved negative ids, so they can never collide with
+ * a real note (real ids come from `newNoteId()`, which is always positive).
+ */
+export function isWelcomeNoteId(id: number): boolean {
+  return id < 0;
+}
+
+/**
+ * Build the welcome notes shown to a brand-new guest (no notes of their own).
+ * The content is a short tour of GlassWave drawn from the README, localized via
+ * the current translation. These notes are ephemeral — they are never persisted
+ * and disappear the moment the guest creates or edits their first note.
+ */
+export function buildWelcomeNotes(t: Translation): Note[] {
+  const now = Date.now();
+  const make = (slot: number, title: string, body: string, pinned = false): Note => ({
+    id: -slot,
+    title,
+    body,
+    updatedAt: new Date(now - slot * 60_000),
+    createdAt: new Date(now - slot * 60_000 - 60_000),
+    accentIdx: (slot - 1) % 4,
+    pinned,
+    archived: false,
+    trashed: false,
+    reminder: null,
+  });
+  return [
+    make(1, t.welcomeNote1Title, t.welcomeNote1Body, true),
+    make(2, t.welcomeNote2Title, t.welcomeNote2Body),
+    make(3, t.welcomeNote3Title, t.welcomeNote3Body),
+    make(4, t.welcomeNote4Title, t.welcomeNote4Body),
+  ];
 }
 
 /** Marks that the user actually edited guest notes (vs untouched seed content). */
@@ -96,60 +164,4 @@ export async function migrateGuestNotesToFirestore(uid: string): Promise<void> {
   }
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   SEED
-   ════════════════════════════════════════════════════════════════════ */
-const SEED: Note[] = [
-  {
-    id: 1,
-    title: "Product Roadmap Q3",
-    body: "<p>Launch mobile redesign by August 15. Milestones: design handoff Jul 20, beta Aug 1, soft launch Aug 10. Coordinate with Elena on onboarding flow.</p>",
-    updatedAt: new Date("2026-07-11T14:30:00"),
-    createdAt: new Date("2026-07-01T10:00:00"),
-    accentIdx: 0,
-    pinned: true,
-    archived: false,
-    trashed: false,
-    reminder: null,
-  },
-  {
-    id: 2,
-    title: "Design Sprint Notes",
-    body: "<p>Decided on glassmorphism for v2. Action items: component library, Figma tokens, user testing schedule.</p>",
-    updatedAt: new Date("2026-07-10T09:15:00"),
-    createdAt: new Date("2026-07-03T11:00:00"),
-    accentIdx: 1,
-    pinned: false,
-    archived: false,
-    trashed: false,
-    reminder: null,
-  },
-  {
-    id: 3,
-    title: "Reading List",
-    body: "<ul><li>Thinking in Systems — Meadows</li><li>A Pattern Language — Alexander</li><li>Working in Public — Nadia Eghbal</li><li>Finite and Infinite Games — Carse</li></ul>",
-    updatedAt: new Date("2026-07-09T18:00:00"),
-    createdAt: new Date("2026-07-02T16:00:00"),
-    accentIdx: 2,
-    pinned: true,
-    archived: false,
-    trashed: false,
-    reminder: null,
-  },
-  {
-    id: 4,
-    title: "API Integration",
-    body: "<p>Auth: /v2/auth/token. Rate limit 1000 req/min. Headers: X-API-Key, Content-Type. Exponential backoff from 500ms.</p>",
-    updatedAt: new Date("2026-07-08T11:45:00"),
-    createdAt: new Date("2026-07-04T09:00:00"),
-    accentIdx: 3,
-    pinned: false,
-    archived: false,
-    trashed: false,
-    reminder: null,
-  },
-];
 
-export function getFallbackNotes(): Note[] {
-  return SEED.map((n) => ({ ...n }));
-}

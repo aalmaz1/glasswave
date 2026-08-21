@@ -6,7 +6,12 @@ import { useTranslation } from "../i18n";
 import { auth, db, hasFirebaseConfig } from "../firebase";
 import { useFirestoreQuery } from "../hooks/useFirestoreQuery";
 import { listenNativeBackButton } from "../native";
-import { cancelReminderNotification, scheduleReminderNotification } from "../notifications";
+import {
+  cancelReminderNotification,
+  ensureReminderChannel,
+  playReminderSound,
+  scheduleReminderNotification,
+} from "../notifications";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ReminderModal, SortSheet } from "./components/NoteOverlays";
 import {
@@ -39,6 +44,8 @@ import {
   setUserTheme,
 } from "./services/accountService";
 import {
+  buildWelcomeNotes,
+  isWelcomeNoteId,
   loadGuestNotes,
   markGuestNotesDirty,
   migrateGuestNotesToFirestore,
@@ -93,6 +100,9 @@ export default function App() {
   const [showSort, setShowSort] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [localNotes, setLocalNotes] = useState<Note[]>(() => loadGuestNotes() ?? []);
+  // Intro cards for a brand-new guest (facts about GlassWave). Ephemeral: they
+  // are shown instead of the empty state and vanish once a real note exists.
+  const welcomeNotes = useMemo(() => buildWelcomeNotes(t), [t]);
   const [notesQueryVersion, setNotesQueryVersion] = useState(0);
   const [notesLimit, setNotesLimit] = useState(NOTES_PAGE_SIZE);
   const [noteSyncError, setNoteSyncError] = useState<string | null>(null);
@@ -198,7 +208,9 @@ export default function App() {
   } = useFirestoreQuery<FirestoreNote>(notesQuery);
 
   const allNotes: Note[] = useMemo(() => {
-    if (!currentUser) return localNotes;
+    // A guest with no notes of their own sees the intro cards instead of an
+    // empty dashboard. As soon as a real note exists, only real notes show.
+    if (!currentUser) return localNotes.length === 0 ? welcomeNotes : localNotes;
     if (!firestoreData) return [];
     const list = Array.isArray(firestoreData) ? firestoreData : [];
     // The Firestore request deliberately has no `orderBy` (see
@@ -206,7 +218,7 @@ export default function App() {
     return list
       .map((n) => noteFromFirestore(n as FirestoreNote & { firestoreId: string }))
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime() || b.id - a.id);
-  }, [currentUser, firestoreData, localNotes]);
+  }, [currentUser, firestoreData, localNotes, welcomeNotes]);
 
   // When the current page is "full", there may be more notes to load.
   const hasMoreNotes = Boolean(
@@ -272,6 +284,11 @@ export default function App() {
       // Don't annoy on first open — ask lazily when user sets a reminder.
     }
   }, []);
+  // Register the Android notification channel (with the glass chime) once at
+  // startup. No-op on web; harmless to run again when the language changes.
+  useEffect(() => {
+    void ensureReminderChannel(t.reminder);
+  }, [t.reminder]);
   useEffect(() => {
     const tick = () => {
       const nowMs = Date.now();
@@ -284,6 +301,9 @@ export default function App() {
           firedRef.current.add(key);
           const title = n.title || t.untitled;
           const body = stripHtml(n.body).slice(0, 140);
+          // Browsers can't attach a custom sound to a Notification, so play the
+          // GlassWave chime in-app as well whenever a reminder comes due.
+          playReminderSound();
           if ("Notification" in window && Notification.permission === "granted") {
             try {
               new Notification(title, { body, icon: "/favicon.png" });
@@ -341,10 +361,16 @@ export default function App() {
       setNoteSyncError(null);
       const noteTitle = title.trim() ? title : t.untitled;
       if (!currentUser) {
+        // Editing a welcome/demo card (reserved negative id) behaves like
+        // creating a note: the demo content is a starting point, not a real
+        // note, and the intro cards vanish once a real note exists.
+        const editingWelcome = editing !== null && isWelcomeNoteId(editing.id);
         // Only a real change makes guest notes migration-worthy.
-        if (!editing || editing.title !== noteTitle || editing.body !== body) markGuestNotesDirty();
+        if (!editing || editingWelcome || editing.title !== noteTitle || editing.body !== body) {
+          markGuestNotesDirty();
+        }
         const nowDate = new Date();
-        if (editing) {
+        if (editing && !editingWelcome) {
           const updated: Note = { ...editing, title: noteTitle, body, updatedAt: nowDate };
           setLocalNotes((prev) => prev.map((n) => (n.id === editing.id ? updated : n)));
           return updated;
@@ -355,7 +381,8 @@ export default function App() {
           body,
           updatedAt: nowDate,
           createdAt: nowDate,
-          accentIdx: Math.floor(Math.random() * theme.accents.length),
+          // Keep the accent of the demo card this note was started from.
+          accentIdx: editing ? editing.accentIdx : Math.floor(Math.random() * theme.accents.length),
           pinned: false,
           archived: false,
           trashed: false,

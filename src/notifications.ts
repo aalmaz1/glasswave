@@ -20,6 +20,17 @@ export const isNativeApp = (): boolean => {
   }
 };
 
+/**
+ * Android notification channel for reminders. On Android 8+ the channel (not
+ * the individual notification) owns the sound, so we create a dedicated channel
+ * configured with the GlassWave glass chime and route every reminder through it.
+ */
+const REMINDER_CHANNEL_ID = "glasswave-reminders";
+/** Sound asset in `android-capacitor/app/src/main/res/raw/` (extension kept for iOS). */
+const REMINDER_SOUND = "glasswave_notification.wav";
+/** Web copy of the same chime, bundled under `public/sounds/`. */
+const WEB_SOUND_URL = "/sounds/glasswave-notification.wav";
+
 /** Stable 31-bit notification id derived from an arbitrary string key. */
 function notifIdForKey(key: string): number {
   let h = 5381;
@@ -27,6 +38,44 @@ function notifIdForKey(key: string): number {
     h = ((h << 5) + h + key.charCodeAt(i)) | 0;
   }
   return (Math.abs(h) % 0x7fffffff) || 1;
+}
+
+/**
+ * Create (or reuse) the reminder notification channel with the GlassWave chime.
+ * Idempotent and safe to call on every startup and before every schedule; on
+ * web this is a no-op. `name` is shown to the user in Android's channel
+ * settings, so callers pass the localized "Reminder" label.
+ */
+export async function ensureReminderChannel(name = "Reminders"): Promise<void> {
+  if (!isNativeApp()) return;
+  try {
+    await LocalNotifications.createChannel({
+      id: REMINDER_CHANNEL_ID,
+      name,
+      description: "GlassWave",
+      sound: REMINDER_SOUND,
+      importance: 4, // HIGH — heads-up so the chime is audible
+      visibility: 1, // public
+      vibration: true,
+    });
+  } catch (error) {
+    console.warn("[Notifications] Could not create reminder channel.", error);
+  }
+}
+
+/**
+ * Best-effort in-app playback of the glass chime for web reminders. The browser
+ * Notification API cannot play a custom sound, so when the app is open we play
+ * it ourselves alongside the (optional) browser notification.
+ */
+export function playReminderSound(): void {
+  try {
+    const audio = new Audio(WEB_SOUND_URL);
+    audio.volume = 0.9;
+    void audio.play().catch(() => {});
+  } catch {
+    /* autoplay blocked or audio unsupported — nothing else to do */
+  }
 }
 
 /**
@@ -66,6 +115,9 @@ export async function scheduleReminderNotification(
   if (!isNativeApp()) return;
   const id = notifIdForKey(key);
   try {
+    // Make sure the channel (and its glass-chime sound) exists first: on
+    // Android 8+ a notification posted to a missing channel never fires.
+    await ensureReminderChannel();
     await LocalNotifications.cancel({ notifications: [{ id }] });
     if (at.getTime() <= Date.now()) return;
     await LocalNotifications.schedule({
@@ -75,6 +127,8 @@ export async function scheduleReminderNotification(
           title: title || "GlassWave",
           body,
           schedule: { at, allowWhileIdle: true },
+          channelId: REMINDER_CHANNEL_ID,
+          sound: REMINDER_SOUND,
           smallIcon: "ic_launcher",
         },
       ],

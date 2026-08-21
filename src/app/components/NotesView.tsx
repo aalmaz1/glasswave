@@ -19,6 +19,7 @@ import {
 import { useTranslation, type Language, type Translation } from "../../i18n";
 import { fmtDate, stripHtml } from "../utils";
 import { G, glassBase, type Theme } from "../theme";
+import { isWelcomeNoteId } from "../services/guestNotes";
 import type { Note, Tab } from "../model";
 
 /* ════════════════════════════════════════════════════════════════════
@@ -212,6 +213,9 @@ const NoteCard = React.memo(function NoteCard({
   const minH = isMobile ? 130 : isTablet ? 140 : 160;
   const pad = isMobile ? "14px 16px 12px" : "18px 20px 14px";
   const hasReminder = !!note.reminder;
+  // Welcome/demo cards are read-only samples: tap to open, but no pin/archive
+  // actions — they aren't real notes yet.
+  const isDemo = isWelcomeNoteId(note.id);
 
   return (
     <article
@@ -270,29 +274,41 @@ const NoteCard = React.memo(function NoteCard({
             >
               {note.title || t.untitled}
             </h3>
-            <button
-              className={`card-pin${note.pinned ? " pinned" : ""}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onPin(note);
-              }}
-              title={note.pinned ? t.unpin : t.pin}
-              aria-label={note.pinned ? t.unpinNote : t.pinNote}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: 4,
-                flexShrink: 0,
-                lineHeight: 0,
-              }}
-            >
-              {note.pinned ? (
-                <PinOff size={14} color="rgba(255,255,255,0.70)" strokeWidth={1.8} />
-              ) : (
-                <Pin size={14} color={G.textSecondary} strokeWidth={1.8} />
-              )}
-            </button>
+            {isDemo ? (
+              note.pinned ? (
+                <span
+                  style={{ padding: 4, flexShrink: 0, lineHeight: 0 }}
+                  aria-hidden="true"
+                  title={t.pin}
+                >
+                  <Pin size={14} color="rgba(255,255,255,0.70)" strokeWidth={1.8} />
+                </span>
+              ) : null
+            ) : (
+              <button
+                className={`card-pin${note.pinned ? " pinned" : ""}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPin(note);
+                }}
+                title={note.pinned ? t.unpin : t.pin}
+                aria-label={note.pinned ? t.unpinNote : t.pinNote}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 4,
+                  flexShrink: 0,
+                  lineHeight: 0,
+                }}
+              >
+                {note.pinned ? (
+                  <PinOff size={14} color="rgba(255,255,255,0.70)" strokeWidth={1.8} />
+                ) : (
+                  <Pin size={14} color={G.textSecondary} strokeWidth={1.8} />
+                )}
+              </button>
+            )}
           </div>
 
           <p
@@ -369,41 +385,43 @@ const NoteCard = React.memo(function NoteCard({
               <Clock size={9} strokeWidth={1.8} />
               <span>{fmtDate(note.updatedAt, t.localeTag, t, now)}</span>
             </div>
-            <div
-              className={`card-actions${isMobile ? " actions-always" : ""}`}
-              style={{ display: "flex", gap: 4 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {tab === "trash" ? (
-                <>
-                  <MiniAction onClick={() => onRestore(note)} title={t.restore}>
-                    <RotateCcw size={11} color={G.textSecondary} strokeWidth={1.8} />
-                  </MiniAction>
-                  <MiniAction onClick={() => onDeleteForever(note)} title={t.deleteForeverAction}>
-                    <Trash2 size={11} color="rgba(255,140,140,0.90)" strokeWidth={1.8} />
-                  </MiniAction>
-                </>
-              ) : (
-                <>
-                  <MiniAction onClick={() => onReminder(note)} title={t.reminder}>
-                    <Bell
-                      size={11}
-                      color={hasReminder ? "rgba(255,200,60,0.80)" : G.textSecondary}
-                      strokeWidth={1.8}
-                    />
-                  </MiniAction>
-                  <MiniAction
-                    onClick={() => onArchive(note)}
-                    title={note.archived ? t.unarchive : t.archive}
-                  >
-                    <Archive size={11} color={G.textSecondary} strokeWidth={1.8} />
-                  </MiniAction>
-                  <MiniAction onClick={() => onTrash(note)} title={t.delete}>
-                    <Trash2 size={11} color={G.textSecondary} strokeWidth={1.8} />
-                  </MiniAction>
-                </>
-              )}
-            </div>
+            {!isDemo && (
+              <div
+                className={`card-actions${isMobile ? " actions-always" : ""}`}
+                style={{ display: "flex", gap: 4 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {tab === "trash" ? (
+                  <>
+                    <MiniAction onClick={() => onRestore(note)} title={t.restore}>
+                      <RotateCcw size={11} color={G.textSecondary} strokeWidth={1.8} />
+                    </MiniAction>
+                    <MiniAction onClick={() => onDeleteForever(note)} title={t.deleteForeverAction}>
+                      <Trash2 size={11} color="rgba(255,140,140,0.90)" strokeWidth={1.8} />
+                    </MiniAction>
+                  </>
+                ) : (
+                  <>
+                    <MiniAction onClick={() => onReminder(note)} title={t.reminder}>
+                      <Bell
+                        size={11}
+                        color={hasReminder ? "rgba(255,200,60,0.80)" : G.textSecondary}
+                        strokeWidth={1.8}
+                      />
+                    </MiniAction>
+                    <MiniAction
+                      onClick={() => onArchive(note)}
+                      title={note.archived ? t.unarchive : t.archive}
+                    >
+                      <Archive size={11} color={G.textSecondary} strokeWidth={1.8} />
+                    </MiniAction>
+                    <MiniAction onClick={() => onTrash(note)} title={t.delete}>
+                      <Trash2 size={11} color={G.textSecondary} strokeWidth={1.8} />
+                    </MiniAction>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
