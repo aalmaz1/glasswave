@@ -39,7 +39,6 @@ import {
   setUserTheme,
 } from "./services/accountService";
 import {
-  getFallbackNotes,
   loadGuestNotes,
   markGuestNotesDirty,
   migrateGuestNotesToFirestore,
@@ -75,8 +74,14 @@ function useWidth() {
    ════════════════════════════════════════════════════════════════════ */
 export default function App() {
   const { t, language } = useTranslation();
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [authReady, setAuthReady] = useState(!hasFirebaseConfig || !auth);
+  // Keep readiness and the account in one state update. Updating them
+  // separately can briefly render the guest collection while Firebase is
+  // restoring a signed-in session.
+  const [authState, setAuthState] = useState<{ ready: boolean; user: AuthUser | null }>({
+    ready: !hasFirebaseConfig || !auth,
+    user: null,
+  });
+  const { ready: authReady, user: currentUser } = authState;
   const [themeId, setThemeId] = useTheme(currentUser, DEFAULT_THEME);
   const [screen, setScreen] = useState<Screen>("dashboard");
   const [tab, setTab] = useState<Tab>("all");
@@ -87,10 +92,7 @@ export default function App() {
   const [sort, setSort] = useState<SortOrder>("default");
   const [showSort, setShowSort] = useState(false);
   const [now, setNow] = useState(Date.now());
-  const [localNotes, setLocalNotes] = useState<Note[]>(() => {
-    const saved = loadGuestNotes();
-    return saved && saved.length ? saved : getFallbackNotes();
-  });
+  const [localNotes, setLocalNotes] = useState<Note[]>(() => loadGuestNotes() ?? []);
   const [notesQueryVersion, setNotesQueryVersion] = useState(0);
   const [notesLimit, setNotesLimit] = useState(NOTES_PAGE_SIZE);
   const [noteSyncError, setNoteSyncError] = useState<string | null>(null);
@@ -139,29 +141,31 @@ export default function App() {
     const authWatchdog = window.setTimeout(() => {
       if (!active) return;
       console.warn("Firebase Auth initialization timed out; continuing in guest mode.");
-      setAuthReady(true);
+      setAuthState((previous) => ({ ...previous, ready: true }));
     }, 10_000);
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!active) return;
       window.clearTimeout(authWatchdog);
-      setAuthReady(true);
       if (!user) {
-        setCurrentUser(null);
+        setAuthState({ ready: true, user: null });
         setThemeId(DEFAULT_THEME);
         setNotesLimit(NOTES_PAGE_SIZE);
         return;
       }
       const uid = user.uid;
-      // Auth can emit again when its token refreshes. Keep the same object for
-      // the same UID so the memoized Firestore query is not torn down and
-      // recreated on every token refresh (each recreation opens another
-      // BrowserChannel request).
-      setCurrentUser((previous) => {
-        const next = { uid, email: user.email ?? "", name: user.displayName ?? "" };
-        return previous?.uid === uid && previous.email === next.email && previous.name === next.name
-          ? previous
-          : next;
-      });
+      const next = { uid, email: user.email ?? "", name: user.displayName ?? "" };
+      // Auth can emit again when its token refreshes. Retain the user object
+      // for the same account so the memoized Firestore query is not torn down
+      // and recreated on every token refresh.
+      setAuthState((previous) => ({
+        ready: true,
+        user:
+          previous.user?.uid === uid &&
+          previous.user.email === next.email &&
+          previous.user.name === next.name
+            ? previous.user
+            : next,
+      }));
       setNotesLimit(NOTES_PAGE_SIZE);
       void migrateGuestNotesToFirestore(uid);
       try {
@@ -536,13 +540,13 @@ export default function App() {
 
   const handleLogout = () => {
     authLogout().catch(() => {});
-    setCurrentUser(null);
+    setAuthState({ ready: true, user: null });
   };
 
   const handleDeleteAccount = async (password: string): Promise<string | null> => {
     const err = await deleteCurrentAccount(password, t);
     if (!err) {
-      setCurrentUser(null);
+      setAuthState({ ready: true, user: null });
       setThemeId(DEFAULT_THEME);
       setScreen("dashboard");
       setEditing(null);
