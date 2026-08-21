@@ -834,36 +834,45 @@ export const FabBtn = React.memo(function FabBtn({
     <button
       onClick={onClick}
       aria-label={t.createNewNote}
+      className="fab-btn"
       style={{
-        ...glassBase(16),
         position: "fixed",
         bottom: isMobile ? "calc(92px + env(safe-area-inset-bottom, 0px))" : 32,
         right: isMobile ? 20 : 32,
         width: sz,
         height: sz,
-        borderRadius: 16,
         border: "none",
         cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: G.bgHov,
+        padding: 0,
+        background: "transparent",
         zIndex: 40,
-        transition:
-          "transform 0.22s cubic-bezier(0.34,1.56,0.64,1),background 0.2s,box-shadow 0.2s",
-      }}
-      onMouseEnter={(e) => {
-        const el = e.currentTarget as HTMLElement;
-        el.style.transform = "scale(1.12)";
-        el.style.background = "rgba(255,255,255,0.16)";
-      }}
-      onMouseLeave={(e) => {
-        const el = e.currentTarget as HTMLElement;
-        el.style.transform = "scale(1)";
-        el.style.background = G.bgHov;
       }}
     >
-      <Plus size={isMobile ? 22 : 24} color={G.textPrimary} strokeWidth={2} />
+      <span
+        className="card-glass"
+        style={{
+          position: "absolute",
+          inset: 0,
+          borderRadius: 18,
+          background: "rgba(255,255,255,0.10)",
+        }}
+      >
+        <span className="glass-ring" />
+        <span className="glass-sheen" />
+      </span>
+      <span
+        style={{
+          position: "relative",
+          zIndex: 20,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "100%",
+          height: "100%",
+        }}
+      >
+        <Plus size={isMobile ? 22 : 24} color={G.textPrimary} strokeWidth={2} />
+      </span>
     </button>
   );
 });
