@@ -220,8 +220,15 @@ class NotesNotifier extends StateNotifier<List<Note>> {
     return [
       Note(
         id: now.millisecondsSinceEpoch - 3000,
-        title: 'GlassWave ✨',
-        body: 'Welcome! Press the + button to create your first note.\n\nFeatures:\n- Markdown support\n- Reminders\n- Archive & Trash\n- 12 themes\n- Cloud sync',
+        title: 'GlassWave 🌊',
+        body: 'A modern cross-platform note-taking app with a glassmorphism design.\n\n'
+            'Features:\n'
+            '- Create & edit notes (Markdown support)\n'
+            '- Pin, archive & trash\n'
+            '- Search & sort\n'
+            '- Reminders\n'
+            '- 12 color themes\n'
+            '- 3 languages (RU/EN/KO)',
         updatedAt: now.subtract(const Duration(minutes: 5)),
         accentIdx: 0,
         pinned: true,
@@ -233,6 +240,8 @@ class NotesNotifier extends StateNotifier<List<Note>> {
     if (_email != null) {
       state = _service.getNotes(_email!) ?? [];
     } else {
+      // First launch: show a welcome note with facts about GlassWave. Once the
+      // guest writes their own notes, only those are shown.
       final saved = _service.getGuestNotes();
       if (saved == null) {
         final seed = _defaultSeedNotes();

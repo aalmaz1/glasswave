@@ -211,6 +211,16 @@ export interface Translation {
   dateFormatShort: Intl.DateTimeFormatOptions;
   dateFormatReminder: Intl.DateTimeFormatOptions;
 
+  // Welcome notes (facts about GlassWave, shown to brand-new guests)
+  welcomeNote1Title: string;
+  welcomeNote1Body: string;
+  welcomeNote2Title: string;
+  welcomeNote2Body: string;
+  welcomeNote3Title: string;
+  welcomeNote3Body: string;
+  welcomeNote4Title: string;
+  welcomeNote4Body: string;
+
   // ── Flutter-only strings (consumed by `npm run i18n:export`) ──────────
   // Kept in the same source of truth so the two apps never drift.
   settingsSync: string;
@@ -429,6 +439,19 @@ const ru: Translation = {
   dateFormatShort: { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" },
   dateFormatReminder: { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" },
 
+  welcomeNote1Title: "GlassWave 🌊",
+  welcomeNote1Body:
+    "Современное приложение для заметок в стиле glassmorphism: полупрозрачные карточки, размытие фона и плавные анимации.",
+  welcomeNote2Title: "Что умеет GlassWave",
+  welcomeNote2Body:
+    "Создание и редактирование заметок с форматированием, закрепление, архив и корзина, поиск, сортировка и напоминания.",
+  welcomeNote3Title: "Синхронизация и офлайн",
+  welcomeNote3Body:
+    "Синхронизация между устройствами через Firebase, работа без интернета благодаря локальному кэшу и гостевой режим без регистрации.",
+  welcomeNote4Title: "Языки и темы",
+  welcomeNote4Body:
+    "Три языка интерфейса (русский, английский, корейский) и 12 цветовых тем на любой вкус.",
+
   settingsSync: "Синхронизируйте заметки",
   settingsSyncDesc: "Войдите, чтобы сохранять заметки в облаке и использовать их на других устройствах.",
   settingsAuthBtn: "Войти или Регистрация",
@@ -640,6 +663,19 @@ const en: Translation = {
   dateFormatShort: { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" },
   dateFormatReminder: { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" },
 
+  welcomeNote1Title: "GlassWave 🌊",
+  welcomeNote1Body:
+    "A modern note-taking app with a glassmorphism design: translucent cards, background blur and smooth animations.",
+  welcomeNote2Title: "What GlassWave can do",
+  welcomeNote2Body:
+    "Create and edit notes with formatting, pin, archive and trash, search, sort and reminders.",
+  welcomeNote3Title: "Sync & offline",
+  welcomeNote3Body:
+    "Firebase sync across devices, offline work with a local cache, and a guest mode that needs no registration.",
+  welcomeNote4Title: "Languages & themes",
+  welcomeNote4Body:
+    "Three interface languages (Russian, English, Korean) and 12 color themes to suit your mood.",
+
   settingsSync: "Sync your notes",
   settingsSyncDesc: "Sign in to save notes in the cloud and use them on other devices.",
   settingsAuthBtn: "Log in or sign up",
@@ -850,6 +886,19 @@ const ko: Translation = {
   dateFormatLong: { year: "numeric", month: "long", day: "numeric" },
   dateFormatShort: { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" },
   dateFormatReminder: { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" },
+
+  welcomeNote1Title: "GlassWave 🌊",
+  welcomeNote1Body:
+    "글래스모피즘 디자인의 현대적인 노트 앱입니다. 반투명 카드, 배경 블러, 부드러운 애니메이션을 제공합니다.",
+  welcomeNote2Title: "GlassWave 기능",
+  welcomeNote2Body:
+    "서식 있는 노트 작성과 편집, 고정, 보관, 휴지통, 검색, 정렬, 알림을 지원합니다.",
+  welcomeNote3Title: "동기화 및 오프라인",
+  welcomeNote3Body:
+    "Firebase로 기기 간 동기화, 로컬 캐시로 오프라인 작업, 가입 없이 쓰는 게스트 모드를 지원합니다.",
+  welcomeNote4Title: "언어 및 테마",
+  welcomeNote4Body:
+    "인터페이스 언어 3종(러시아어, 영어, 한국어)과 취향에 맞는 12가지 색상 테마를 제공합니다.",
 
   settingsSync: "노트 동기화",
   settingsSyncDesc: "로그인하여 클라우드에 노트를 저장하고 다른 기기에서 사용하세요.",
