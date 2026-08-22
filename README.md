@@ -1,381 +1,129 @@
-# 🌊 GlassWave
+# GlassWave
 
-**Modern cross-platform note-taking application with glassmorphism design**
+Notes app with a glassmorphism UI. The real product is the **React + Vite** web app — it syncs through Firebase, works offline, and can be installed as a PWA or wrapped with Capacitor for Android/iOS.
+
+**Live:** [glasswave.pages.dev](https://glasswave.pages.dev/)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Flutter](https://img.shields.io/badge/Flutter-3.12+-blue?logo=flutter)](https://flutter.dev)
-[![React](https://img.shields.io/badge/React-18.3+-61dafb?logo=react)](https://reactjs.org)
-[![Firebase](https://img.shields.io/badge/Firebase-Enabled-orange?logo=firebase)](https://firebase.google.com)
 
-GlassWave is an elegant note management application featuring modern glassmorphism design, Firebase synchronization support, and a multilingual interface.
+There is also a **Flutter prototype** under `lib/`. It looks similar but stores everything on-device and does **not** talk to Firebase.
 
-## ✨ Features
+## What it does
 
-### 🎨 Design
-- **Glassmorphism UI** — semi-transparent elements with background blur
-- **Responsive interface** — optimized for mobile and desktop devices
-- **Smooth animations** — pleasant transitions between screens
+- Create and edit notes in a TipTap rich-text editor (autosave)
+- Pin, archive, trash, search, sort, and set reminders
+- Sign in with email/password (reset + email verification) or stay a guest
+- Signed-in notes sync via Firestore; guests stay in the browser (`localStorage`)
+- Offline: Firestore IndexedDB cache on web, service-worker shell for the PWA
+- 12 color themes, UI in Russian / English / Korean
+- Reminders: in-app poller on web (only while the tab is open); native local notifications in the Capacitor apps
 
-### 📝 Functionality
-- **Create and edit notes** — support for titles and formatted text
-- **Organization** — pin, archive, trash
-- **Search and sorting** — quick search through notes, sort by creation/update date
-- **Reminders** — set reminders for important notes
-- **Guest mode** — use without registration
-
-### 🔐 Synchronization (web app)
-- **Firebase Firestore** — cloud synchronization across devices
-- **Local caching** — offline work with IndexedDB
-- **Authentication** — secure login via Firebase Auth (with password reset & email verification)
-
-> The Flutter version is a **local-only** prototype (see [Mobile Version](#-mobile-version-flutter)); cloud sync currently lives in the React web app.
-
-### 📲 Progressive Web App
-- **Installable** — add to the home screen / desktop and run in a standalone window
-- **Offline shell** — service worker (Workbox) precaches the app, icons and the reminder sound
-- See [docs/pwa.md](docs/pwa.md)
-
-### 🌍 Multilingual Support
-Support for three interface languages:
-- 🇷🇺 Русский
-- 🇬🇧 English
-- 🇰🇷 한국어
-
-## 🏗️ Project Architecture
+## Layout
 
 ```
-glasswave/
-├── src/                    # Web application (React + Vite)
-│   ├── app/                # Application components
-│   ├── hooks/              # Custom React hooks
-│   ├── i18n/               # Localization system
-│   ├── styles/             # Global styles
-│   └── firebase.ts         # Firebase configuration
-├── lib/                    # Mobile application (Flutter)
-│   ├── models/             # Data models
-│   ├── providers/          # State management (Riverpod)
-│   ├── screens/            # App screens
-│   ├── services/           # Business logic
-│   ├── theme/              # Theme configuration
-│   └── widgets/            # Reusable widgets
-├── assets/translations/    # JSON translation files
-├── android/                # Android platform
-├── ios/                    # iOS platform
-├── linux/                  # Linux platform
-├── macos/                  # macOS platform
-└── windows/                # Windows platform
+src/                    React + Vite app (this is the product)
+  app/                  screens, editor, settings, note services
+  i18n/                 translations — single source of truth
+  hooks/                Firestore query hook
+  styles/
+  firebase.ts           Auth + Firestore client
+  notifications.ts      reminder sound / native notifications
+  pwa.ts
+lib/                    Flutter prototype (local-only)
+android-capacitor/      Capacitor Android project
+ios-capacitor/          Capacitor iOS project
+android/ ios/ …         Flutter platform shells (not the shipping apps)
+assets/translations/    generated JSON for Flutter — do not edit by hand
+docs/                   APK, iOS, PWA, notification sound
+firestore.rules         owner-only notes + field/type/size checks
 ```
 
-## 🚀 Quick Start
+## Web
 
-### Prerequisites
-
-- **Node.js** 18+ and npm/pnpm
-- **Flutter** 3.12+
-- **Firebase project** (for synchronization)
-
-### Installation
-
-#### 1. Clone the repository
+Needs Node.js 18+ (22+ if you also build the APK).
 
 ```bash
-git clone https://github.com/yourusername/glasswave.git
+git clone https://github.com/aalmaz1/glasswave.git
 cd glasswave
-```
-
-#### 2. Firebase Setup
-
-The web app is preconfigured for the official **`glasswave-4f5da`** project
-(Email/Password sign-in). You do **not** need a `.env` file to log in.
-
-To point a fork or staging build at another project, copy [`.env.example`](.env.example)
-to `.env` and set all six `VITE_FIREBASE_*` values from **that** project's
-Firebase console (Project settings → Your apps → Web). Mixing keys from two
-projects is the usual cause of `auth/operation-not-allowed`.
-
-If you do override the config:
-
-- Enable **Email/Password** (the password provider — not Email link) under
-  Authentication → Sign-in method.
-- Add every host you serve the app from to Authentication → Settings →
-  Authorized domains (`localhost` is already allowed).
-- Do **not** set `VITE_FIREBASE_AUTH_EMULATOR` unless the Auth emulator is
-  actually running.
-
-> ⚠️ **Important**: Do not commit the `.env` file to the repository! It's already added to `.gitignore`.
-
----
-
-## 💻 Web Version (React + Vite)
-
-### Install Dependencies
-
-```bash
 npm install
-# or
-pnpm install
+npm run dev          # http://localhost:5173
 ```
 
-### Run in Development Mode
-
 ```bash
-npm run dev
-# or
-pnpm dev
-```
-
-The app will be available at `http://localhost:5173`
-
-### Build for Production
-
-```bash
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test
 npm run build
-# or
-pnpm build
+npm run preview      # production build + PWA service worker, :4173
 ```
 
-Built files will appear in the `dist/` directory.
+### Firebase
 
-### Quality Checks & Tests
+The web app already points at the official **`glasswave-4f5da`** project (Email/Password). You do not need a `.env` to log in.
 
-```bash
-npm run typecheck      # TypeScript type checking
-npm run lint           # ESLint
-npm run format:check   # Prettier
-npm run test           # Vitest unit tests
-npm run i18n:export    # Regenerate assets/translations/*.json from src/i18n
-```
+To aim a fork or staging build at another project, copy [`.env.example`](.env.example) to `.env` and set all six `VITE_FIREBASE_*` values from **that** project. Mixing keys from two projects is the usual cause of `auth/operation-not-allowed`.
 
-### Preview the PWA
+If you override the config:
 
-The service worker is only active in a production build:
+- Enable **Email/Password** (the password provider, not Email link)
+- Add every host you serve from to Authentication → Settings → Authorized domains
+- Do not set `VITE_FIREBASE_AUTH_EMULATOR` unless the emulator is actually running
 
-```bash
-npm run build
-npm run preview        # http://localhost:4173
-```
+Do not commit `.env`. Security rules live in [`firestore.rules`](firestore.rules) — the snippet that used to sit in this README was incomplete.
 
----
+## Native (same React app)
 
-## 🤖 Android APK (Capacitor + React)
+Capacitor wraps the web build. Flutter’s native trees stay in `android/` and `ios/`.
 
-The Android APK is the **same React + Vite app**, wrapped with [Capacitor](https://capacitorjs.com). Flutter remains in `android/` / `lib/` for the native rewrite; Capacitor lives in `android-capacitor/`.
-
-### Build the APK
+**Android APK** — Node 22+, JDK 21, Android SDK (compileSdk 36):
 
 ```bash
-npm install
 npm run android:apk
+# android-capacitor/app/build/outputs/apk/release/app-release.apk
 ```
 
-The installable file is written to:
+Pushes to `main` also typecheck, lint, test, and publish a GitHub Release APK (`.github/workflows/apk_build.yml`). Details: [docs/android-apk.md](docs/android-apk.md).
 
-```
-android-capacitor/app/build/outputs/apk/release/app-release.apk
-```
-
-Requirements: Node.js 22+, JDK 21, Android SDK (compileSdk 36).
-
-You can also sync the web build into the native project without compiling Gradle:
+**iOS** — no CI (needs a Mac + Apple signing). Details: [docs/ios-app.md](docs/ios-app.md).
 
 ```bash
-npm run cap:sync
-npx cap open android
+npm run cap:sync:ios
+open ios-capacitor/App/App.xcworkspace
 ```
 
----
+PWA notes (install, offline shell, what reminders can and cannot do in the browser): [docs/pwa.md](docs/pwa.md). Notification sound across web / Android / iOS: [docs/notification-sound.md](docs/notification-sound.md).
 
-### Web Tech Stack
+## Flutter prototype
 
-- **React 18.3** — UI library
-- **Vite 6.4** — Build tool
-- **Tailwind CSS 4.1** — Styling
-- **TipTap** — WYSIWYG editor
-- **Lucide React** — Icons
-- **Firebase** — Backend
-
----
-
-## 📱 Mobile Version (Flutter)
-
-> ⚠️ The Flutter app is a **local-only prototype**: notes and accounts are stored
-> on-device (`shared_preferences`) and do **not** sync to Firebase yet. Use the
-> React web app (or its Capacitor Android wrapper) for cross-device sync.
-
-### Install Dependencies
+Local-only. Accounts are a SHA-256 hash in `shared_preferences`. No cloud sync.
 
 ```bash
 flutter pub get
-```
-
-### Run the App
-
-```bash
 flutter run
 ```
 
-Or select a specific device:
+Dart SDK `^3.12.2` (see `pubspec.yaml`).
+
+## Using the app
+
+The dashboard is one screen with **Notes / Archive / Trash** tabs. Pinned notes sit at the top of Notes. Settings is a separate screen (account, theme, language, delete account).
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl/Cmd + N` | New note (dashboard) |
+| `Ctrl/Cmd + F` | Focus search |
+| `Ctrl/Cmd + S` | Save (editor) |
+| `Esc` | Close editor / modal |
+
+## i18n
+
+[`src/i18n/translations.ts`](src/i18n/translations.ts) is the only place to add strings. After editing it:
 
 ```bash
-flutter devices
-flutter run -d <device_id>
+npm run i18n:export    # regenerates assets/translations/{ru,en,ko}.json
 ```
 
-### Build for Various Platforms
+## License
 
-```bash
-# Android APK
-flutter build apk --release
-
-# iOS
-flutter build ios --release
-
-# Desktop (Linux/macOS/Windows)
-flutter build linux --release
-flutter build macos --release
-flutter build windows --release
-```
-
-### Flutter Tech Stack
-
-- **Flutter Riverpod** — State management
-- **Google Fonts** — Typography
-- **Easy Localization** — Localization
-- **Lucide Icons Flutter** — Icons
-- **Shared Preferences** — Local storage
-- **Flutter Markdown** — Markdown rendering
-
----
-
-## 📖 Usage
-
-### Main Screens
-
-| Screen | Description |
-|--------|-------------|
-| **Dashboard** | Main page with list of all notes |
-| **Editor** | Create and edit notes |
-| **Pinned** | Quick access to important notes |
-| **Archive** | Archived notes |
-| **Trash** | Deleted notes (before permanent deletion) |
-| **Settings** | Account, theme, language management |
-
-### Keyboard Shortcuts (Web Version)
-
-- `Ctrl/Cmd + N` — Create new note
-- `Ctrl/Cmd + F` — Search
-- `Ctrl/Cmd + S` — Save note
-- `Esc` — Close editor/modal
-
----
-
-## 🌐 Localization
-
-`src/i18n/translations.ts` is the **single source of truth** for all UI strings.
-Both the React app and the Flutter app derive their strings from it.
-
-Adding a new language or string:
-
-1. Add the string to the `Translation` interface and all three language objects
-   in `src/i18n/translations.ts`.
-2. Run `npm run i18n:export` to regenerate `assets/translations/*.json` for the
-   Flutter app (never edit those JSON files by hand).
-
-Translation structure example:
-
-```ts
-{
-  settings: "Settings",
-  dashboard: "Notes",
-  createNote: "Create note",
-}
-```
-
----
-
-## 🔧 Configuration
-
-### Firebase Rules
-
-The `firestore.rules` file contains security rules for the database:
-
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
-```
-
-### Deploy to Firebase Hosting
-
-```bash
-npm run build
-firebase deploy
-```
-
----
-
-## ♿ Accessibility
-
-The web app targets keyboard and screen-reader accessibility:
-
-- Note cards are focusable and open with `Enter`/`Space`.
-- Modals trap focus, restore it on close, and close with `Esc`.
-- `prefers-reduced-motion` disables animations.
-- Interactive elements carry `aria-label`/`role` where needed.
-
----
-
-## 🤝 Contributing
-
-We welcome contributions to GlassWave development!
-
-1. Fork the repository
-2. Create a branch for your feature (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Code Style Guide
-
-- **React**: ESLint + Prettier (`npm run lint`, `npm run format`)
-- **Flutter**: `flutter analyze` + `dart format`
-
-CI builds and publishes the Android APK from `main`
-(`.github/workflows/apk_build.yml`).
-
----
-
-## 📄 License
-
-This project is distributed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- [Lucide Icons](https://lucide.dev) — Beautiful open-source icons
-- [TipTap](https://tiptap.dev) — Powerful WYSIWYG editor
-- [Firebase](https://firebase.google.com) — Backend as a service
-- [Flutter](https://flutter.dev) — Cross-platform development
-
----
-
-## 📞 Contact
-
-- **Project**: GlassWave
-- **Version**: 1.0.0
-
-If you have any questions or suggestions, please create an issue in the repository.
-
----
-
-<div align="center">
-
-**Made with ❤️ using React, Flutter & Firebase**
-
-</div>
+[MIT](LICENSE)
