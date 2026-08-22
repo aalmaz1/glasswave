@@ -4,8 +4,10 @@ import "./styles/index.css";
 import { LanguageProvider } from "./i18n";
 import { AppErrorBoundary } from "./app/components/ErrorBoundary";
 import { initNativeShell } from "./native";
+import { registerServiceWorker } from "./pwa";
 
 void initNativeShell();
+registerServiceWorker();
 
 const rootEl = document.getElementById("root");
 
