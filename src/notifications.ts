@@ -23,13 +23,17 @@ export const isNativeApp = (): boolean => {
 /**
  * Android notification channel for reminders. On Android 8+ the channel (not
  * the individual notification) owns the sound, so we create a dedicated channel
- * configured with the GlassWave glass chime and route every reminder through it.
+ * configured with the GlassWave notification sound and route every reminder through it.
  */
-const REMINDER_CHANNEL_ID = "glasswave-reminders";
+// NOTE: Android caches a channel's sound at creation time and ignores later
+// changes, so the id is versioned — bump it whenever the sound file changes.
+const REMINDER_CHANNEL_ID = "glasswave-reminders-v2";
+/** Previous channel ids, deleted on startup so stale sounds cannot linger. */
+const LEGACY_CHANNEL_IDS = ["glasswave-reminders"];
 /** Sound asset in `android-capacitor/app/src/main/res/raw/` (extension kept for iOS). */
-const REMINDER_SOUND = "glasswave_notification.wav";
-/** Web copy of the same chime, bundled under `public/sounds/`. */
-const WEB_SOUND_URL = "/sounds/glasswave-notification.wav";
+const REMINDER_SOUND = "glasswave_notification.mp3";
+/** Web copy of the same sound, bundled under `public/sounds/`. */
+const WEB_SOUND_URL = "/sounds/glasswave-notification.mp3";
 
 /** Stable 31-bit notification id derived from an arbitrary string key. */
 function notifIdForKey(key: string): number {
@@ -41,7 +45,7 @@ function notifIdForKey(key: string): number {
 }
 
 /**
- * Create (or reuse) the reminder notification channel with the GlassWave chime.
+ * Create (or reuse) the reminder notification channel with the GlassWave notification sound.
  * Idempotent and safe to call on every startup and before every schedule; on
  * web this is a no-op. `name` is shown to the user in Android's channel
  * settings, so callers pass the localized "Reminder" label.
@@ -49,12 +53,15 @@ function notifIdForKey(key: string): number {
 export async function ensureReminderChannel(name = "Reminders"): Promise<void> {
   if (!isNativeApp()) return;
   try {
+    for (const legacyId of LEGACY_CHANNEL_IDS) {
+      await LocalNotifications.deleteChannel({ id: legacyId }).catch(() => {});
+    }
     await LocalNotifications.createChannel({
       id: REMINDER_CHANNEL_ID,
       name,
       description: "GlassWave",
       sound: REMINDER_SOUND,
-      importance: 4, // HIGH — heads-up so the chime is audible
+      importance: 4, // HIGH — heads-up so the sound is audible
       visibility: 1, // public
       vibration: true,
     });
@@ -64,7 +71,7 @@ export async function ensureReminderChannel(name = "Reminders"): Promise<void> {
 }
 
 /**
- * Best-effort in-app playback of the glass chime for web reminders. The browser
+ * Best-effort in-app playback of the notification sound for web reminders. The browser
  * Notification API cannot play a custom sound, so when the app is open we play
  * it ourselves alongside the (optional) browser notification.
  */
@@ -115,7 +122,7 @@ export async function scheduleReminderNotification(
   if (!isNativeApp()) return;
   const id = notifIdForKey(key);
   try {
-    // Make sure the channel (and its glass-chime sound) exists first: on
+    // Make sure the channel (and its custom sound) exists first: on
     // Android 8+ a notification posted to a missing channel never fires.
     await ensureReminderChannel();
     await LocalNotifications.cancel({ notifications: [{ id }] });
