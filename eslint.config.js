@@ -13,7 +13,15 @@ import { defineConfig, globalIgnores } from "eslint/config";
  * whitespace-style churn. Run `npm run lint` in CI.
  */
 export default defineConfig([
-  globalIgnores(["dist", "node_modules", "coverage", "android-capacitor", "public", "*.config.js"]),
+  globalIgnores([
+    "dist",
+    "node_modules",
+    "coverage",
+    "android-capacitor",
+    "ios-capacitor",
+    "public",
+    "*.config.js",
+  ]),
 
   js.configs.recommended,
 

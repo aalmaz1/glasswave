@@ -16,12 +16,14 @@
     "i18n:export": "tsx scripts/export-i18n.ts",
     "sound:ios": "node scripts/mp3-to-ios-sound.mjs",
     "cap:sync": "npm run build && npx cap sync android",
+    "cap:sync:ios": "npm run build && npx cap sync ios",
     "android:apk": "npm run cap:sync && cd android-capacitor && ./gradlew assembleRelease"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
     "@capacitor/app": "^8.0.0",
     "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
     "@capacitor/local-notifications": "^8.0.0",
     "@tiptap/extension-placeholder": "^3.28.0",
     "@tiptap/extension-underline": "3.28.0",

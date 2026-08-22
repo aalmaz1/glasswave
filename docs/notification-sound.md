@@ -6,7 +6,9 @@ One source file drives every platform: **`glasswave_notification.mp3`**.
 | ------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Web / PWA           | `public/sounds/glasswave-notification.mp3`                          | Played in-app by `playReminderSound()`; the browser Notification API cannot carry a custom sound. |
 | Android (Capacitor) | `android-capacitor/app/src/main/res/raw/glasswave_notification.mp3` | Set on the `glasswave-reminders-v2` notification channel **and** on each notification.            |
-| iOS (Capacitor)     | `resources/ios/glasswave_notification.wav`                          | Must be copied into the Xcode app bundle — see below.                                             |
+| iOS (Capacitor)     | `ios-capacitor/App/App/glasswave_notification.wav`                  | Already in the Xcode **App** target's _Copy Bundle Resources_, so it ships inside the app bundle. |
+
+`src/notifications.ts` picks the right file at runtime via `Capacitor.getPlatform()`.
 
 ## Why iOS needs a WAV
 
@@ -14,7 +16,7 @@ One source file drives every platform: **`glasswave_notification.mp3`**.
 in a `.wav`, `.aiff` or `.caf` container, and the clip must be shorter than
 30 seconds. An MP3 is silently ignored and iOS falls back to the default sound,
 so the iOS asset is a 16-bit Linear PCM WAV decoded from the same MP3
-(trimmed at the point where the tail becomes inaudible, with a short fade-out).
+(trimmed where the tail becomes inaudible, with a short fade-out).
 
 Regenerate it after replacing the MP3:
 
@@ -24,18 +26,20 @@ npm run sound:ios
 
 (`scripts/mp3-to-ios-sound.mjs` — pure Node, no ffmpeg required.)
 
-## Adding the sound to the iOS app
+## iOS project
 
-The Capacitor iOS platform is not checked in yet. After `npx cap add ios`:
+The Capacitor iOS platform lives in `ios-capacitor/` (Flutter's own native
+project stays in `ios/`), configured through `ios.path` in `capacitor.config.ts`.
+Capacitor 8 uses Swift Package Manager, so no CocoaPods step is needed:
 
-1. Copy the asset into the app target folder:
-   ```bash
-   cp resources/ios/glasswave_notification.wav ios/App/App/
-   ```
-2. In Xcode, drag the file into the **App** target (_Copy items if needed_,
-   target membership **App**) so it lands in _Build Phases → Copy Bundle Resources_.
-3. Nothing else is needed in code: `src/notifications.ts` already passes
-   `sound: "glasswave_notification.wav"` when `Capacitor.getPlatform() === "ios"`.
+```bash
+npm run cap:sync:ios          # build web + copy into ios-capacitor
+open ios-capacitor/App/App.xcworkspace   # macOS only, to run/archive
+```
+
+Nothing has to be done by hand for the sound — the WAV is already registered in
+`App.xcodeproj` (file reference + Copy Bundle Resources), and `cap sync` keeps
+it in place.
 
 ## Replacing the sound later
 

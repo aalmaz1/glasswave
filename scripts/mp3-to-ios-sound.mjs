@@ -14,7 +14,7 @@
  *
  * Defaults:
  *   input   public/sounds/glasswave-notification.mp3
- *   output  resources/ios/glasswave_notification.wav
+ *   output  ios-capacitor/App/App/glasswave_notification.wav
  */
 
 import fs from "node:fs";
@@ -27,7 +27,7 @@ const MIN_DURATION = 1.0; // seconds, never trim shorter than this
 const FADE_OUT = 0.15; // seconds of fade so the cut is not a click
 
 const input = process.argv[2] ?? "public/sounds/glasswave-notification.mp3";
-const output = process.argv[3] ?? "resources/ios/glasswave_notification.wav";
+const output = process.argv[3] ?? "ios-capacitor/App/App/glasswave_notification.wav";
 
 const decoder = new MPEGDecoder();
 await decoder.ready;
