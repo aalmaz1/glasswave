@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "i18n:export": "tsx scripts/export-i18n.ts",
+    "sound:ios": "node scripts/mp3-to-ios-sound.mjs",
     "cap:sync": "npm run build && npx cap sync android",
     "android:apk": "npm run cap:sync && cd android-capacitor && ./gradlew assembleRelease"
   },
@@ -44,6 +45,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.26",
     "jsdom": "^26.1.0",
+    "mpg123-decoder": "^1.0.3",
     "prettier": "^3.9.6",
     "tailwindcss": "4.1.12",
     "tsx": "^4.23.12",

@@ -20,6 +20,15 @@ export const isNativeApp = (): boolean => {
   }
 };
 
+/** Current Capacitor platform ("android" | "ios" | "web"), safe on plain web. */
+function getPlatform(): string {
+  try {
+    return Capacitor.getPlatform();
+  } catch {
+    return "web";
+  }
+}
+
 /**
  * Android notification channel for reminders. On Android 8+ the channel (not
  * the individual notification) owns the sound, so we create a dedicated channel
@@ -30,8 +39,15 @@ export const isNativeApp = (): boolean => {
 const REMINDER_CHANNEL_ID = "glasswave-reminders-v2";
 /** Previous channel ids, deleted on startup so stale sounds cannot linger. */
 const LEGACY_CHANNEL_IDS = ["glasswave-reminders"];
-/** Sound asset in `android-capacitor/app/src/main/res/raw/` (extension kept for iOS). */
-const REMINDER_SOUND = "glasswave_notification.mp3";
+/**
+ * Native sound asset, per platform:
+ *  - Android: `android-capacitor/app/src/main/res/raw/glasswave_notification.mp3`
+ *  - iOS: `glasswave_notification.wav` in the app bundle (see
+ *    `resources/ios/`). iOS only plays Linear PCM / MA4 / µ-law / a-law in a
+ *    `.wav`, `.aiff` or `.caf` container — an MP3 is ignored and the system
+ *    default sound is used instead, hence the decoded WAV copy.
+ */
+const REMINDER_SOUND = getPlatform() === "ios" ? "glasswave_notification.wav" : "glasswave_notification.mp3";
 /** Web copy of the same sound, bundled under `public/sounds/`. */
 const WEB_SOUND_URL = "/sounds/glasswave-notification.mp3";
 

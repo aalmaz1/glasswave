@@ -13,18 +13,24 @@ import { defineConfig, globalIgnores } from "eslint/config";
  * whitespace-style churn. Run `npm run lint` in CI.
  */
 export default defineConfig([
-  globalIgnores([
-    "dist",
-    "node_modules",
-    "coverage",
-    "android-capacitor",
-    "public",
-    "*.config.js",
-  ]),
+  globalIgnores(["dist", "node_modules", "coverage", "android-capacitor", "public", "*.config.js"]),
 
   js.configs.recommended,
 
   ...tseslint.configs.recommended,
+
+  {
+    // Build-time helpers run in Node, not in the browser.
+    files: ["scripts/**/*.{js,mjs,cjs}"],
+    languageOptions: {
+      globals: {
+        process: "readonly",
+        console: "readonly",
+        Buffer: "readonly",
+        __dirname: "readonly",
+      },
+    },
+  },
 
   {
     files: ["**/*.{ts,tsx}"],
