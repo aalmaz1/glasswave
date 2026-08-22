@@ -277,7 +277,45 @@ export default function App() {
      Notification (or in-app toast fallback) for any reminder whose time has
      arrived but that we haven't shown yet. We also ask for Notification
      permission once a reminder is first scheduled. */
-  const firedRef = useRef<Set<string>>(new Set());
+  const FIRED_REMINDERS_KEY = "glasswave_fired_reminders_v1";
+
+  function loadFiredReminders(): Set<string> {
+    try {
+      const raw = localStorage.getItem(FIRED_REMINDERS_KEY);
+      if (!raw) return new Set();
+      const arr = JSON.parse(raw);
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  function saveFiredReminders(set: Set<string>) {
+    try {
+      localStorage.setItem(FIRED_REMINDERS_KEY, JSON.stringify([...set]));
+    } catch {}
+  }
+
+  const firedRef = useRef<Set<string>>(loadFiredReminders());
+
+  // Clean up very old fired reminders (older than 2 hours) on startup
+  useEffect(() => {
+    const now = Date.now();
+    let changed = false;
+    for (const key of firedRef.current) {
+      // key ends with -ISO-date
+      const iso = key.split("-").slice(-1)[0];
+      if (iso) {
+        const t = Date.parse(iso);
+        if (!isNaN(t) && now - t > 2 * 60 * 60 * 1000) {
+          firedRef.current.delete(key);
+          changed = true;
+        }
+      }
+    }
+    if (changed) saveFiredReminders(firedRef.current);
+  }, []);
+
   useEffect(() => {
     if (!("Notification" in window)) return;
     if (Notification.permission === "default") {
@@ -299,6 +337,7 @@ export default function App() {
         const diff = n.reminder.getTime() - nowMs;
         if (diff <= 0 && diff > -60 * 60 * 1000 /* within last hour */) {
           firedRef.current.add(key);
+          saveFiredReminders(firedRef.current);
           const title = n.title || t.untitled;
           const body = stripHtml(n.body).slice(0, 140);
           // Browsers can't attach a custom sound to a Notification, so play the
