@@ -284,7 +284,7 @@ export default function App() {
       // Don't annoy on first open — ask lazily when user sets a reminder.
     }
   }, []);
-  // Register the Android notification channel (with the glass chime) once at
+  // Register the Android notification channel (with the notification sound) once at
   // startup. No-op on web; harmless to run again when the language changes.
   useEffect(() => {
     void ensureReminderChannel(t.reminder);
@@ -302,7 +302,7 @@ export default function App() {
           const title = n.title || t.untitled;
           const body = stripHtml(n.body).slice(0, 140);
           // Browsers can't attach a custom sound to a Notification, so play the
-          // GlassWave chime in-app as well whenever a reminder comes due.
+          // GlassWave notification sound in-app as well whenever a reminder comes due.
           playReminderSound();
           if ("Notification" in window && Notification.permission === "granted") {
             try {

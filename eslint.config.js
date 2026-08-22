@@ -18,6 +18,7 @@ export default defineConfig([
     "node_modules",
     "coverage",
     "android-capacitor",
+    "ios-capacitor",
     "public",
     "*.config.js",
   ]),
@@ -25,6 +26,19 @@ export default defineConfig([
   js.configs.recommended,
 
   ...tseslint.configs.recommended,
+
+  {
+    // Build-time helpers run in Node, not in the browser.
+    files: ["scripts/**/*.{js,mjs,cjs}"],
+    languageOptions: {
+      globals: {
+        process: "readonly",
+        console: "readonly",
+        Buffer: "readonly",
+        __dirname: "readonly",
+      },
+    },
+  },
 
   {
     files: ["**/*.{ts,tsx}"],

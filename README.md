@@ -30,6 +30,11 @@ GlassWave is an elegant note management application featuring modern glassmorphi
 
 > The Flutter version is a **local-only** prototype (see [Mobile Version](#-mobile-version-flutter)); cloud sync currently lives in the React web app.
 
+### 📲 Progressive Web App
+- **Installable** — add to the home screen / desktop and run in a standalone window
+- **Offline shell** — service worker (Workbox) precaches the app, icons and the reminder sound
+- See [docs/pwa.md](docs/pwa.md)
+
 ### 🌍 Multilingual Support
 Support for three interface languages:
 - 🇷🇺 Русский
@@ -139,6 +144,15 @@ npm run lint           # ESLint
 npm run format:check   # Prettier
 npm run test           # Vitest unit tests
 npm run i18n:export    # Regenerate assets/translations/*.json from src/i18n
+```
+
+### Preview the PWA
+
+The service worker is only active in a production build:
+
+```bash
+npm run build
+npm run preview        # http://localhost:4173
 ```
 
 ---
