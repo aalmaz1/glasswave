@@ -28,18 +28,10 @@ npm run sound:ios
 
 ## iOS project
 
-The Capacitor iOS platform lives in `ios-capacitor/` (Flutter's own native
-project stays in `ios/`), configured through `ios.path` in `capacitor.config.ts`.
-Capacitor 8 uses Swift Package Manager, so no CocoaPods step is needed:
-
-```bash
-npm run cap:sync:ios          # build web + copy into ios-capacitor
-open ios-capacitor/App/App.xcworkspace   # macOS only, to run/archive
-```
-
-Nothing has to be done by hand for the sound — the WAV is already registered in
-`App.xcodeproj` (file reference + Copy Bundle Resources), and `cap sync` keeps
-it in place.
+The Capacitor iOS platform lives in `ios-capacitor/` — see
+[ios-app.md](./ios-app.md). Nothing has to be done by hand for the sound: the
+WAV is already registered in `App.xcodeproj` (file reference + Copy Bundle
+Resources), and `npm run cap:sync:ios` keeps the project in sync.
 
 ## Replacing the sound later
 
