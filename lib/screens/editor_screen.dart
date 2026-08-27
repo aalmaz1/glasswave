@@ -1,13 +1,35 @@
+import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:intl/intl.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../models/note.dart';
 import '../providers/app_providers.dart';
 import '../theme/app_theme_data.dart';
+import '../theme/design_tokens.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/confirm_dialog.dart';
+
+/// Opens the editor as a centered glass modal — same as the React Native
+/// `EditorModal` (overlay, 62% / 82% / mobile width, 88vh/92dvh height).
+Future<void> openEditorOverlay(BuildContext context, {Note? note}) {
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    barrierLabel: 'editor',
+    barrierColor: Colors.transparent,
+    transitionDuration: const Duration(milliseconds: 300),
+      transitionBuilder: (context, animation, secondaryAnimation, child) => child,
+    pageBuilder: (dialogContext, animation, secondaryAnimation) {
+      return EditorScreen(note: note);
+    },
+  );
+}
 
 class EditorScreen extends ConsumerStatefulWidget {
   final Note? note;
@@ -20,66 +42,176 @@ class EditorScreen extends ConsumerStatefulWidget {
 class _EditorScreenState extends ConsumerState<EditorScreen> {
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
-  late FocusNode _bodyFocusNode;
-  bool _isPreview = false;
+
+  String _baselineTitle = '';
+  String _baselineBody = '';
+  int? _noteId;
+
+  bool _restoring = false;
+  List<String> _undoStack = [];
+  List<String> _redoStack = [];
+  String _lastBodyText = '';
+
+  Timer? _autosaveTimer;
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.note?.title ?? "");
-    _bodyController = TextEditingController(text: widget.note?.body ?? "");
-    _bodyFocusNode = FocusNode();
-    _bodyController.addListener(() => setState(() {}));
+    _baselineTitle = widget.note?.title ?? '';
+    _baselineBody = widget.note?.body ?? '';
+    _noteId = widget.note?.id;
+    _titleController = TextEditingController(text: _baselineTitle);
+    _bodyController = TextEditingController(text: _baselineBody);
+    _lastBodyText = _baselineBody;
+    _titleController.addListener(_onTitleChanged);
+    _bodyController.addListener(_onBodyChanged);
   }
 
   @override
   void dispose() {
+    _autosaveTimer?.cancel();
     _titleController.dispose();
     _bodyController.dispose();
-    _bodyFocusNode.dispose();
     super.dispose();
   }
 
-  void _save() {
-    final title = _titleController.text.trim().isEmpty ? tr('editor_no_title') : _titleController.text.trim();
-    final body = _bodyController.text.trim();
+  bool get _dirty =>
+      _titleController.text != _baselineTitle || _bodyController.text != _baselineBody;
 
-    if (title.isEmpty && body.isEmpty) {
+  void _onTitleChanged() {
+    if (mounted) setState(() {});
+    _scheduleAutosave();
+  }
+
+  void _onBodyChanged() {
+    final v = _bodyController.text;
+    if (v == _lastBodyText) return;
+    if (!_restoring) {
+      _undoStack.add(_lastBodyText);
+      if (_undoStack.length > 100) _undoStack.removeAt(0);
+      _redoStack.clear();
+    }
+    _lastBodyText = v;
+    if (mounted) setState(() {});
+    _scheduleAutosave();
+  }
+
+  void _scheduleAutosave() {
+    if (!_dirty) return;
+    _autosaveTimer?.cancel();
+    _autosaveTimer = Timer(const Duration(milliseconds: 1500), _persistSilent);
+  }
+
+  String _dateLocale(String langCode) {
+    switch (langCode) {
+      case 'ru':
+        return 'ru_RU';
+      case 'ko':
+        return 'ko_KR';
+      default:
+        return 'en_US';
+    }
+  }
+
+  int get _wordCount {
+    final text = _bodyController.text.trim();
+    if (text.isEmpty) return 0;
+    return text.split(RegExp(r'\s+')).length;
+  }
+
+  Note _buildNote() {
+    final title = _titleController.text.trim().isEmpty
+        ? tr('editor_no_title')
+        : _titleController.text.trim();
+    final body = _bodyController.text.trim();
+    final prefs = ref.read(themeProvider);
+    final theme = allThemes.firstWhere((t) => t.id == prefs.themeId);
+    final now = DateTime.now();
+    if (widget.note == null && _noteId == null) {
+      final id = now.millisecondsSinceEpoch;
+      _noteId = id;
+      return Note(
+        id: id,
+        title: title,
+        body: body,
+        updatedAt: now,
+        accentIdx: now.millisecondsSinceEpoch % theme.accents.length,
+      );
+    }
+    if (widget.note != null) {
+      return widget.note!.copyWith(title: title, body: body, updatedAt: now);
+    }
+    final existing = ref.read(notesProvider.notifier).findById(_noteId!);
+    return (existing ??
+            Note(
+              id: _noteId!,
+              title: title,
+              body: body,
+              updatedAt: now,
+              accentIdx: now.millisecondsSinceEpoch % theme.accents.length,
+            ))
+        .copyWith(title: title, body: body, updatedAt: now);
+  }
+
+  void _persistSilent() {
+    if (_titleController.text.trim().isEmpty && _bodyController.text.trim().isEmpty) return;
+    final created = _buildNote();
+    final notifier = ref.read(notesProvider.notifier);
+    if (widget.note == null) {
+      notifier.upsert(created);
+    } else {
+      notifier.updateNote(created);
+    }
+    _baselineTitle = _titleController.text;
+    _baselineBody = _bodyController.text;
+    if (mounted) setState(() {});
+  }
+
+  void _save() {
+    if (_titleController.text.trim().isEmpty && _bodyController.text.trim().isEmpty) {
       Navigator.pop(context);
       return;
     }
-
-    final prefs = ref.read(themeProvider);
-    final theme = allThemes.firstWhere((t) => t.id == prefs.themeId);
-
+    final note = _buildNote();
+    final notifier = ref.read(notesProvider.notifier);
     if (widget.note == null) {
-      final newNote = Note(
-        id: DateTime.now().millisecondsSinceEpoch,
-        title: title,
-        body: body,
-        updatedAt: DateTime.now(),
-        accentIdx: (DateTime.now().millisecondsSinceEpoch % theme.accents.length),
-      );
-      ref.read(notesProvider.notifier).addNote(newNote);
+      notifier.upsert(note);
     } else {
-      final updatedNote = widget.note!.copyWith(
-        title: title,
-        body: body,
-        updatedAt: DateTime.now(),
-      );
-      ref.read(notesProvider.notifier).updateNote(updatedNote);
+      notifier.updateNote(note);
     }
     Navigator.pop(context);
   }
 
-  void _insertFormat(String prefix, [String suffix = ""]) {
-    if (_isPreview) return;
+  Future<void> _requestClose() async {
+    if (!_dirty) {
+      Navigator.pop(context);
+      return;
+    }
+    final choice = await showGlassConfirm(
+      context,
+      title: tr('unsaved_changes_title'),
+      body: tr('unsaved_changes_body'),
+      confirmLabel: tr('unsaved_save'),
+      cancelLabel: tr('cancel'),
+      extraLabel: tr('unsaved_discard'),
+      danger: false,
+    );
+    if (!mounted) return;
+    if (choice == GlassConfirmChoice.confirm) {
+      _save();
+    } else if (choice == GlassConfirmChoice.extra) {
+      Navigator.pop(context);
+    }
+  }
+
+  // ── Markdown helpers ──────────────────────────────────────────────
+  void _insertFormat(String prefix, [String suffix = '']) {
     final text = _bodyController.text;
     final selection = _bodyController.selection;
-
     if (selection.isValid && !selection.isCollapsed) {
       final selectedText = selection.textInside(text);
-      final newText = text.replaceRange(selection.start, selection.end, "$prefix$selectedText$suffix");
+      final newText =
+          text.replaceRange(selection.start, selection.end, '$prefix$selectedText$suffix');
       _bodyController.value = TextEditingValue(
         text: newText,
         selection: TextSelection(
@@ -89,15 +221,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       );
     } else {
       final currentPos = selection.baseOffset != -1 ? selection.baseOffset : text.length;
-      final newText = text.replaceRange(currentPos, currentPos, "$prefix$suffix");
+      final newText = text.replaceRange(currentPos, currentPos, '$prefix$suffix');
       _bodyController.text = newText;
       _bodyController.selection = TextSelection.collapsed(offset: currentPos + prefix.length);
     }
-    _bodyFocusNode.requestFocus();
   }
 
   void _toggleLinePrefix(String prefix) {
-    if (_isPreview) return;
     final text = _bodyController.text;
     final selection = _bodyController.selection;
     final currentPos = selection.baseOffset != -1 ? selection.baseOffset : text.length;
@@ -123,102 +253,253 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       final newPos = currentPos + prefix.length;
       _bodyController.selection = TextSelection.collapsed(offset: newPos);
     }
-    _bodyFocusNode.requestFocus();
   }
 
-  int get _wordCount => _bodyController.text.trim().isEmpty ? 0 : _bodyController.text.trim().split(RegExp(r'\s+')).length;
-
-  String _dateLocale(String langCode) {
-    switch (langCode) {
-      case 'ru': return 'ru_RU';
-      case 'ko': return 'ko_KR';
-      default: return 'en_US';
-    }
+  void _undo() {
+    if (_undoStack.isEmpty) return;
+    _restoring = true;
+    _redoStack.add(_lastBodyText);
+    final previous = _undoStack.removeLast();
+    _bodyController.text = previous;
+    _bodyController.selection = TextSelection.collapsed(offset: previous.length);
+    _restoring = false;
   }
 
+  void _redo() {
+    if (_redoStack.isEmpty) return;
+    _restoring = true;
+    _undoStack.add(_lastBodyText);
+    final next = _redoStack.removeLast();
+    _bodyController.text = next;
+    _bodyController.selection = TextSelection.collapsed(offset: next.length);
+    _restoring = false;
+  }
+
+  String _currentLine() {
+    final text = _bodyController.text;
+    final pos = _bodyController.selection.baseOffset;
+    final caret = pos != -1 ? pos : text.length;
+    final lineStart = text.lastIndexOf('\n', caret - 1);
+    final start = lineStart == -1 ? 0 : lineStart + 1;
+    final lineEnd = text.indexOf('\n', caret);
+    final end = lineEnd == -1 ? text.length : lineEnd;
+    return text.substring(start, end).trimLeft();
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final prefs = ref.watch(themeProvider);
-    final theme = allThemes.firstWhere((t) => t.id == prefs.themeId);
-    final localeCode = context.locale.languageCode;
-    final dateLocale = _dateLocale(localeCode);
+    final media = MediaQuery.of(context);
+    final width = media.size.width;
+    final isMobile = width < 768;
+    final isTablet = width >= 768 && width < 1280;
 
-    final today = DateFormat("d MMMM yyyy", dateLocale).format(DateTime.now());
-    final width = MediaQuery.of(context).size.width;
-
-    double modalWidth = width;
-    if (width >= 1280) {
-      modalWidth = (width * 0.62).clamp(0, 720);
-    } else if (width >= 768) {
-      modalWidth = width * 0.82;
-    }
+    final mW = isMobile
+        ? double.infinity
+        : isTablet
+            ? width * 0.82
+            : math.min(720.0, width * 0.62);
+    final mH = media.size.height * (isMobile ? 0.92 : 0.88);
+    final screenRadius = isMobile ? 20.0 : 24.0;
+    final today = DateFormat('d MMMM yyyy', _dateLocale(context.locale.languageCode))
+        .format(DateTime.now());
 
     return CallbackShortcuts(
-      bindings: <ShortcutActivator, VoidCallback>{
+      bindings: {
+        SingleActivator(LogicalKeyboardKey.escape): _requestClose,
         SingleActivator(LogicalKeyboardKey.keyS, control: true): _save,
         SingleActivator(LogicalKeyboardKey.keyS, meta: true): _save,
-        SingleActivator(LogicalKeyboardKey.escape): () => Navigator.pop(context),
       },
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Center(
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0.0, end: 1.0),
-            duration: const Duration(milliseconds: 300),
-            curve: const Cubic(0.34, 1.46, 0.64, 1.0),
-            builder: (context, value, child) {
-              return Transform.translate(
-                offset: Offset(0, 22 * (1 - value)),
-                child: Transform.scale(
-                  scale: 0.97 + (0.03 * value),
-                  child: Opacity(opacity: value, child: child),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _requestClose,
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: isMobile ? 0 : 2,
+                  sigmaY: isMobile ? 0 : 2,
                 ),
-              );
-            },
-            child: Container(
-              width: modalWidth,
-              height: width < 768 ? double.infinity : MediaQuery.of(context).size.height * 0.88,
-              decoration: BoxDecoration(
-                gradient: theme.bg,
-                borderRadius: width < 768 ? BorderRadius.zero : BorderRadius.circular(24),
+                child: Container(color: G.overlay),
               ),
-              child: Column(
-                children: [
-                  if (width >= 768) const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            ),
+          ),
+          Center(
+            child: Padding(
+              padding: EdgeInsets.all(isMobile ? 12 : 24),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 300),
+                curve: const Cubic(0.34, 1.46, 0.64, 1.0),
+                builder: (context, value, child) {
+                  return Transform.translate(
+                    offset: Offset(0, 22 * (1 - value)),
+                    child: Transform.scale(
+                      scale: 0.97 + (0.03 * value),
+                      child: Opacity(opacity: value, child: child),
+                    ),
+                  );
+                },
+                child: SizedBox(
+                  width: mW,
+                  height: mH,
+                  child: GlassContainer(
+                    blur: 32,
+                    borderRadius: screenRadius,
+                    color: G.bg,
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+                    boxShadow: G.modalShadow,
+                    fit: StackFit.expand,
+                    child: Column(
                       children: [
-                        Flexible(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: _headerAction(LucideIcons.x, tr('editor_close'), () => Navigator.pop(context)),
+                        // Header: close chip · "New note" · save chip
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.08),
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              GlassChip(
+                                onTap: _requestClose,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(LucideIcons.x, size: 14, color: G.textSecondary),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      tr('editor_close'),
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        color: G.textSecondary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (!isMobile && widget.note == null)
+                                Text(
+                                  tr('editor_new').toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 10.6,
+                                    fontWeight: FontWeight.w500,
+                                    color: G.textMuted,
+                                    letterSpacing: 1.3,
+                                  ),
+                                )
+                              else
+                                const SizedBox.shrink(),
+                              GlassChip(
+                                highlight: true,
+                                onTap: _save,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(LucideIcons.check, size: 14, color: G.textPrimary),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      tr('editor_save'),
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        color: G.textPrimary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        if (width >= 768 && widget.note == null)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: Text(tr('editor_new'), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                        // Title
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                          child: TextField(
+                            controller: _titleController,
+                            autofocus: true,
+                            style: TextStyle(
+                              color: G.textPrimary,
+                              fontWeight: FontWeight.w300,
+                              fontSize: isMobile ? 24 : 28,
+                              letterSpacing: -0.7,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: tr('editor_title'),
+                              hintStyle: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.24),
+                              ),
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
                           ),
-                        Flexible(
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                        ),
+                        // Meta row: date · words
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(24, 6, 24, 12),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.06),
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(LucideIcons.clock, size: 10, color: G.textMuted),
+                              const SizedBox(width: 8),
+                              Text(
+                                today,
+                                style: const TextStyle(fontSize: 10.9, color: G.textMuted),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text('·', style: TextStyle(fontSize: 10.9, color: G.textMuted)),
+                              const SizedBox(width: 8),
+                              const Icon(LucideIcons.hash, size: 10, color: G.textMuted),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${_wordCount} ${tr('editor_words')}',
+                                style: const TextStyle(fontSize: 10.9, color: G.textMuted),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Body scroll area with formatting toolbar
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                            child: Column(
                               children: [
-                                _headerAction(
-                                  _isPreview ? LucideIcons.pencil : LucideIcons.eye,
-                                  _isPreview ? tr('editor_edit_mode') : tr('editor_preview'),
-                                  () => setState(() => _isPreview = !_isPreview),
-                                ),
-                                if (width >= 768)
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 12),
-                                    child: Text("⌘S · Esc", style: TextStyle(color: Colors.white.withValues(alpha: 0.15), fontSize: 10, fontFamily: 'monospace')),
+                                _buildToolbar(),
+                                const SizedBox(height: 8),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _bodyController,
+                                    maxLines: null,
+                                    minLines: null,
+                                    expands: true,
+                                    textAlignVertical: TextAlignVertical.top,
+                                    keyboardType: TextInputType.multiline,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 16,
+                                      height: 1.75,
+                                      color: Colors.white.withValues(alpha: 0.82),
+                                    ),
+                                    decoration: InputDecoration(
+                                      hintText: tr('editor_body'),
+                                      hintStyle: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.30),
+                                      ),
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                    ),
                                   ),
-                                const SizedBox(width: 8),
-                                _headerAction(LucideIcons.check, tr('editor_save'), _save, highlight: true),
+                                ),
                               ],
                             ),
                           ),
@@ -226,147 +507,143 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (!_isPreview)
-                            TextField(
-                              controller: _titleController,
-                              autofocus: true,
-                              style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w300),
-                              decoration: InputDecoration(
-                                hintText: tr('editor_title'),
-                                hintStyle: const TextStyle(color: Colors.white24),
-                                border: InputBorder.none,
-                              ),
-                            )
-                          else
-                            Text(
-                              _titleController.text.trim().isEmpty ? tr('editor_no_title') : _titleController.text.trim(),
-                              style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w300),
-                            ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              const Icon(LucideIcons.clock, size: 10, color: Colors.white30),
-                              const SizedBox(width: 4),
-                              Text(today, style: const TextStyle(color: Colors.white30, fontSize: 10)),
-                              const SizedBox(width: 8),
-                              const Text("·", style: TextStyle(color: Colors.white30, fontSize: 10)),
-                              const SizedBox(width: 8),
-                              const Icon(LucideIcons.hash, size: 10, color: Colors.white30),
-                              const SizedBox(width: 4),
-                              Text("$_wordCount ${tr('editor_words')}", style: const TextStyle(color: Colors.white30, fontSize: 10)),
-                            ],
-                          ),
-                          const Divider(color: Colors.white10, height: 32),
-                          Expanded(
-                            child: _isPreview
-                              ? Markdown(
-                                  data: _bodyController.text,
-                                  selectable: true,
-                                  styleSheet: MarkdownStyleSheet(
-                                    p: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 16, height: 1.75),
-                                    h1: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-                                    h2: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                                    h3: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
-                                    strong: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                    em: const TextStyle(color: Colors.white, fontStyle: FontStyle.italic),
-                                    code: TextStyle(color: Colors.white.withValues(alpha: 0.8), backgroundColor: Colors.white.withValues(alpha: 0.08), fontFamily: 'monospace'),
-                                    listBullet: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-                                  ),
-                                )
-                              : TextField(
-                                  controller: _bodyController,
-                                  focusNode: _bodyFocusNode,
-                                  maxLines: null,
-                                  expands: false,
-                                  keyboardType: TextInputType.multiline,
-                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 16, height: 1.75, fontFamily: 'Inter'),
-                                  decoration: InputDecoration(
-                                    hintText: tr('editor_body'),
-                                    hintStyle: const TextStyle(color: Colors.white24),
-                                    border: InputBorder.none,
-                                  ),
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  _buildToolbar(width),
-                ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _headerAction(IconData icon, String label, VoidCallback onTap, {bool highlight = false}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: GlassContainer(
-        borderRadius: 12,
-        blur: 16,
-        color: highlight ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.05),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          child: Row(
+  Widget _buildToolbar() {
+    final line = _currentLine();
+    bool startsWith(String s) => line.startsWith(s);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+          ),
+          child: Wrap(
+            spacing: 2,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Icon(icon, size: 14, color: highlight ? Colors.white : Colors.white60),
-              const SizedBox(width: 6),
-              Text(label, style: TextStyle(color: highlight ? Colors.white : Colors.white60, fontSize: 12, fontWeight: highlight ? FontWeight.bold : FontWeight.normal)),
+              _FmtBtn('H1', () => _toggleLinePrefix('# '), active: startsWith('# ')),
+              _FmtBtn('H2', () => _toggleLinePrefix('## '), active: startsWith('## ')),
+              const _FmtSep(),
+              _FmtBtn('B', () => _insertFormat('**', '**'),
+                  active: _bodyController.text.contains('**')),
+              _FmtBtn('I', () => _insertFormat('_', '_'),
+                  active: _bodyController.text.contains('_')),
+              _FmtBtn('S', () => _insertFormat('~~', '~~'),
+                  active: _bodyController.text.contains('~~')),
+              _FmtBtn('U', () => _insertFormat('__', '__'),
+                  active: _bodyController.text.contains('__')),
+              const _FmtSep(),
+              _FmtBtn('•', () => _toggleLinePrefix('- '), active: startsWith('- ')),
+              _FmtBtn('1.', () => _toggleLinePrefix('1. '),
+                  active: RegExp(r'^\d+\. ').hasMatch(line)),
+              _FmtBtn('❝', () => _toggleLinePrefix('> '), active: startsWith('> ')),
+              _FmtBtn('</>', () {
+                _insertFormat('```\n', '\n```');
+              }),
+              _FmtBtn('―', () {
+                final text = _bodyController.text;
+                final needsNl = text.isNotEmpty && !text.endsWith('\n') ? '\n' : '';
+                _bodyController.text = '$text$needsNl\n---\n';
+                _bodyController.selection =
+                    TextSelection.collapsed(offset: _bodyController.text.length);
+              }),
+              const _FmtSep(),
+              _FmtBtn('↶', _undo, active: false, disabled: _undoStack.isEmpty),
+              _FmtBtn('↷', _redo, active: false, disabled: _redoStack.isEmpty),
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildToolbar(double width) {
-    if (_isPreview) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.12),
-        border: const Border(top: BorderSide(color: Colors.white10)),
-      ),
-      child: Row(
-        children: [
-          _fmtBtn("B", () => _insertFormat("**", "**")),
-          _fmtBtn("I", () => _insertFormat("_", "_")),
-          _fmtBtn("S", () => _insertFormat("~~", "~~")),
-          _fmtBtn("UL", () => _toggleLinePrefix("- ")),
-          _fmtBtn("OL", () => _toggleLinePrefix("1. ")),
-          _fmtBtn("H1", () => _toggleLinePrefix("# ")),
-          _fmtBtn("H2", () => _toggleLinePrefix("## ")),
-          IconButton(
-            onPressed: () => _insertFormat("[", "](url)"),
-            icon: const Icon(LucideIcons.link2, size: 14, color: Colors.white30),
+class _FmtBtn extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+  final bool active;
+  final bool disabled;
+
+  const _FmtBtn(this.label, this.onTap, {this.active = false, this.disabled = false});
+
+  @override
+  State<_FmtBtn> createState() => _FmtBtnState();
+}
+
+class _FmtBtnState extends State<_FmtBtn> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color bg;
+    final Color color;
+    if (widget.disabled) {
+      bg = Colors.transparent;
+      color = Colors.white.withValues(alpha: 0.18);
+    } else if (widget.active) {
+      bg = Colors.white.withValues(alpha: 0.18);
+      color = Colors.white;
+    } else if (_hovered) {
+      bg = Colors.white.withValues(alpha: 0.12);
+      color = Colors.white.withValues(alpha: 0.95);
+    } else {
+      bg = Colors.transparent;
+      color = Colors.white.withValues(alpha: 0.55);
+    }
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: widget.disabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.disabled ? null : widget.onTap,
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(8),
           ),
-          if (width >= 768) ...[
-            const Spacer(),
-            const Text("Esc · ⌘S", style: TextStyle(color: Colors.white10, fontSize: 10, fontFamily: 'monospace')),
-          ],
-        ],
+          alignment: Alignment.center,
+          child: Text(
+            widget.label,
+            style: GoogleFonts.inter(
+              fontSize: 12.2,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ),
       ),
     );
   }
+}
 
-  Widget _fmtBtn(String label, VoidCallback onTap) {
-    return TextButton(
-      onPressed: onTap,
-      style: TextButton.styleFrom(
-        minimumSize: const Size(40, 30),
-        padding: EdgeInsets.zero,
-      ),
-      child: Text(label, style: const TextStyle(color: Colors.white30, fontWeight: FontWeight.bold, fontSize: 12)),
+class _FmtSep extends StatelessWidget {
+  const _FmtSep();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 20,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      color: Colors.white.withValues(alpha: 0.14),
     );
   }
 }

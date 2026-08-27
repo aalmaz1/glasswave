@@ -80,5 +80,17 @@
   "cancel": "Cancel",
   "delete_forever": "Delete permanently",
   "deleting": "Deleting…",
-  "editor_edit": ""
+  "editor_edit": "",
+  "create_note": "Create note",
+  "no_notes_subtitle": "Create your first note to get started.",
+  "empty_trash_btn": "Empty trash",
+  "empty_trash_confirm_title": "Empty trash?",
+  "empty_trash_confirm_body": "Every note in the trash will be permanently deleted. This cannot be undone.",
+  "confirm_delete_title": "Delete this note forever?",
+  "confirm_delete_body": "The note will be permanently deleted and cannot be restored.",
+  "unsaved_changes_title": "Save changes?",
+  "unsaved_changes_body": "This note has unsaved text.",
+  "unsaved_save": "Save",
+  "unsaved_discard": "Don't save",
+  "note_yesterday": "Yesterday"
 }
