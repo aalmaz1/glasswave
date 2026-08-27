@@ -1,0 +1,134 @@
+name: Build Linux desktop packages
+
+# Builds the GlassWave desktop shell (Tauri) and produces an AppImage + .deb.
+#
+# Two triggers:
+#   * `release: published` — the APK workflow creates a release per push to
+#     main; this workflow then adds the Linux packages to that same release,
+#     so one release carries the APK and the AppImage with matching versions.
+#   * `workflow_dispatch` — manual build (e.g. from a feature branch); the
+#     packages are attached to the latest existing release if one exists,
+#     otherwise they are only uploaded as a workflow artifact.
+#
+# ubuntu-22.04 is intentional: Tauri recommends building on the oldest base
+# you want to support so the AppImage's glibc requirements stay low
+# (Debian 12 / Ubuntu 22.04 are the suggested baselines).
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version for the packages (e.g. 1.0.43). Defaults to the latest release tag."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: linux-desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  desktop:
+    name: Build AppImage and .deb
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            patchelf
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Resolve version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          elif [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION="$(gh release view --json tagName -q '.tagName' | sed 's/^v//')"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building GlassWave desktop $VERSION"
+
+      - name: Stamp version into the desktop config
+        run: |
+          node -e "
+            const fs = require('fs');
+            const file = 'src-tauri/tauri.conf.json';
+            const config = JSON.parse(fs.readFileSync(file, 'utf8'));
+            config.version = process.argv[1];
+            fs.writeFileSync(file, JSON.stringify(config, null, 2) + '\n');
+          " "${{ steps.version.outputs.version }}"
+
+      - name: Build desktop packages
+        run: npm run desktop:build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+
+      - name: Collect packages
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p release
+          cp src-tauri/target/release/bundle/appimage/*.AppImage \
+            "release/GlassWave-${VERSION}-x86_64.AppImage"
+          cp src-tauri/target/release/bundle/deb/*.deb \
+            "release/GlassWave-${VERSION}-amd64.deb"
+          ls -lh release/
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: GlassWave-Desktop-${{ steps.version.outputs.version }}
+          path: release/*
+
+      - name: Attach packages to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release upload "$GITHUB_REF_NAME" \
+            "release/GlassWave-${VERSION}-x86_64.AppImage" \
+            "release/GlassWave-${VERSION}-amd64.deb" \
+            --clobber
