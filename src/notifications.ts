@@ -36,9 +36,9 @@ function getPlatform(): string {
  */
 // NOTE: Android caches a channel's sound at creation time and ignores later
 // changes, so the id is versioned — bump it whenever the sound file changes.
-const REMINDER_CHANNEL_ID = "glasswave-reminders-v2";
+const REMINDER_CHANNEL_ID = "glasswave-reminders-v3";
 /** Previous channel ids, deleted on startup so stale sounds cannot linger. */
-const LEGACY_CHANNEL_IDS = ["glasswave-reminders"];
+const LEGACY_CHANNEL_IDS = ["glasswave-reminders", "glasswave-reminders-v2"];
 /**
  * Native sound asset, per platform:
  *  - Android: `android-capacitor/app/src/main/res/raw/glasswave_notification.mp3`
@@ -47,7 +47,8 @@ const LEGACY_CHANNEL_IDS = ["glasswave-reminders"];
  *    `.wav`, `.aiff` or `.caf` container — an MP3 is ignored and the system
  *    default sound is used instead, hence the decoded WAV copy.
  */
-const REMINDER_SOUND = getPlatform() === "ios" ? "glasswave_notification.wav" : "glasswave_notification.mp3";
+const REMINDER_SOUND =
+  getPlatform() === "ios" ? "glasswave_notification.wav" : "glasswave_notification.mp3";
 /** Web copy of the same sound, bundled under `public/sounds/`. */
 const WEB_SOUND_URL = "/sounds/glasswave-notification.mp3";
 
@@ -57,7 +58,7 @@ function notifIdForKey(key: string): number {
   for (let i = 0; i < key.length; i++) {
     h = ((h << 5) + h + key.charCodeAt(i)) | 0;
   }
-  return (Math.abs(h) % 0x7fffffff) || 1;
+  return Math.abs(h) % 0x7fffffff || 1;
 }
 
 /**
@@ -120,7 +121,9 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   if (!("Notification" in window)) return false;
   if (Notification.permission === "granted") return true;
   if (Notification.permission === "denied") return false;
-  const perm = await Notification.requestPermission().catch(() => "denied" as NotificationPermission);
+  const perm = await Notification.requestPermission().catch(
+    () => "denied" as NotificationPermission
+  );
   return perm === "granted";
 }
 

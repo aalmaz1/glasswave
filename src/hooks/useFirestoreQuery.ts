@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { DocumentReference, DocumentSnapshot, Query, QuerySnapshot } from "firebase/firestore";
-import { onSnapshot } from "firebase/firestore";
+import { getFirebase } from "../firebase";
 
 export type FirestoreQueryResult<T> = {
   data: T | T[] | null;
@@ -23,6 +23,11 @@ const isDocumentSnapshot = <T>(
  *
  * Pass a memoized query/document reference. A direct reference API keeps Hook
  * dependencies statically verifiable and makes subscription ownership clear.
+ *
+ * The Firestore SDK itself is imported lazily: a query reference can only be
+ * built after the SDK has been loaded (see src/firebase.ts), so by the time a
+ * subscription starts the module resolves from the module cache with no added
+ * latency — but guests who never sign in never pay for it.
  */
 export function useFirestoreQuery<T = unknown>(
   ref: DocumentReference<T> | Query<T> | null
@@ -42,6 +47,10 @@ export function useFirestoreQuery<T = unknown>(
 
     let disposed = false;
     let unsubscribe: (() => void) | null = null;
+    let subscribing = false;
+    // Invalidates an in-flight subscription when stop() runs before the SDK
+    // has finished resolving.
+    let generation = 0;
     let watchdog: number | undefined;
 
     setState((prev) => ({ ...prev, loading: true, error: null }));
@@ -54,12 +63,16 @@ export function useFirestoreQuery<T = unknown>(
     const stop = () => {
       if (watchdog !== undefined) window.clearTimeout(watchdog);
       watchdog = undefined;
+      generation++;
       unsubscribe?.();
       unsubscribe = null;
+      subscribing = false;
     };
 
     const start = () => {
-      if (disposed || document.visibilityState === "hidden" || unsubscribe) return;
+      if (disposed || document.visibilityState === "hidden" || unsubscribe || subscribing) return;
+      subscribing = true;
+      const token = generation;
 
       let settled = false;
       setState((prev) => ({ ...prev, loading: true, error: null }));
@@ -76,31 +89,55 @@ export function useFirestoreQuery<T = unknown>(
         }));
       }, 10_000);
 
-      unsubscribe = onSnapshot(
-        ref as any,
-        (snapshot: any) => {
-          settled = true;
-          if (watchdog !== undefined) window.clearTimeout(watchdog);
-          watchdog = undefined;
-          const data = isDocumentSnapshot(snapshot)
-            ? snapshot.exists()
-              ? snapshot.data()
-              : null
-            : snapshot.docs.map((doc: any) => ({ ...doc.data(), firestoreId: doc.id }));
+      void getFirebase().then(
+        (fb) => {
+          subscribing = false;
+          if (disposed || token !== generation || document.visibilityState === "hidden") return;
+          if (!fb) {
+            if (watchdog !== undefined) window.clearTimeout(watchdog);
+            watchdog = undefined;
+            setState({ data: null, loading: false, error: null, fromCache: false });
+            return;
+          }
+          unsubscribe = fb.fs.onSnapshot(
+            ref as any,
+            (snapshot: any) => {
+              settled = true;
+              if (watchdog !== undefined) window.clearTimeout(watchdog);
+              watchdog = undefined;
+              const data = isDocumentSnapshot(snapshot)
+                ? snapshot.exists()
+                  ? snapshot.data()
+                  : null
+                : snapshot.docs.map((doc: any) => ({ ...doc.data(), firestoreId: doc.id }));
 
-          setState({
-            data: data as T,
-            loading: false,
-            error: null,
-            fromCache: snapshot.metadata.fromCache,
-          });
+              setState({
+                data: data as T,
+                loading: false,
+                error: null,
+                fromCache: snapshot.metadata.fromCache,
+              });
+            },
+            (error: Error) => {
+              settled = true;
+              if (watchdog !== undefined) window.clearTimeout(watchdog);
+              watchdog = undefined;
+              unsubscribe = null;
+              setState({ data: null, loading: false, error, fromCache: false });
+            }
+          );
         },
-        (error: Error) => {
-          settled = true;
+        (error: unknown) => {
+          subscribing = false;
+          if (disposed || token !== generation) return;
           if (watchdog !== undefined) window.clearTimeout(watchdog);
           watchdog = undefined;
-          unsubscribe = null;
-          setState({ data: null, loading: false, error, fromCache: false });
+          setState({
+            data: null,
+            loading: false,
+            error: error instanceof Error ? error : new Error(String(error)),
+            fromCache: false,
+          });
         }
       );
     };

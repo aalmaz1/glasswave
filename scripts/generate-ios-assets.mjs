@@ -7,8 +7,13 @@
  * Writes:
  *   ios-capacitor/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png
  *     1024x1024, no alpha (App Store rejects icons with transparency).
- *   ios-capacitor/App/App/Assets.xcassets/Splash.imageset/splash-2732x2732*.png
- *     the icon centred on the artwork's dark navy, one file per @1x/@2x/@3x slot.
+ *   ios-capacitor/App/App/Assets.xcassets/Splash.imageset/splash-2732x2732.png
+ *     the icon centred on the artwork's dark navy. A single file serves all
+ *     three (@1x/@2x/@3x) Contents.json slots — they were byte-identical
+ *     copies anyway — so the asset catalog only ships it once.
+ *
+ * Output PNGs are palette-quantized (libimagequant): visually identical for
+ * this flat-color artwork, but several times smaller in the app bundle.
  *
  * `sharp` is not a permanent dependency of the project — these assets change
  * about never, so install it only when regenerating:
@@ -34,11 +39,8 @@ try {
 const SOURCE = "assets/icon.png";
 const ICON_OUT = "ios-capacitor/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png";
 const SPLASH_DIR = "ios-capacitor/App/App/Assets.xcassets/Splash.imageset/";
-const SPLASH_FILES = [
-  "splash-2732x2732.png", // @3x
-  "splash-2732x2732-1.png", // @2x
-  "splash-2732x2732-2.png", // @1x
-];
+/** One file, referenced by all three scale slots in Contents.json. */
+const SPLASH_FILE = "splash-2732x2732.png";
 
 const ICON_SIZE = 1024;
 const SPLASH_SIZE = 2732;
@@ -46,7 +48,14 @@ const SPLASH_ICON_SIZE = 820;
 /** Darkest navy of the artwork — keeps the launch screen seamless with it. */
 const SPLASH_BG = { r: 12, g: 23, b: 42 };
 
-const png = { compressionLevel: 9, effort: 10, adaptiveFiltering: true };
+const png = {
+  palette: true,
+  colors: 256,
+  quality: 92,
+  dither: 1.0,
+  compressionLevel: 9,
+  effort: 10,
+};
 
 // App icon: square crop, flattened (iOS icons must be fully opaque).
 await sharp(SOURCE)
@@ -69,8 +78,8 @@ const splash = await sharp({
   .png(png)
   .toBuffer();
 
-for (const file of SPLASH_FILES) fs.writeFileSync(SPLASH_DIR + file, splash);
+fs.writeFileSync(SPLASH_DIR + SPLASH_FILE, splash);
 console.log(
-  `wrote ${SPLASH_FILES.length} x ${SPLASH_DIR}splash-2732x2732*.png ` +
-    `(${(splash.length / 1024).toFixed(0)} KB each)`
+  `wrote ${SPLASH_DIR}${SPLASH_FILE} (${(splash.length / 1024).toFixed(0)} KB) — ` +
+    `shared by the @1x/@2x/@3x Contents.json slots`
 );
