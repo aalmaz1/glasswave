@@ -1,48 +1,28 @@
-import {
-  createUserWithEmailAndPassword,
-  deleteUser,
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-  signOut,
-  updateProfile,
-} from "firebase/auth";
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  serverTimestamp,
-  setDoc,
-  where,
-  writeBatch,
-} from "firebase/firestore";
 import type { Translation } from "../../i18n";
-import { auth, db, hasFirebaseConfig } from "../../firebase";
+import { getFirebase, hasFirebaseConfig } from "../../firebase";
 import { DEFAULT_THEME, NOTES_COLLECTION, USERS_COLLECTION, type UserProfile } from "../model";
 import type { ThemeId } from "../theme";
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
-  if (!db) return null;
-  const snap = await getDoc(doc(db, USERS_COLLECTION, uid));
+  const fb = await getFirebase();
+  if (!fb) return null;
+  const snap = await fb.fs.getDoc(fb.fs.doc(fb.db, USERS_COLLECTION, uid));
   return snap.exists() ? (snap.data() as UserProfile) : null;
 }
 
 export async function setUserTheme(uid: string, themeId: ThemeId) {
-  if (db) await setDoc(doc(db, USERS_COLLECTION, uid), { themeId }, { merge: true });
+  const fb = await getFirebase();
+  if (fb) await fb.fs.setDoc(fb.fs.doc(fb.db, USERS_COLLECTION, uid), { themeId }, { merge: true });
 }
 
 async function createUserProfile(uid: string, email: string, name: string) {
-  if (!db) return;
-  await setDoc(doc(db, USERS_COLLECTION, uid), {
+  const fb = await getFirebase();
+  if (!fb) return;
+  await fb.fs.setDoc(fb.fs.doc(fb.db, USERS_COLLECTION, uid), {
     email,
     name,
     themeId: DEFAULT_THEME,
-    createdAt: serverTimestamp(),
+    createdAt: fb.fs.serverTimestamp(),
   });
 }
 
@@ -84,16 +64,18 @@ export async function registerAccount(
   password: string,
   t: Translation
 ): Promise<string | null> {
-  if (!hasFirebaseConfig || !auth) return t.authErrNotConfigured;
+  if (!hasFirebaseConfig) return t.authErrNotConfigured;
   email = email.trim().toLowerCase();
   if (!email.includes("@")) return t.authErrInvalidEmail;
   if (name.trim().length < 2) return t.authErrNameShort;
   if (password.length < 6) return t.authErrPwShort;
+  const fb = await getFirebase();
+  if (!fb) return t.authErrNotConfigured;
   try {
-    const credential = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(credential.user, { displayName: name.trim() });
+    const credential = await fb.fauth.createUserWithEmailAndPassword(fb.auth, email, password);
+    await fb.fauth.updateProfile(credential.user, { displayName: name.trim() });
     await createUserProfile(credential.user.uid, email, name.trim());
-    void sendEmailVerification(credential.user).catch(() => {});
+    void fb.fauth.sendEmailVerification(credential.user).catch(() => {});
     return null;
   } catch (error) {
     return authError(error, t);
@@ -101,11 +83,13 @@ export async function registerAccount(
 }
 
 export async function resetAccountPassword(email: string, t: Translation): Promise<string | null> {
-  if (!hasFirebaseConfig || !auth) return t.authErrNotConfigured;
+  if (!hasFirebaseConfig) return t.authErrNotConfigured;
   email = email.trim().toLowerCase();
   if (!email.includes("@")) return t.authErrInvalidEmail;
+  const fb = await getFirebase();
+  if (!fb) return t.authErrNotConfigured;
   try {
-    await sendPasswordResetEmail(auth, email);
+    await fb.fauth.sendPasswordResetEmail(fb.auth, email);
     return null;
   } catch {
     return t.authErrResetGeneric;
@@ -117,11 +101,13 @@ export async function loginAccount(
   password: string,
   t: Translation
 ): Promise<string | null> {
-  if (!hasFirebaseConfig || !auth) return t.authErrNotConfigured;
+  if (!hasFirebaseConfig) return t.authErrNotConfigured;
   email = email.trim().toLowerCase();
   if (!email || !password) return t.authErrEmailPassRequired;
+  const fb = await getFirebase();
+  if (!fb) return t.authErrNotConfigured;
   try {
-    await signInWithEmailAndPassword(auth, email, password);
+    await fb.fauth.signInWithEmailAndPassword(fb.auth, email, password);
     return null;
   } catch (error) {
     return authError(error, t);
@@ -129,29 +115,36 @@ export async function loginAccount(
 }
 
 export async function logoutAccount() {
-  if (auth) await signOut(auth);
+  const fb = await getFirebase();
+  if (fb) await fb.fauth.signOut(fb.auth);
 }
 
 export async function deleteCurrentAccount(
   password: string,
   t: Translation
 ): Promise<string | null> {
-  if (!hasFirebaseConfig || !auth || !db) return t.authErrNotAllowed;
+  if (!hasFirebaseConfig) return t.authErrNotAllowed;
+  const fb = await getFirebase();
+  if (!fb) return t.authErrNotAllowed;
+  const { auth, db, fs, fauth } = fb;
   const user = auth.currentUser;
   if (!user?.email) return t.authErrNotAllowed;
   if (!password) return t.authErrPasswordRequired;
   try {
-    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
-    const notes = await getDocs(
-      query(collection(db, NOTES_COLLECTION), where("ownerUid", "==", user.uid))
+    await fauth.reauthenticateWithCredential(
+      user,
+      fauth.EmailAuthProvider.credential(user.email, password)
+    );
+    const notes = await fs.getDocs(
+      fs.query(fs.collection(db, NOTES_COLLECTION), fs.where("ownerUid", "==", user.uid))
     );
     for (let start = 0; start < notes.docs.length; start += 450) {
-      const batch = writeBatch(db);
+      const batch = fs.writeBatch(db);
       notes.docs.slice(start, start + 450).forEach((note) => batch.delete(note.ref));
       await batch.commit();
     }
-    await deleteDoc(doc(db, USERS_COLLECTION, user.uid));
-    await deleteUser(user);
+    await fs.deleteDoc(fs.doc(db, USERS_COLLECTION, user.uid));
+    await fauth.deleteUser(user);
     return null;
   } catch (error) {
     switch ((error as { code?: string })?.code) {

@@ -1,11 +1,6 @@
-import { initializeApp } from "firebase/app";
-import {
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-  type Firestore,
-} from "firebase/firestore";
-import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
+import type { FirebaseApp } from "firebase/app";
+import type { Auth } from "firebase/auth";
+import type { Firestore } from "firebase/firestore";
 import { isCompleteFirebaseConfig, resolveFirebaseConfig } from "./firebaseConfig";
 
 /**
@@ -30,25 +25,78 @@ const firebaseConfig = resolveFirebaseConfig({
   VITE_FIREBASE_APP_ID: import.meta.env.VITE_FIREBASE_APP_ID,
 });
 
+/**
+ * Synchronous check so the UI can render the "not configured" states without
+ * loading the Firebase SDK at all.
+ */
 export const hasFirebaseConfig = isCompleteFirebaseConfig(firebaseConfig);
 
-let app: ReturnType<typeof initializeApp> | null = null;
-let db: Firestore | null = null;
-let auth: Auth | null = null;
+type FirestoreModule = typeof import("firebase/firestore");
+type AuthModule = typeof import("firebase/auth");
 
-if (hasFirebaseConfig) {
-  app = initializeApp(firebaseConfig);
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager(),
-    }),
-  });
-  auth = getAuth(app);
-
-  const emulatorUrl = import.meta.env.VITE_FIREBASE_AUTH_EMULATOR?.trim();
-  if (emulatorUrl) {
-    connectAuthEmulator(auth, emulatorUrl, { disableWarnings: true });
-  }
+/**
+ * Loaded Firebase handles, plus the SDK functions the app uses (re-exported
+ * from ./firebase.impl as a plain object so callers never statically import
+ * the SDK — a static import would drag ~790 KB of vendor code back into the
+ * startup chunk). `./firebase.impl` uses plain static named imports, which
+ * keeps Rollup's tree-shaking intact; only this file is the dynamic boundary.
+ */
+export interface FirebaseServices {
+  app: FirebaseApp;
+  db: Firestore;
+  auth: Auth;
+  fs: Pick<
+    FirestoreModule,
+    | "collection"
+    | "deleteDoc"
+    | "doc"
+    | "getDoc"
+    | "getDocs"
+    | "limit"
+    | "onSnapshot"
+    | "query"
+    | "serverTimestamp"
+    | "setDoc"
+    | "updateDoc"
+    | "where"
+    | "writeBatch"
+  >;
+  fauth: Pick<
+    AuthModule,
+    | "createUserWithEmailAndPassword"
+    | "deleteUser"
+    | "EmailAuthProvider"
+    | "onAuthStateChanged"
+    | "reauthenticateWithCredential"
+    | "sendEmailVerification"
+    | "sendPasswordResetEmail"
+    | "signInWithEmailAndPassword"
+    | "signOut"
+    | "updateProfile"
+  >;
 }
 
-export { app, db, auth };
+let cached: Promise<FirebaseServices | null> | null = null;
+
+/**
+ * Load and initialize Firebase on first use.
+ *
+ * The SDK is intentionally behind a dynamic boundary: guests live entirely in
+ * localStorage and never need sign-in or sync, so they should not download,
+ * parse, and evaluate the Firebase chunks at startup. Signed-in flows call
+ * this before touching Auth or Firestore; concurrent callers share one
+ * initialization promise. A failed load resets the cache so the next call
+ * retries instead of latching onto a rejected promise.
+ */
+export function getFirebase(): Promise<FirebaseServices | null> {
+  if (!hasFirebaseConfig) return Promise.resolve(null);
+  if (!cached) {
+    cached = import("./firebase.impl")
+      .then((impl) => impl.initFirebase(firebaseConfig))
+      .catch((error) => {
+        cached = null;
+        throw error;
+      });
+  }
+  return cached;
+}

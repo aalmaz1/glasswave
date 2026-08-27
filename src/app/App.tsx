@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, Trash2 } from "lucide-react";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, writeBatch } from "firebase/firestore";
+import type { Query } from "firebase/firestore";
 import { useTranslation } from "../i18n";
-import { auth, db, hasFirebaseConfig } from "../firebase";
+import { getFirebase, hasFirebaseConfig } from "../firebase";
 import { useFirestoreQuery } from "../hooks/useFirestoreQuery";
 import { listenNativeBackButton } from "../native";
 import {
@@ -85,7 +84,7 @@ export default function App() {
   // separately can briefly render the guest collection while Firebase is
   // restoring a signed-in session.
   const [authState, setAuthState] = useState<{ ready: boolean; user: AuthUser | null }>({
-    ready: !hasFirebaseConfig || !auth,
+    ready: !hasFirebaseConfig,
     user: null,
   });
   const { ready: authReady, user: currentUser } = authState;
@@ -146,66 +145,98 @@ export default function App() {
   // Auth state is resolved before guest UI is exposed, preventing a flash of
   // demo notes and stale profile requests from crossing user sessions.
   useEffect(() => {
-    if (!hasFirebaseConfig || !auth) return;
+    if (!hasFirebaseConfig) return;
     let active = true;
+    let unsub: (() => void) | undefined;
     const authWatchdog = window.setTimeout(() => {
       if (!active) return;
       console.warn("Firebase Auth initialization timed out; continuing in guest mode.");
       setAuthState((previous) => ({ ...previous, ready: true }));
     }, 10_000);
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!active) return;
-      window.clearTimeout(authWatchdog);
-      if (!user) {
+    getFirebase()
+      .then((fb) => {
+        if (!fb || !active) return;
+        unsub = fb.fauth.onAuthStateChanged(fb.auth, async (user) => {
+          if (!active) return;
+          window.clearTimeout(authWatchdog);
+          if (!user) {
+            setAuthState({ ready: true, user: null });
+            setThemeId(DEFAULT_THEME);
+            setNotesLimit(NOTES_PAGE_SIZE);
+            return;
+          }
+          const uid = user.uid;
+          const next = { uid, email: user.email ?? "", name: user.displayName ?? "" };
+          // Auth can emit again when its token refreshes. Retain the user object
+          // for the same account so the memoized Firestore query is not torn down
+          // and recreated on every token refresh.
+          setAuthState((previous) => ({
+            ready: true,
+            user:
+              previous.user?.uid === uid &&
+              previous.user.email === next.email &&
+              previous.user.name === next.name
+                ? previous.user
+                : next,
+          }));
+          setNotesLimit(NOTES_PAGE_SIZE);
+          void migrateGuestNotesToFirestore(uid);
+          try {
+            const profile = await getUserProfile(uid);
+            if (active && fb.auth.currentUser?.uid === uid) {
+              setThemeId(profile?.themeId ?? DEFAULT_THEME);
+            }
+          } catch (error) {
+            if (active && fb.auth.currentUser?.uid === uid) setThemeId(DEFAULT_THEME);
+            console.warn("Could not load user profile.", error);
+          }
+        });
+      })
+      .catch((error) => {
+        // The Firebase chunk itself failed to load (offline with a cold service
+        // worker cache, blocked CDN…). Degrade to guest mode instead of leaving
+        // the app on the startup spinner forever.
+        if (!active) return;
+        console.warn("Could not load Firebase; continuing in guest mode.", error);
+        window.clearTimeout(authWatchdog);
         setAuthState({ ready: true, user: null });
-        setThemeId(DEFAULT_THEME);
-        setNotesLimit(NOTES_PAGE_SIZE);
-        return;
-      }
-      const uid = user.uid;
-      const next = { uid, email: user.email ?? "", name: user.displayName ?? "" };
-      // Auth can emit again when its token refreshes. Retain the user object
-      // for the same account so the memoized Firestore query is not torn down
-      // and recreated on every token refresh.
-      setAuthState((previous) => ({
-        ready: true,
-        user:
-          previous.user?.uid === uid &&
-          previous.user.email === next.email &&
-          previous.user.name === next.name
-            ? previous.user
-            : next,
-      }));
-      setNotesLimit(NOTES_PAGE_SIZE);
-      void migrateGuestNotesToFirestore(uid);
-      try {
-        const profile = await getUserProfile(uid);
-        if (active && auth?.currentUser?.uid === uid) {
-          setThemeId(profile?.themeId ?? DEFAULT_THEME);
-        }
-      } catch (error) {
-        if (active && auth?.currentUser?.uid === uid) setThemeId(DEFAULT_THEME);
-        console.warn("Could not load user profile.", error);
-      }
-    });
+      });
     return () => {
       active = false;
       window.clearTimeout(authWatchdog);
-      unsub();
+      unsub?.();
     };
   }, [setThemeId]);
 
-  const notesQuery = useMemo(() => {
-    // The retry token intentionally creates a fresh Firestore Query instance.
-    void notesQueryVersion;
-    return currentUser ? buildNotesQuery(currentUser.uid, notesLimit) : null;
+  // The notes query can only be built once the lazily loaded Firestore SDK is
+  // ready (see src/firebase.ts), so it lives in state instead of a useMemo.
+  const [notesQuery, setNotesQuery] = useState<Query<FirestoreNote> | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!currentUser) {
+      setNotesQuery(null);
+      return;
+    }
+    void getFirebase()
+      .then((fb) => {
+        // The retry token intentionally creates a fresh Firestore Query instance.
+        if (!cancelled && fb) setNotesQuery(buildNotesQuery(fb, currentUser.uid, notesLimit));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [currentUser, notesQueryVersion, notesLimit]);
 
   const {
     data: firestoreData,
-    loading: notesLoading,
+    loading: queryLoading,
     error: notesError,
   } = useFirestoreQuery<FirestoreNote>(notesQuery);
+  // While the Firestore SDK is still loading for a signed-in user there is no
+  // query ref yet, but the list is indisputably loading — keep the spinner.
+  const notesLoading =
+    queryLoading || (currentUser !== null && notesQuery === null && notesError === null);
 
   const allNotes: Note[] = useMemo(() => {
     // A guest with no notes of their own sees the intro cards instead of an
@@ -543,13 +574,15 @@ export default function App() {
       setLocalNotes((prev) => prev.filter((n) => !n.trashed));
       return;
     }
-    if (!db) return;
     enqueueNoteWrite(
       (async () => {
+        const fb = await getFirebase();
+        if (!fb) return;
+        const { db, fs } = fb;
         for (let start = 0; start < trashed.length; start += 450) {
-          const batch = writeBatch(db!);
+          const batch = fs.writeBatch(db);
           trashed.slice(start, start + 450).forEach((n) => {
-            if (n.firestoreId) batch.delete(doc(db!, NOTES_COLLECTION, n.firestoreId));
+            if (n.firestoreId) batch.delete(fs.doc(db, NOTES_COLLECTION, n.firestoreId));
           });
           await batch.commit();
         }

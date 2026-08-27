@@ -5,7 +5,7 @@ One source file drives every platform: **`glasswave_notification.mp3`**.
 | Target              | File                                                                | Notes                                                                                             |
 | ------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Web / PWA           | `public/sounds/glasswave-notification.mp3`                          | Played in-app by `playReminderSound()`; the browser Notification API cannot carry a custom sound. |
-| Android (Capacitor) | `android-capacitor/app/src/main/res/raw/glasswave_notification.mp3` | Set on the `glasswave-reminders-v2` notification channel **and** on each notification.            |
+| Android (Capacitor) | `android-capacitor/app/src/main/res/raw/glasswave_notification.mp3` | Set on the `glasswave-reminders-v3` notification channel **and** on each notification.            |
 | iOS (Capacitor)     | `ios-capacitor/App/App/glasswave_notification.wav`                  | Already in the Xcode **App** target's _Copy Bundle Resources_, so it ships inside the app bundle. |
 
 `src/notifications.ts` picks the right file at runtime via `Capacitor.getPlatform()`.

@@ -1,5 +1,4 @@
-import { doc, writeBatch } from "firebase/firestore";
-import { db } from "../../firebase";
+import { getFirebase } from "../../firebase";
 import type { Translation } from "../../i18n";
 import { LS_GUEST_DIRTY, LS_GUEST_NOTES, NOTES_COLLECTION, type Note } from "../model";
 import { inferCreatedAt } from "../utils";
@@ -123,7 +122,10 @@ function isGuestNotesDirty(): boolean {
  * On failure the local copy is kept, so the migration retries at next login.
  */
 export async function migrateGuestNotesToFirestore(uid: string): Promise<void> {
-  if (!db || !isGuestNotesDirty()) return;
+  if (!isGuestNotesDirty()) return;
+  const fb = await getFirebase();
+  if (!fb) return;
+  const { db, fs } = fb;
   const notes = loadGuestNotes();
   if (!notes || notes.length === 0) {
     try {
@@ -134,11 +136,11 @@ export async function migrateGuestNotesToFirestore(uid: string): Promise<void> {
   try {
     // Firestore batches are capped at 500 operations — stay below the limit.
     for (let start = 0; start < notes.length; start += 450) {
-      const batch = writeBatch(db!);
+      const batch = fs.writeBatch(db);
       notes.slice(start, start + 450).forEach((n) => {
         // A deterministic id makes retries after a partially successful
         // migration overwrite the same document instead of duplicating notes.
-        batch.set(doc(db!, NOTES_COLLECTION, `guest_${uid}_${n.id}`), {
+        batch.set(fs.doc(db, NOTES_COLLECTION, `guest_${uid}_${n.id}`), {
           ownerUid: uid,
           id: n.id,
           title: n.title,
@@ -163,5 +165,3 @@ export async function migrateGuestNotesToFirestore(uid: string): Promise<void> {
     console.warn("Could not migrate guest notes. Will retry at next sign-in.", error);
   }
 }
-
-

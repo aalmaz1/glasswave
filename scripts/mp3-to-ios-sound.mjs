@@ -9,6 +9,9 @@
  * native iOS asset is a 16-bit Linear PCM WAV decoded from the same MP3 the
  * web build and the Android build use.
  *
+ * The WAV is MONO: a notification chime plays on a single phone speaker, so
+ * stereo buys nothing and doubles the file size.
+ *
  * Usage:
  *   node scripts/mp3-to-ios-sound.mjs [input.mp3] [output.wav]
  *
@@ -44,19 +47,32 @@ if (!samplesDecoded) {
   throw new Error(`No audio decoded from ${input}`);
 }
 
-const channels = channelData.length;
+const sourceChannels = channelData.length;
+// Downmix to mono (see header comment): halves the payload with no audible
+// difference on a notification speaker.
+const channels = 1;
+const mixed =
+  sourceChannels === 1
+    ? channelData[0]
+    : (() => {
+        const out = new Float32Array(samplesDecoded);
+        for (let i = 0; i < samplesDecoded; i++) {
+          let s = 0;
+          for (let c = 0; c < sourceChannels; c++) s += channelData[c][i];
+          out[i] = s / sourceChannels;
+        }
+        return out;
+      })();
 
 // Ignore the encoder/decoder padding at the very end of the stream: it is not
 // part of the sound but can hold a few non-zero samples that defeat trimming.
 const PADDING = Math.round(sampleRate * 0.1);
 
-// Find the last sample that is still audible, in any channel.
+// Find the last sample that is still audible.
 let end = Math.max(samplesDecoded - PADDING, Math.ceil(sampleRate * MIN_DURATION));
 while (end > sampleRate * MIN_DURATION) {
   const i = end - 1;
-  let peak = 0;
-  for (let c = 0; c < channels; c++) peak = Math.max(peak, Math.abs(channelData[c][i]));
-  if (peak > SILENCE_THRESHOLD) break;
+  if (Math.abs(mixed[i]) > SILENCE_THRESHOLD) break;
   end--;
 }
 
@@ -65,11 +81,9 @@ const fadeSamples = Math.min(Math.round(sampleRate * FADE_OUT), end);
 const pcm = Buffer.alloc(end * channels * 2);
 for (let i = 0, offset = 0; i < end; i++) {
   const fade = i >= end - fadeSamples ? (end - i) / fadeSamples : 1;
-  for (let c = 0; c < channels; c++) {
-    const sample = Math.max(-1, Math.min(1, channelData[c][i] * fade));
-    pcm.writeInt16LE(Math.round(sample * 32767), offset);
-    offset += 2;
-  }
+  const sample = Math.max(-1, Math.min(1, mixed[i] * fade));
+  pcm.writeInt16LE(Math.round(sample * 32767), offset);
+  offset += 2;
 }
 
 const header = Buffer.alloc(44);
