@@ -1,0 +1,26 @@
+[package]
+name = "glasswave"
+version = "1.0.0"
+description = "GlassWave — glassmorphism notes app (desktop shell)"
+authors = ["aalmaz1"]
+license = "MIT"
+repository = "https://github.com/aalmaz1/glasswave"
+edition = "2021"
+rust-version = "1.77.2"
+
+# The desktop shell only hosts the web build — there are no custom Rust
+# commands yet, so the dependency list is intentionally minimal.
+[lib]
+name = "glasswave_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true

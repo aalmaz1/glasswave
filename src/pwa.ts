@@ -20,6 +20,11 @@ export function registerServiceWorker(): void {
     /* not running under Capacitor — continue */
   }
 
+  // Desktop shell (Tauri): the assets ship inside the AppImage, so a service
+  // worker would only add a second, competing cache layer — same reasoning as
+  // Capacitor above.
+  if ("__TAURI_INTERNALS__" in window) return;
+
   if (!("serviceWorker" in navigator)) return;
 
   void import("virtual:pwa-register")
