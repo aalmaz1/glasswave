@@ -261,8 +261,31 @@ class NotesNotifier extends StateNotifier<List<Note>> {
     }
   }
 
+  Note? findById(int id) {
+    for (final n in state) {
+      if (n.id == id) return n;
+    }
+    return null;
+  }
+
   Future<void> addNote(Note note) async {
     state = [note, ...state];
+    await _saveNotes();
+  }
+
+  /// Add or update — used by the editor (React `persistNote` parity).
+  Future<void> upsert(Note note) async {
+    if (state.any((n) => n.id == note.id)) {
+      state = state.map((n) => n.id == note.id ? note : n).toList();
+    } else {
+      state = [note, ...state];
+    }
+    await _saveNotes();
+  }
+
+  /// Delete every trashed note (React "empty trash").
+  Future<void> clearTrash() async {
+    state = state.where((n) => !n.trashed).toList();
     await _saveNotes();
   }
 

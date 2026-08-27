@@ -1,6 +1,16 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../theme/design_tokens.dart';
 
+/// Glass panel matching the React Native `.card-glass` + `.glass-ring` +
+/// `.glass-sheen` layering:
+///
+/// 1. backdrop blur + translucent fill + 1px border
+/// 2. optional accent gradient
+/// 3. 45° sheen (`rgba(255,255,255,0.06) → transparent → 0.03`, opacity 0.6)
+/// 4. inset top highlight (white 0.15) and bottom shade (black 0.20)
+/// 5. 1px ring gradient (160°, white 0.35 → 0.08 → 0.02)
 class GlassContainer extends StatelessWidget {
   final Widget child;
   final double blur;
@@ -10,6 +20,10 @@ class GlassContainer extends StatelessWidget {
   final List<BoxShadow>? boxShadow;
   final Gradient? accentGradient;
   final EdgeInsetsGeometry? padding;
+  final bool showRing;
+  final bool showSheen;
+  final bool showInnerEdges;
+  final StackFit fit;
 
   const GlassContainer({
     super.key,
@@ -21,45 +35,39 @@ class GlassContainer extends StatelessWidget {
     this.boxShadow,
     this.accentGradient,
     this.padding,
+    this.showRing = true,
+    this.showSheen = true,
+    this.showInnerEdges = true,
+    this.fit = StackFit.loose,
   });
 
   @override
   Widget build(BuildContext context) {
+    final radius = Radius.circular(borderRadius);
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow: boxShadow ?? [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 40,
-            offset: const Offset(0, 10),
-          ),
-          BoxShadow(
-            color: Colors.white.withValues(alpha: 0.15),
-            blurRadius: 0,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        boxShadow: boxShadow ?? G.glassShadow(),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
         child: Stack(
+          fit: fit,
           children: [
-            // Blur
-            BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: color ?? Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(borderRadius),
-                  border: border ?? Border.all(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    width: 1.0,
+            // Backdrop blur + fill (`.card-glass`)
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: color ?? G.bg,
+                    borderRadius: BorderRadius.circular(borderRadius),
+                    border: border ?? Border.all(color: G.border, width: 1.0),
                   ),
                 ),
               ),
             ),
-            // Accent gradient (if any)
+            // Accent gradient (`.card-accent`)
             if (accentGradient != null)
               Positioned.fill(
                 child: Container(
@@ -69,32 +77,129 @@ class GlassContainer extends StatelessWidget {
                   ),
                 ),
               ),
-            // Ring / Shine (simplified)
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(borderRadius),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withValues(alpha: 0.2),
-                      Colors.transparent,
-                      Colors.white.withValues(alpha: 0.05),
-                    ],
-                    stops: const [0.0, 0.5, 1.0],
+            // Sheen (`.glass-sheen`)
+            if (showSheen)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(borderRadius),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.06),
+                        Colors.transparent,
+                        Colors.white.withValues(alpha: 0.03),
+                      ],
+                      stops: const [0.0, 0.5, 1.0],
+                    ),
                   ),
                 ),
               ),
-            ),
+            // Inset edges: top highlight + bottom shade
+            if (showInnerEdges) ...[
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 1,
+                child: Container(color: Colors.white.withValues(alpha: 0.15)),
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: 1,
+                child: Container(color: Colors.black.withValues(alpha: 0.20)),
+              ),
+            ],
+            // Gradient ring (`.glass-ring`)
+            if (showRing)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _RingPainter(
+                      radius: radius,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.35),
+                        Colors.white.withValues(alpha: 0.08),
+                        Colors.white.withValues(alpha: 0.02),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             if (padding != null)
-              Padding(
-                padding: padding!,
-                child: child,
-              )
+              Padding(padding: padding!, child: child)
             else
               child,
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  final Radius radius;
+  final List<Color> colors;
+
+  _RingPainter({required this.radius, required this.colors});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(rect, radius);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: colors,
+        stops: G.ringStops,
+      ).createShader(rect);
+    canvas.drawRRect(rrect.deflate(0.5), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingPainter oldDelegate) {
+    return oldDelegate.radius != radius || !listEquals(oldDelegate.colors, colors);
+  }
+}
+
+/// Glass pill used in the editor header (close / save), matching React's
+/// `GlassChip` (blur 16, radius 12, 7px 14px padding, optional highlight).
+class GlassChip extends StatelessWidget {
+  final Widget child;
+  final VoidCallback onTap;
+  final bool highlight;
+
+  const GlassChip({
+    super.key,
+    required this.child,
+    required this.onTap,
+    this.highlight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: GlassContainer(
+          blur: 16,
+          borderRadius: 12,
+          color: highlight ? G.bgHov : G.bg,
+          border: Border.all(
+            color: highlight
+                ? Colors.white.withValues(alpha: 0.35)
+                : G.border,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          showInnerEdges: false,
+          child: child,
         ),
       ),
     );

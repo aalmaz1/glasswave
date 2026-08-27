@@ -80,5 +80,17 @@
   "cancel": "취소",
   "delete_forever": "영구 삭제",
   "deleting": "삭제 중…",
-  "editor_edit": ""
+  "editor_edit": "",
+  "create_note": "노트 만들기",
+  "no_notes_subtitle": "첫 노트를 만들어 시작하세요.",
+  "empty_trash_btn": "휴지통 비우기",
+  "empty_trash_confirm_title": "휴지통을 비울까요?",
+  "empty_trash_confirm_body": "휴지통의 모든 노트가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+  "confirm_delete_title": "노트를 영구 삭제할까요?",
+  "confirm_delete_body": "노트가 영구적으로 삭제되며 복구할 수 없습니다.",
+  "unsaved_changes_title": "변경 사항을 저장할까요?",
+  "unsaved_changes_body": "이 노트에 저장되지 않은 내용이 있습니다.",
+  "unsaved_save": "저장",
+  "unsaved_discard": "저장 안 함",
+  "note_yesterday": "어제"
 }

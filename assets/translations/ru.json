@@ -80,5 +80,17 @@
   "cancel": "Отмена",
   "delete_forever": "Удалить навсегда",
   "deleting": "Удаляем…",
-  "editor_edit": ""
+  "editor_edit": "",
+  "create_note": "Создать заметку",
+  "no_notes_subtitle": "Создайте первую заметку — она сохранится на этом устройстве.",
+  "empty_trash_btn": "Очистить корзину",
+  "empty_trash_confirm_title": "Очистить корзину?",
+  "empty_trash_confirm_body": "Все заметки в корзине будут удалены навсегда. Это нельзя отменить.",
+  "confirm_delete_title": "Удалить заметку навсегда?",
+  "confirm_delete_body": "Заметка будет удалена без возможности восстановления.",
+  "unsaved_changes_title": "Сохранить изменения?",
+  "unsaved_changes_body": "У этой заметки есть несохранённый текст.",
+  "unsaved_save": "Сохранить",
+  "unsaved_discard": "Не сохранять",
+  "note_yesterday": "Вчера"
 }

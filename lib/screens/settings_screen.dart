@@ -1,13 +1,19 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../providers/app_providers.dart';
+import '../models/app_user.dart';
 import '../theme/app_theme_data.dart';
+import '../theme/design_tokens.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/background_orbs.dart';
-import 'auth_screen.dart';
 
+/// Settings screen restyled 1:1 after the React Native `SettingsScreen`:
+/// max-width 666 sections, glass back button, theme grid with previews +
+/// check badge, dropdown language selector, account card with shield badge,
+/// red-tinted danger zone and a glass delete-account dialog.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -16,6 +22,9 @@ class SettingsScreen extends ConsumerWidget {
     final prefs = ref.watch(themeProvider);
     final theme = allThemes.firstWhere((t) => t.id == prefs.themeId);
     final user = ref.watch(authProvider);
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 768;
+    final headerPad = isMobile ? 16.0 : (width < 1280 ? 28.0 : 44.0);
 
     return Scaffold(
       body: Stack(
@@ -23,44 +32,55 @@ class SettingsScreen extends ConsumerWidget {
           BackgroundOrbs(theme: theme),
           Column(
             children: [
-              const SizedBox(height: 50),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(LucideIcons.chevronLeft, color: Colors.white60),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    Text(
-                      tr('settings_title'),
-                      style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                  ],
+                padding: EdgeInsets.only(top: 28 + MediaQuery.of(context).padding.top),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: headerPad),
+                  child: Row(
+                    children: [
+                      _BackButton(onTap: () => Navigator.pop(context)),
+                      const SizedBox(width: 14),
+                      Text(
+                        tr('settings_title'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 20.8,
+                          color: G.textPrimary,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+              const SizedBox(height: 28),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  padding: const EdgeInsets.only(bottom: 64),
                   children: [
-                    _sectionLabel(LucideIcons.user, tr('settings_account')),
-                    if (user == null)
-                      _buildAuthPrompt(context)
-                    else
-                      _buildUserCard(ref, user),
-                    const SizedBox(height: 36),
-                    _sectionLabel(LucideIcons.palette, tr('settings_theme')),
-                    const SizedBox(height: 12),
-                    _buildThemeGrid(ref, prefs.themeId),
-                    const SizedBox(height: 36),
-                    _sectionLabel(LucideIcons.languages, tr('settings_lang')),
-                    const SizedBox(height: 12),
-                    _buildLanguageSelector(context, ref),
-                    if (user != null) ...[
-                      const SizedBox(height: 20),
-                      _buildDangerZone(context, ref),
-                    ],
-                    const SizedBox(height: 100),
+                    _Section(
+                      label: tr('settings_account'),
+                      icon: LucideIcons.user,
+                      child: user == null
+                          ? const _AuthPanel()
+                          : _AccountCard(user: user!),
+                    ),
+                    _Section(
+                      label: tr('settings_theme'),
+                      icon: LucideIcons.palette,
+                      child: _ThemeGrid(current: prefs.themeId),
+                    ),
+                    _Section(
+                      label: tr('settings_lang'),
+                      icon: LucideIcons.languages,
+                      child: _LanguageSelector(current: prefs.language),
+                    ),
+                    if (user != null)
+                      _Section(
+                        label: tr('danger_zone'),
+                        icon: LucideIcons.trash2,
+                        child: _DangerZone(email: user!.email),
+                      ),
                   ],
                 ),
               ),
@@ -70,320 +90,1052 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Widget _sectionLabel(IconData icon, String label) {
-    return Row(
-      children: [
-        Icon(icon, size: 12, color: Colors.white30),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white30, letterSpacing: 1.2),
+// ════════════════════════════════════════════════════════════════════
+// Helpers
+// ════════════════════════════════════════════════════════════════════
+
+String _themeName(ThemeId id, String lang) {
+  const names = {
+    'en': {
+      ThemeId.sunset: 'Warm Sunset',
+      ThemeId.ice: 'Icy Fresh',
+      ThemeId.mono: 'Monochrome',
+      ThemeId.cyber: 'Cyber Sunset',
+      ThemeId.aurora: 'Northern Lights',
+      ThemeId.rose: 'Midnight Rose',
+      ThemeId.cosmos: 'Deep Space',
+      ThemeId.forest: 'Dark Forest',
+      ThemeId.obsidian: 'Obsidian',
+      ThemeId.graphite: 'Graphite',
+      ThemeId.midnight: 'Midnight',
+      ThemeId.espresso: 'Espresso',
+    },
+    'ru': {
+      ThemeId.sunset: 'Тёплый закат',
+      ThemeId.ice: 'Ледяная свежесть',
+      ThemeId.mono: 'Монохром',
+      ThemeId.cyber: 'Кибер-закат',
+      ThemeId.aurora: 'Северное сияние',
+      ThemeId.rose: 'Полночная роза',
+      ThemeId.cosmos: 'Глубокий космос',
+      ThemeId.forest: 'Тёмный лес',
+      ThemeId.obsidian: 'Обсидиан',
+      ThemeId.graphite: 'Графит',
+      ThemeId.midnight: 'Полночь',
+      ThemeId.espresso: 'Эспрессо',
+    },
+    'ko': {
+      ThemeId.sunset: '따뜻한 석양',
+      ThemeId.ice: '시원한 얼음',
+      ThemeId.mono: '모노크롬',
+      ThemeId.cyber: '사이버 석양',
+      ThemeId.aurora: '오로라',
+      ThemeId.rose: '미드나잇 로즈',
+      ThemeId.cosmos: '딥 스페이스',
+      ThemeId.forest: '어두운 숲',
+      ThemeId.obsidian: '옵시디언',
+      ThemeId.graphite: '그래파이트',
+      ThemeId.midnight: '미드나잇',
+      ThemeId.espresso: '에스프레소',
+    },
+  };
+  return names[lang]?[id] ?? names['en']![id]!;
+}
+
+class _Section extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Widget child;
+
+  const _Section({required this.label, required this.icon, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 768;
+    final padH = isMobile ? 16.0 : (width < 1280 ? 28.0 : 44.0);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(padH, 0, padH, 36),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 666),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 13, color: G.textMuted),
+                  const SizedBox(width: 8),
+                  Text(
+                    label.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 10.9,
+                      fontWeight: FontWeight.w600,
+                      color: G.textMuted,
+                      letterSpacing: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              child,
+            ],
+          ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildAuthPrompt(BuildContext context) {
-    return GlassContainer(
-      borderRadius: 20,
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          Text(tr('settings_sync'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text(
-            tr('settings_sync_desc'),
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white60, fontSize: 13),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen())),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white10,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: Text(tr('settings_auth_btn')),
-          ),
-        ],
       ),
     );
   }
+}
 
-  Widget _buildUserCard(WidgetRef ref, dynamic user) {
+class _BackButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _BackButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: GlassContainer(
+        blur: 16,
+        borderRadius: 12,
+        showInnerEdges: false,
+        child: const SizedBox(
+          width: 38,
+          height: 38,
+          child: Icon(LucideIcons.chevronLeft, size: 18, color: G.textSecondary),
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Account
+// ════════════════════════════════════════════════════════════════════
+
+class _AccountCard extends ConsumerWidget {
+  final AppUser user;
+  const _AccountCard({required this.user});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     return GlassContainer(
-      borderRadius: 20,
-      padding: const EdgeInsets.all(16),
+      borderRadius: 18,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       child: Row(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(color: Colors.white12, shape: BoxShape.circle, border: Border.all(color: Colors.white10)),
-            child: const Icon(LucideIcons.user, color: Colors.white, size: 20),
-          ),
-          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(user.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-                Text(user.email, style: const TextStyle(color: Colors.white38, fontSize: 12)),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                Text(
+                  user.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14.7,
+                    color: G.textPrimary,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(LucideIcons.check, size: 10, color: Colors.greenAccent),
-                      const SizedBox(width: 4),
-                      Text(tr('settings_synced'), style: const TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
+                ),
+                Text(
+                  user.email,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11.8, color: G.textMuted),
                 ),
               ],
             ),
           ),
-          Builder(
-            builder: (ctx) {
-              return IconButton(
-                icon: const Icon(LucideIcons.logOut, color: Colors.white38, size: 18),
-                onPressed: () => _logout(ctx, ref),
-              );
+          const SizedBox(width: 16),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0x1A00C850), // rgba(0,200,80,0.10)
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0x3300C850)), // 0.20
+            ),
+            child: const Icon(LucideIcons.shield, size: 15, color: Color(0xCC00DC64)),
+          ),
+          const SizedBox(width: 12),
+          _LogoutButton(
+            onTap: () async {
+              await ref.read(authProvider.notifier).logout();
+              if (context.mounted) {
+                final svc = ref.read(persistenceServiceProvider);
+                final guestLang = svc.getGuestLanguage();
+                await EasyLocalization.of(context)!.setLocale(Locale(guestLang));
+              }
             },
           ),
         ],
       ),
     );
   }
+}
 
-  Future<void> _logout(BuildContext ctx, WidgetRef ref) async {
-    await ref.read(authProvider.notifier).logout();
-    // NotesNotifier is recreated by Riverpod when authProvider changes
-    // (it watches authProvider) and will auto-load guest notes from storage.
-    // Reset locale to what the guest had saved (fallback ru inside service).
-    final svc = ref.read(persistenceServiceProvider);
-    final guestLang = svc.getGuestLanguage();
-    if (ctx.mounted) {
-      await EasyLocalization.of(ctx)!.setLocale(Locale(guestLang));
-    }
+class _LogoutButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _LogoutButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: GlassContainer(
+        blur: 12,
+        borderRadius: 10,
+        showInnerEdges: false,
+        child: const SizedBox(
+          width: 36,
+          height: 36,
+          child: Icon(LucideIcons.logOut, size: 15, color: G.textSecondary),
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Auth panel (React. AuthPanel inside Settings)
+// ════════════════════════════════════════════════════════════════════
+
+class _AuthPanel extends ConsumerStatefulWidget {
+  const _AuthPanel();
+
+  @override
+  ConsumerState<_AuthPanel> createState() => _AuthPanelState();
+}
+
+class _AuthPanelState extends ConsumerState<_AuthPanel> {
+  bool _isLogin = true;
+  bool _showPw = false;
+  bool _isLoading = false;
+  String _error = '';
+  bool _success = false;
+
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _pwController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _pwController.dispose();
+    super.dispose();
   }
 
-  Widget _buildThemeGrid(WidgetRef ref, ThemeId current) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.5,
-      ),
-      itemCount: allThemes.length,
-      itemBuilder: (context, index) {
-        final t = allThemes[index];
-        final active = t.id == current;
-        return Semantics(
-          button: true,
-          selected: active,
-          label: t.emoji,
-          child: GestureDetector(
-            onTap: () => ref.read(themeProvider.notifier).setTheme(t.id),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: active ? Colors.white.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.1), width: active ? 2 : 1),
-                boxShadow: active ? [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 8))] : [],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      height: 56,
-                      width: double.infinity,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Container(decoration: BoxDecoration(gradient: t.bg)),
-                          ...t.orbs.take(2).map((orb) {
-                            return Positioned(
-                              top: 20 + (orb.top * 40),
-                              left: 20 + (orb.left * 40),
-                              child: Container(
-                                width: 60,
-                                height: 60,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: RadialGradient(
-                                    colors: [orb.color, Colors.transparent],
-                                    stops: const [0.0, 0.7],
-                                  ),
-                                ),
-                              ),
-                            );
-                          }),
-                          if (active)
-                            const Positioned(
-                              top: 8,
-                              right: 8,
-                              child: CircleAvatar(
-                                radius: 10,
-                                backgroundColor: Colors.white,
-                                child: Icon(LucideIcons.check, size: 12, color: Colors.black),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      alignment: Alignment.center,
-                      child: Text(t.emoji, style: const TextStyle(fontSize: 22, height: 1)),
-                    ),
-                  ],
+  Future<void> _submit() async {
+    setState(() {
+      _error = '';
+      _success = false;
+      _isLoading = true;
+    });
+    final email = _emailController.text.trim().toLowerCase();
+    final name = _nameController.text.trim();
+    final pw = _pwController.text;
+
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() {
+        _error = tr('auth_error_email');
+        _isLoading = false;
+      });
+      return;
+    }
+    if (pw.length < 6) {
+      setState(() {
+        _error = tr('auth_error_pw');
+        _isLoading = false;
+      });
+      return;
+    }
+    if (!_isLogin && name.length < 2) {
+      setState(() {
+        _error = tr('auth_error_name');
+        _isLoading = false;
+      });
+      return;
+    }
+
+    String? res;
+    if (_isLogin) {
+      res = await ref.read(authProvider.notifier).login(email, pw);
+    } else {
+      res = await ref.read(authProvider.notifier).register(email, name, pw);
+      if (res == null) {
+        setState(() {
+          _success = true;
+          _error = tr('auth_success_reg');
+          _isLoading = false;
+        });
+        await Future.delayed(const Duration(milliseconds: 600));
+        if (mounted && Navigator.of(context).canPop()) Navigator.pop(context);
+        return;
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _error = res ?? '';
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassContainer(
+      borderRadius: 20,
+      padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _TabBtn(
+                  label: tr('auth_login'),
+                  active: _isLogin,
+                  onTap: () => setState(() {
+                    _isLogin = true;
+                    _error = '';
+                  }),
                 ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TabBtn(
+                  label: tr('auth_register'),
+                  active: !_isLogin,
+                  onTap: () => setState(() {
+                    _isLogin = false;
+                    _error = '';
+                  }),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          Column(
+            children: [
+              if (!_isLogin) ...[
+                _AuthField(controller: _nameController, hint: tr('auth_name')),
+                const SizedBox(height: 12),
+              ],
+              _AuthField(
+                controller: _emailController,
+                hint: tr('auth_email'),
+                keyboardType: TextInputType.emailAddress,
+                onSubmitted: (_) => _submit(),
+              ),
+              const SizedBox(height: 12),
+              _AuthField(
+                controller: _pwController,
+                hint: tr('auth_password'),
+                obscure: !_showPw,
+                onSubmitted: (_) => _submit(),
+                suffix: IconButton(
+                  onPressed: () => setState(() => _showPw = !_showPw),
+                  icon: Icon(
+                    _showPw ? LucideIcons.eyeOff : LucideIcons.eye,
+                    size: 16,
+                    color: Colors.white.withValues(alpha: 0.30),
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ),
+            ],
+          ),
+          if (_error.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              _error,
+              style: TextStyle(
+                fontSize: 12.5,
+                color: _success ? const Color(0xE652DC78) : const Color(0xE6FF6464),
+              ),
+            ),
+          ],
+          const SizedBox(height: 24),
+          _SubmitButton(
+            label: _isLogin ? tr('auth_submit_login') : tr('auth_submit_register'),
+            loading: _isLoading,
+            onTap: _submit,
+          ),
+          const SizedBox(height: 16),
+          Center(
+            child: Text(
+              tr('auth_footer'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 11.5,
+                height: 1.6,
+                color: G.textMuted,
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TabBtn extends StatelessWidget {
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _TabBtn({required this.label, required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: active ? G.bgHov : G.bg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: active ? G.border : Colors.white.withValues(alpha: 0.12),
+          ),
+          boxShadow: active ? G.glassShadow() : const [],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13.1,
+            fontWeight: FontWeight.w600,
+            color: active ? G.textPrimary : G.textMuted,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final bool obscure;
+  final TextInputType? keyboardType;
+  final ValueChanged<String>? onSubmitted;
+  final Widget? suffix;
+
+  const _AuthField({
+    required this.controller,
+    required this.hint,
+    this.obscure = false,
+    this.keyboardType,
+    this.onSubmitted,
+    this.suffix,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      keyboardType: keyboardType,
+      onSubmitted: onSubmitted,
+      style: const TextStyle(fontSize: 14.1, color: G.textPrimary),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Colors.white24),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: G.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.40)),
+        ),
+        suffixIcon: suffix,
+      ),
+    );
+  }
+}
+
+class _SubmitButton extends StatefulWidget {
+  final String label;
+  final bool loading;
+  final VoidCallback onTap;
+
+  const _SubmitButton({required this.label, required this.loading, required this.onTap});
+
+  @override
+  State<_SubmitButton> createState() => _SubmitButtonState();
+}
+
+class _SubmitButtonState extends State<_SubmitButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: widget.loading ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.loading ? null : widget.onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _hovered
+                ? Colors.white.withValues(alpha: 0.20)
+                : Colors.white.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _hovered ? G.borderHov : G.border,
+            ),
+          ),
+          child: widget.loading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : Text(
+                  widget.label,
+                  style: const TextStyle(
+                    fontSize: 14.1,
+                    fontWeight: FontWeight.w700,
+                    color: G.textPrimary,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Theme grid
+// ════════════════════════════════════════════════════════════════════
+
+class _ThemeGrid extends ConsumerWidget {
+  final ThemeId current;
+  const _ThemeGrid({required this.current});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = MediaQuery.of(context).size.width;
+        final cols = width >= 992 ? 6 : 4;
+        final gap = width < 768 ? 8.0 : 10.0;
+        final itemW = (constraints.maxWidth - gap * (cols - 1)) / cols;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final t in allThemes)
+              SizedBox(
+                width: itemW,
+                child: _ThemeTile(
+                  theme: t,
+                  active: t.id == current,
+                  onChange: () => ref.read(themeProvider.notifier).setTheme(t.id),
+                ),
+              ),
+          ],
         );
       },
     );
   }
+}
 
-  Widget _buildLanguageSelector(BuildContext context, WidgetRef ref) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            tr('language'),
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.white.withValues(alpha: 0.8),
-            ),
+class _ThemeTile extends StatelessWidget {
+  final AppThemeData theme;
+  final bool active;
+  final VoidCallback onChange;
+
+  const _ThemeTile({required this.theme, required this.active, required this.onChange});
+
+  @override
+  Widget build(BuildContext context) {
+    final lang = context.locale.languageCode;
+    return GestureDetector(
+      onTap: onChange,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: active
+                ? Colors.white.withValues(alpha: 0.50)
+                : G.border,
           ),
-          const SizedBox(height: 12),
-          Row(
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Column(
             children: [
-              _langButton(context, ref, 'ru', '🇷🇺 ${tr('language_ru')}'),
-              const SizedBox(width: 12),
-              _langButton(context, ref, 'en', '🇬🇧 ${tr('language_en')}'),
-              const SizedBox(width: 12),
-              _langButton(context, ref, 'ko', '🇰🇷 ${tr('language_ko')}'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDangerZone(BuildContext context, WidgetRef ref) {
-    return GlassContainer(
-      borderRadius: 18,
-      padding: const EdgeInsets.all(18),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr('delete_account'), style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Text(tr('delete_account_desc'), style: const TextStyle(color: Colors.white60, fontSize: 12, height: 1.45)),
-            ]),
-          ),
-          const SizedBox(width: 12),
-          OutlinedButton(
-            onPressed: () => _confirmDelete(context, ref),
-            style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent, side: const BorderSide(color: Colors.redAccent)),
-            child: Text(tr('delete_account')),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    final controller = TextEditingController();
-    final password = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(tr('delete_account_title')),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(tr('delete_account_warning')),
-          const SizedBox(height: 12),
-          TextField(controller: controller, obscureText: true, autofocus: true, decoration: InputDecoration(labelText: tr('password'))),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(tr('cancel'))),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text), child: Text(tr('delete_forever'))),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (password == null || password.isEmpty || !context.mounted) return;
-    final error = await ref.read(authProvider.notifier).deleteAccount(password);
-    if (!context.mounted) return;
-    if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr(error))));
-    } else {
-      Navigator.of(context).pop();
-    }
-  }
-
-  Widget _langButton(BuildContext context, WidgetRef ref, String langCode, String label) {
-    final isActive = EasyLocalization.of(context)!.locale.languageCode == langCode;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () async {
-          final locale = Locale(langCode);
-          await EasyLocalization.of(context)!.setLocale(locale);
-          ref.read(themeProvider.notifier).setLanguage(langCode);
-          final email = ref.read(authProvider)?.email;
-          if (email != null) {
-            await ref.read(persistenceServiceProvider).saveLanguage(email, langCode);
-          } else {
-            await ref.read(persistenceServiceProvider).saveLanguage('guest', langCode);
-          }
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: isActive ? Colors.amber.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isActive ? Colors.amber : Colors.white.withValues(alpha: 0.2),
-              width: isActive ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: isActive ? Colors.amber : Colors.white70,
-                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              SizedBox(
+                height: 56,
+                width: double.infinity,
+                child: LayoutBuilder(
+                  builder: (context, previewConstraints) {
+                    final tileW = previewConstraints.maxWidth;
+                    return Stack(
+                                            clipBehavior: Clip.hardEdge,
+                      children: [
+                        Container(decoration: BoxDecoration(gradient: theme.bg)),
+                        ...theme.orbs.take(2).toList().asMap().entries.map((entry) {
+                          final i = entry.key;
+                          final orb = entry.value;
+                          final orbW = orb.size * 0.30;
+                          return Positioned(
+                            top: i == 0 ? -17.0 : 11.2,
+                            left: i == 0 ? -tileW * 0.10 : tileW * 0.52,
+                            child: Container(
+                              width: orbW,
+                              height: orbW,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: RadialGradient(
+                                  colors: [orb.color, Colors.transparent],
+                                  stops: const [0.0, 0.70],
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                        if (active)
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Container(
+                              width: 20,
+                              height: 20,
+                              decoration: const BoxDecoration(
+                                color: Color(0xE6FFFFFF),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(LucideIcons.check,
+                                  size: 12, color: Color(0xFF111111)),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
-              if (isActive) ...[
-                const SizedBox(width: 6),
-                Icon(Icons.check_circle, color: Colors.amber, size: 18),
-              ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(6, 8, 6, 10),
+                child: Column(
+                  children: [
+                    Text(theme.emoji, style: const TextStyle(fontSize: 19.2, height: 1)),
+                    const SizedBox(height: 4),
+                    Text(
+                      _themeName(theme.id, lang),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 9.9,
+                        fontWeight: FontWeight.w600,
+                        color: active ? G.textPrimary : G.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Language
+// ════════════════════════════════════════════════════════════════════
+
+class _LanguageSelector extends ConsumerWidget {
+  final String current;
+  const _LanguageSelector({required this.current});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: G.border),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: current,
+          isExpanded: true,
+          icon: const Icon(LucideIcons.chevronDown, size: 16, color: Colors.white30),
+          dropdownColor: const Color(0xFF17171D),
+          style: const TextStyle(
+            color: G.textPrimary,
+            fontSize: 13.8,
+          ),
+          items: [
+            DropdownMenuItem(value: 'ru', child: Text('Русский')),
+            DropdownMenuItem(value: 'en', child: Text('English')),
+            DropdownMenuItem(value: 'ko', child: Text('한국어')),
+          ],
+          onChanged: (value) async {
+            if (value == null) return;
+            final locale = Locale(value);
+            await EasyLocalization.of(context)!.setLocale(locale);
+            ref.read(themeProvider.notifier).setLanguage(value);
+            final email = ref.read(authProvider)?.email;
+            if (email != null) {
+              await ref.read(persistenceServiceProvider).saveLanguage(email, value);
+            } else {
+              await ref.read(persistenceServiceProvider).saveLanguage('guest', value);
+            }
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Danger zone + delete dialog
+// ════════════════════════════════════════════════════════════════════
+
+class _DangerZone extends ConsumerWidget {
+  final String email;
+  const _DangerZone({required this.email});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GlassContainer(
+      borderRadius: 18,
+      border: Border.all(color: const Color(0x47FF6464)), // rgba(255,100,100,0.28)
+      color: const Color(0x21911423), // rgba(145,20,35,0.13)
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tr('delete_account'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14.7,
+                    color: Color(0xFAFFBEBE),
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  tr('delete_account_desc'),
+                  style: const TextStyle(
+                    fontSize: 12.2,
+                    height: 1.55,
+                    color: Color(0x9EFFDCDC),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          GestureDetector(
+            onTap: () => _confirmDelete(context, ref),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: const Color(0x33E63741), // rgba(230,55,65,0.20)
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0x8CFF6969)), // 0.55
+              ),
+              child: Text(
+                tr('delete_account'),
+                style: const TextStyle(
+                  fontSize: 12.2,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFAFFD2D2),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, WidgetRef ref) {
+    showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: 'delete-account',
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 220),
+      transitionBuilder: (context, animation, secondaryAnimation, child) => child,
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return _DeleteAccountDialog(
+          email: email,
+          onDismiss: () => Navigator.pop(dialogContext),
+        );
+      },
+    );
+  }
+}
+
+class _DeleteAccountDialog extends ConsumerStatefulWidget {
+  final String email;
+  final VoidCallback onDismiss;
+
+  const _DeleteAccountDialog({required this.email, required this.onDismiss});
+
+  @override
+  ConsumerState<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
+  final _pwController = TextEditingController();
+  bool _showPw = false;
+  bool _loading = false;
+  String _error = '';
+
+  @override
+  void dispose() {
+    _pwController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_pwController.text.isEmpty) {
+      setState(() => _error = tr('auth_error_pw'));
+      return;
+    }
+    setState(() {
+      _error = '';
+      _loading = true;
+    });
+    final error = await ref.read(authProvider.notifier).deleteAccount(_pwController.text);
+    if (!mounted) return;
+    if (error != null) {
+      setState(() {
+        _error = tr(error);
+        _loading = false;
+      });
+      return;
+    }
+    // Close the dialog, then the settings screen (React: back to dashboard).
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    if (navigator.canPop()) navigator.pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: _loading ? null : widget.onDismiss,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+              child: Container(color: Colors.black.withValues(alpha: 0.68)),
+            ),
+          ),
+        ),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 220),
+              curve: const Cubic(0.34, 1.46, 0.64, 1.0),
+              builder: (context, value, child) {
+                return Transform.scale(
+                  scale: 0.96 + 0.04 * value,
+                  child: Opacity(opacity: value, child: child),
+                );
+              },
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: GlassContainer(
+                  blur: 28,
+                  borderRadius: 22,
+                  border: Border.all(color: const Color(0x61FF7373)), // 0.38
+                  boxShadow: G.confirmShadow,
+                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: const Color(0x2EEB373F), // 0.18
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  LucideIcons.trash2,
+                                  size: 17,
+                                  color: Color(0xF2FF9191),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                tr('delete_account_title'),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFAFFD7D7),
+                                ),
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            onPressed: _loading ? null : widget.onDismiss,
+                            icon: const Icon(LucideIcons.x, size: 18, color: G.textSecondary),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Text.rich(
+                        TextSpan(
+                          text: tr('delete_account_warning'),
+                          style: const TextStyle(
+                            fontSize: 13.1,
+                            height: 1.6,
+                            color: G.textSecondary,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: ' ${widget.email}',
+                              style:
+                                  const TextStyle(color: G.textPrimary, fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        tr('password'),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xC7FFDCDC),
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      TextField(
+                        controller: _pwController,
+                        obscureText: !_showPw,
+                        autofocus: true,
+                        enabled: !_loading,
+                        onChanged: (_) => setState(() => _error = ''),
+                        onSubmitted: (_) => _submit(),
+                        style: const TextStyle(fontSize: 13.8, color: G.textPrimary),
+                        decoration: InputDecoration(
+                          hintText: tr('password'),
+                          isDense: true,
+                          contentPadding:
+                              const EdgeInsets.fromLTRB(13, 11, 42, 11),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                const BorderSide(color: Color(0x4DFFA0A0)), // 0.30
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.40)),
+                          ),
+                          suffixIcon: IconButton(
+                            onPressed: () => setState(() => _showPw = !_showPw),
+                            icon: Icon(
+                              _showPw ? LucideIcons.eyeOff : LucideIcons.eye,
+                              size: 16,
+                              color: G.textMuted,
+                            ),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ),
+                      ),
+                      if (_error.isNotEmpty) ...[
+                        const SizedBox(height: 9),
+                        Text(
+                          _error,
+                          style: const TextStyle(fontSize: 12, color: Color(0xF5FF9191)),
+                        ),
+                      ],
+                      const SizedBox(height: 22),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          GestureDetector(
+                            onTap: _loading ? null : widget.onDismiss,
+                            child: Container(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.05),
+                                borderRadius: BorderRadius.circular(11),
+                                border: Border.all(color: G.border),
+                              ),
+                              child: Text(
+                                tr('cancel'),
+                                style: const TextStyle(
+                                  fontSize: 12.8,
+                                  fontWeight: FontWeight.w600,
+                                  color: G.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          GestureDetector(
+                            onTap: _loading || _pwController.text.isEmpty ? null : _submit,
+                            child: Container(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0x6BE13741), // rgba(225,55,65,0.42)
+                                borderRadius: BorderRadius.circular(11),
+                                border:
+                                    Border.all(color: const Color(0x8CFF6969)),
+                              ),
+                              child: Text(
+                                _loading ? tr('deleting') : tr('delete_forever'),
+                                style: const TextStyle(
+                                  fontSize: 12.8,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
