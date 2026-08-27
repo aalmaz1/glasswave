@@ -32,9 +32,10 @@ src/                    React + Vite app (this is the product)
 lib/                    Flutter prototype (local-only)
 android-capacitor/      Capacitor Android project
 ios-capacitor/          Capacitor iOS project
+src-tauri/              Tauri desktop shell (Linux AppImage / .deb)
 android/ ios/ …         Flutter platform shells (not the shipping apps)
 assets/translations/    generated JSON for Flutter — do not edit by hand
-docs/                   APK, iOS, PWA, notification sound
+docs/                   APK, iOS, PWA, desktop, notification sound
 firestore.rules         owner-only notes + field/type/size checks
 ```
 
@@ -92,6 +93,22 @@ npm run cap:sync:ios
 open ios-capacitor/App/App.xcworkspace
 ```
 
+**Linux desktop (AppImage)** — Tauri wraps the same web build in the system
+webkit (WebKitGTK), the same way Capacitor wraps it on Android. Needs Node 22+,
+a Rust toolchain, and `libwebkit2gtk-4.1-dev` (+ `libayatana-appindicator3-dev
+librsvg2-dev libxdo-dev patchelf`):
+
+```bash
+npm run desktop:build
+# src-tauri/target/release/bundle/appimage/GlassWave_<version>_amd64.AppImage
+# src-tauri/target/release/bundle/deb/glasswave_<version>_amd64.deb
+```
+
+Releases published by the APK workflow automatically get the matching AppImage
+and .deb attached (`.github/workflows/appimage_build.yml`); a manual build can
+be triggered from the Actions tab. The AppImage expects `libwebkit2gtk-4.1` on
+the system — present on Ubuntu 22.04+/Debian 12/Fedora and friends.
+
 PWA notes (install, offline shell, what reminders can and cannot do in the browser): [docs/pwa.md](docs/pwa.md). Notification sound across web / Android / iOS: [docs/notification-sound.md](docs/notification-sound.md).
 
 ## Flutter prototype
@@ -109,12 +126,12 @@ Dart SDK `^3.12.2` (see `pubspec.yaml`).
 
 The dashboard is one screen with **Notes / Archive / Trash** tabs. Pinned notes sit at the top of Notes. Settings is a separate screen (account, theme, language, delete account).
 
-| Shortcut | Action |
-| --- | --- |
+| Shortcut       | Action               |
+| -------------- | -------------------- |
 | `Ctrl/Cmd + N` | New note (dashboard) |
-| `Ctrl/Cmd + F` | Focus search |
-| `Ctrl/Cmd + S` | Save (editor) |
-| `Esc` | Close editor / modal |
+| `Ctrl/Cmd + F` | Focus search         |
+| `Ctrl/Cmd + S` | Save (editor)        |
+| `Esc`          | Close editor / modal |
 
 ## i18n
 

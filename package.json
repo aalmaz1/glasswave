@@ -18,7 +18,9 @@
     "sound:ios": "node scripts/mp3-to-ios-sound.mjs",
     "cap:sync": "npm run build && npx cap sync android",
     "cap:sync:ios": "npm run build && npx cap sync ios",
-    "android:apk": "npm run cap:sync && cd android-capacitor && ./gradlew assembleRelease"
+    "android:apk": "npm run cap:sync && cd android-capacitor && ./gradlew assembleRelease",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
@@ -41,6 +43,7 @@
     "@capacitor/cli": "^8.5.0",
     "@eslint/js": "^9.39.5",
     "@tailwindcss/vite": "4.1.12",
+    "@tauri-apps/cli": "^2.11.4",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "4.7.0",
