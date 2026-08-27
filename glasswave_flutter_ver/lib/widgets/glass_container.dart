@@ -23,6 +23,9 @@ class GlassContainer extends StatelessWidget {
   final bool showRing;
   final bool showSheen;
   final bool showInnerEdges;
+
+  /// Mirrors the `.card:hover` state: brighter ring and a fully opaque sheen.
+  final bool hover;
   final StackFit fit;
 
   const GlassContainer({
@@ -38,6 +41,7 @@ class GlassContainer extends StatelessWidget {
     this.showRing = true,
     this.showSheen = true,
     this.showInnerEdges = true,
+    this.hover = false,
     this.fit = StackFit.loose,
   });
 
@@ -80,18 +84,22 @@ class GlassContainer extends StatelessWidget {
             // Sheen (`.glass-sheen`)
             if (showSheen)
               Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(borderRadius),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.06),
-                        Colors.transparent,
-                        Colors.white.withValues(alpha: 0.03),
-                      ],
-                      stops: const [0.0, 0.5, 1.0],
+                child: Opacity(
+                  opacity: hover ? 1.0 : 0.6,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(borderRadius),
+                      gradient: LinearGradient(
+                        // CSS `linear-gradient(45deg, …)` runs bottom-left → top-right.
+                        begin: Alignment.bottomLeft,
+                        end: Alignment.topRight,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.06),
+                          Colors.white.withValues(alpha: 0),
+                          Colors.white.withValues(alpha: 0.03),
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                      ),
                     ),
                   ),
                 ),
@@ -120,11 +128,18 @@ class GlassContainer extends StatelessWidget {
                   child: CustomPaint(
                     painter: _RingPainter(
                       radius: radius,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.35),
-                        Colors.white.withValues(alpha: 0.08),
-                        Colors.white.withValues(alpha: 0.02),
-                      ],
+                      colors: hover
+                          ? [
+                              Colors.white.withValues(alpha: 0.60),
+                              Colors.white.withValues(alpha: 0.14),
+                              Colors.white.withValues(alpha: 0.02),
+                            ]
+                          : [
+                              Colors.white.withValues(alpha: 0.35),
+                              Colors.white.withValues(alpha: 0.08),
+                              Colors.white.withValues(alpha: 0.02),
+                            ],
+                      stops: hover ? G.ringStopsHover : G.ringStops,
                     ),
                   ),
                 ),
@@ -143,8 +158,9 @@ class GlassContainer extends StatelessWidget {
 class _RingPainter extends CustomPainter {
   final Radius radius;
   final List<Color> colors;
+  final List<double> stops;
 
-  _RingPainter({required this.radius, required this.colors});
+  _RingPainter({required this.radius, required this.colors, required this.stops});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -154,17 +170,20 @@ class _RingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
       ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
+        // CSS `linear-gradient(160deg, …)`: almost straight down, tilted right.
+        begin: const Alignment(-0.34, -0.94),
+        end: const Alignment(0.34, 0.94),
         colors: colors,
-        stops: G.ringStops,
+        stops: stops,
       ).createShader(rect);
     canvas.drawRRect(rrect.deflate(0.5), paint);
   }
 
   @override
   bool shouldRepaint(covariant _RingPainter oldDelegate) {
-    return oldDelegate.radius != radius || !listEquals(oldDelegate.colors, colors);
+    return oldDelegate.radius != radius ||
+        !listEquals(oldDelegate.colors, colors) ||
+        !listEquals(oldDelegate.stops, stops);
   }
 }
 

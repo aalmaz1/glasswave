@@ -2,7 +2,7 @@
 
 The APK is the **React + Vite app**, packaged with Capacitor 8.
 
-Flutter’s native project stays in `android/`. Capacitor lives in `android-capacitor/`.
+Flutter’s native project stays in `glasswave_flutter_ver/android/`. Capacitor lives in `android-capacitor/`.
 
 ## Automatic GitHub Releases
 

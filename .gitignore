@@ -29,6 +29,13 @@ htmlcov/
 .mypy_cache/
 .pytest_cache/
 
+# Flutter (glasswave_flutter_ver/)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+*.iml
+
 # Editors and IDEs
 .vscode/
 .idea/

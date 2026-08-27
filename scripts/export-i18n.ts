@@ -1,5 +1,6 @@
 /**
- * Generates `assets/translations/{ru,en,ko}.json` for the Flutter app
+ * Generates `glasswave_flutter_ver/assets/translations/{ru,en,ko}.json` for the
+ * Flutter app
  * (easy_localization) from the single source of truth in
  * `src/i18n/translations.ts`.
  *
@@ -17,11 +18,14 @@ import { dirname, resolve } from "node:path";
 import { TRANSLATIONS, type Translation, type Language } from "../src/i18n/translations";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUT_DIR = resolve(__dirname, "../assets/translations");
+const OUT_DIR = resolve(__dirname, "../glasswave_flutter_ver/assets/translations");
+
+/** Placeholder easy_localization interpolates through `namedArgs: {"n": …}`. */
+const N = "{n}";
 
 /** Flutter snake_case key → field on the `Translation` interface. */
 const FLUTTER_KEY_MAP: Record<string, keyof Translation> = {
-  notes: "allNotes",
+  notes: "tabNotes",
   archive: "tabArchive",
   trash: "tabTrash",
   search_hint: "searchPlaceholder",
@@ -53,8 +57,7 @@ const FLUTTER_KEY_MAP: Record<string, keyof Translation> = {
   settings_font_lg: "settingsFontLg",
   settings_synced: "synced",
   note_just_now: "timeJustNow",
-  note_hours_ago: "timeHoursAgoSuffix",
-  note_days_ago: "timeDaysAgoSuffix",
+  note_yesterday: "timeYesterday",
   sort_title: "sortBy",
   sort_default: "sortDefault",
   sort_default_sub: "sortDefaultSub",
@@ -102,6 +105,49 @@ const FLUTTER_KEY_MAP: Record<string, keyof Translation> = {
   cancel: "cancel",
   delete_forever: "deleteForever",
   deleting: "deleting",
+  create_note: "createNote",
+  no_notes_subtitle: "noNotesSubtitle",
+  empty_trash_btn: "emptyTrash",
+  empty_trash_confirm_title: "emptyTrashConfirmTitle",
+  empty_trash_confirm_body: "emptyTrashConfirmBody",
+  confirm_delete_title: "confirmDeleteNoteTitle",
+  confirm_delete_body: "confirmDeleteNoteBody",
+  unsaved_changes_title: "unsavedChangesTitle",
+  unsaved_changes_body: "unsavedChangesBody",
+  unsaved_save: "unsavedSave",
+  unsaved_discard: "unsavedDiscard",
+  welcome_note1_title: "welcomeNote1Title",
+  welcome_note1_body: "welcomeNote1Body",
+  welcome_note2_title: "welcomeNote2Title",
+  welcome_note2_body: "welcomeNote2Body",
+  welcome_note3_title: "welcomeNote3Title",
+  welcome_note3_body: "welcomeNote3Body",
+  welcome_note4_title: "welcomeNote4Title",
+  welcome_note4_body: "welcomeNote4Body",
+};
+
+/**
+ * Keys built from a parameterized string. easy_localization interpolates
+ * `{n}` through `tr(key, namedArgs: {"n": ...})`.
+ */
+const FLUTTER_COMPUTED: Record<string, (t: Translation) => string> = {
+  note_min_ago: (t) => t.timeMinAgo(N as unknown as number),
+  note_hours_ago: (t) => t.timeHoursAgo(N as unknown as number),
+  note_days_ago: (t) => t.timeDaysAgo(N as unknown as number),
+};
+
+/**
+ * Plural keys for easy_localization (`plural(key, n)`): it picks one/few/many
+ * with the locale's CLDR rules, matching the hand-rolled plural logic the web
+ * app uses for the same strings.
+ */
+const FLUTTER_PLURALS: Record<string, (t: Translation) => Record<string, string>> = {
+  editor_words_count: (t) => ({
+    one: t.wordsCount(1).replace("1", "{}"),
+    few: t.wordsCount(2).replace("2", "{}"),
+    many: t.wordsCount(5).replace("5", "{}"),
+    other: t.wordsCount(5).replace("5", "{}"),
+  }),
 };
 
 /**
@@ -110,12 +156,20 @@ const FLUTTER_KEY_MAP: Record<string, keyof Translation> = {
  */
 const EMPTY_KEYS = new Set(["editor_edit"]);
 
-function buildJson(lang: Language): Record<string, string> {
+type FlutterValue = string | Record<string, string>;
+
+function buildJson(lang: Language): Record<string, FlutterValue> {
   const t = TRANSLATIONS[lang];
-  const out: Record<string, string> = {};
+  const out: Record<string, FlutterValue> = {};
 
   for (const [flutterKey, field] of Object.entries(FLUTTER_KEY_MAP)) {
     out[flutterKey] = String(t[field]);
+  }
+  for (const [flutterKey, build] of Object.entries(FLUTTER_COMPUTED)) {
+    out[flutterKey] = build(t);
+  }
+  for (const [flutterKey, build] of Object.entries(FLUTTER_PLURALS)) {
+    out[flutterKey] = build(t);
   }
   for (const key of EMPTY_KEYS) {
     out[key] = "";

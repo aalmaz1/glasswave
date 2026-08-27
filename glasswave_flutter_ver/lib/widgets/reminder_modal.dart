@@ -111,7 +111,7 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
   Widget build(BuildContext context) {
     final locale = context.locale.languageCode;
     final dateLocale = _dateLocale(locale);
-    final fmt = DateFormat('d MMM, HH:mm', dateLocale);
+    final fmt = DateFormat('d MMMM, HH:mm', dateLocale);
 
     final quickPicks = [
       (tr('remind_today'), _todayAt(20)),
@@ -197,7 +197,7 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
                                   color: active
-                                      ? Colors.white.withValues(alpha: 0.30)
+                                      ? const Color(0x59FFC83C) // rgba(255,200,60,0.35)
                                       : G.border,
                                 ),
                               ),
@@ -285,7 +285,7 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                                       color: const Color(0x14FF5050), // rgba(255,80,80,0.08)
                                       borderRadius: BorderRadius.circular(14),
                                       border: Border.all(
-                                        color: Colors.white.withValues(alpha: 0.28),
+                                        color: const Color(0x47FF6464), // rgba(255,100,100,0.28)
                                       ),
                                     ),
                                     child: Text(
@@ -319,9 +319,7 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                                           : const Color(0x24FFC83C), // rgba(255,200,60,0.14)
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
-                                    color: _selectedDate == null
-                                        ? Colors.white.withValues(alpha: 0.10)
-                                        : Colors.white.withValues(alpha: 0.35),
+                                    color: const Color(0x59FFC83C), // rgba(255,200,60,0.35)
                                   ),
                                 ),
                                 child: Text(

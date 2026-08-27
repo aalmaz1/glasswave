@@ -23,24 +23,30 @@ class SettingsScreen extends ConsumerWidget {
     final theme = allThemes.firstWhere((t) => t.id == prefs.themeId);
     final user = ref.watch(authProvider);
     final width = MediaQuery.of(context).size.width;
-    final isMobile = width < 768;
-    final headerPad = isMobile ? 16.0 : (width < 1280 ? 28.0 : 44.0);
+    final headerPad = width < 768 ? 16.0 : (width < 1280 ? 28.0 : 44.0);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
           BackgroundOrbs(theme: theme),
-          Column(
+          // React scrolls the whole settings page, header included.
+          ListView(
+            padding: const EdgeInsets.only(bottom: 64),
             children: [
               Padding(
-                padding: EdgeInsets.only(top: 28 + MediaQuery.of(context).padding.top),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: headerPad),
-                  child: Row(
-                    children: [
-                      _BackButton(onTap: () => Navigator.pop(context)),
-                      const SizedBox(width: 14),
-                      Text(
+                padding: EdgeInsets.fromLTRB(
+                  headerPad,
+                  28 + MediaQuery.of(context).padding.top,
+                  headerPad,
+                  28,
+                ),
+                child: Row(
+                  children: [
+                    _BackButton(onTap: () => Navigator.pop(context)),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
                         tr('settings_title'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
@@ -49,41 +55,31 @@ class SettingsScreen extends ConsumerWidget {
                           letterSpacing: -0.3,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 28),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.only(bottom: 64),
-                  children: [
-                    _Section(
-                      label: tr('settings_account'),
-                      icon: LucideIcons.user,
-                      child: user == null
-                          ? const _AuthPanel()
-                          : _AccountCard(user: user!),
                     ),
-                    _Section(
-                      label: tr('settings_theme'),
-                      icon: LucideIcons.palette,
-                      child: _ThemeGrid(current: prefs.themeId),
-                    ),
-                    _Section(
-                      label: tr('settings_lang'),
-                      icon: LucideIcons.languages,
-                      child: _LanguageSelector(current: prefs.language),
-                    ),
-                    if (user != null)
-                      _Section(
-                        label: tr('danger_zone'),
-                        icon: LucideIcons.trash2,
-                        child: _DangerZone(email: user!.email),
-                      ),
                   ],
                 ),
               ),
+              _Section(
+                label: tr('settings_account'),
+                icon: LucideIcons.user,
+                child: user == null ? const _AuthPanel() : _AccountCard(user: user),
+              ),
+              _Section(
+                label: tr('settings_theme'),
+                icon: LucideIcons.palette,
+                child: _ThemeGrid(current: prefs.themeId),
+              ),
+              _Section(
+                label: tr('settings_lang'),
+                icon: LucideIcons.languages,
+                child: _LanguageSelector(current: prefs.language),
+              ),
+              if (user != null)
+                _Section(
+                  label: tr('danger_zone'),
+                  icon: LucideIcons.trash2,
+                  child: _DangerZone(email: user.email),
+                ),
             ],
           ),
         ],
@@ -174,7 +170,7 @@ class _Section extends StatelessWidget {
                       fontSize: 10.9,
                       fontWeight: FontWeight.w600,
                       color: G.textMuted,
-                      letterSpacing: 1.4,
+                      letterSpacing: 0.9,
                     ),
                   ),
                 ],
@@ -663,90 +659,106 @@ class _ThemeTile extends StatelessWidget {
     final lang = context.locale.languageCode;
     return GestureDetector(
       onTap: onChange,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: active
-                ? Colors.white.withValues(alpha: 0.50)
-                : G.border,
-          ),
+      child: GlassContainer(
+        blur: 20,
+        borderRadius: 18,
+        showInnerEdges: false,
+        showSheen: false,
+        showRing: false,
+        border: Border.all(
+          color: active ? const Color(0x80FFFFFF) : G.border, // white 0.50 / 0.20
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: Column(
-            children: [
-              SizedBox(
-                height: 56,
-                width: double.infinity,
-                child: LayoutBuilder(
-                  builder: (context, previewConstraints) {
-                    final tileW = previewConstraints.maxWidth;
-                    return Stack(
-                                            clipBehavior: Clip.hardEdge,
-                      children: [
-                        Container(decoration: BoxDecoration(gradient: theme.bg)),
-                        ...theme.orbs.take(2).toList().asMap().entries.map((entry) {
-                          final i = entry.key;
-                          final orb = entry.value;
-                          final orbW = orb.size * 0.30;
-                          return Positioned(
-                            top: i == 0 ? -17.0 : 11.2,
-                            left: i == 0 ? -tileW * 0.10 : tileW * 0.52,
-                            child: Container(
-                              width: orbW,
-                              height: orbW,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: RadialGradient(
-                                  colors: [orb.color, Colors.transparent],
-                                  stops: const [0.0, 0.70],
-                                ),
+        boxShadow: active
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  blurRadius: 48,
+                  offset: const Offset(0, 16),
+                ),
+              ]
+            : G.glassShadow(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 56,
+              width: double.infinity,
+              child: LayoutBuilder(
+                builder: (context, previewConstraints) {
+                  final tileW = previewConstraints.maxWidth;
+                  return Stack(
+                    clipBehavior: Clip.hardEdge,
+                    children: [
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: theme.bgGradient(Size(tileW, 56)),
+                          ),
+                        ),
+                      ),
+                      ...theme.orbs.take(2).toList().asMap().entries.map((entry) {
+                        final i = entry.key;
+                        final orb = entry.value;
+                        // React: size * 0.3, top -30% / 20%, left -10% / 52%
+                        final orbW = orb.size * 0.30;
+                        return Positioned(
+                          top: i == 0 ? -16.8 : 11.2,
+                          left: i == 0 ? -tileW * 0.10 : tileW * 0.52,
+                          child: Container(
+                            width: orbW,
+                            height: orbW,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: [orb.color, orb.color.withValues(alpha: 0)],
+                                stops: const [0.0, 0.70],
                               ),
-                            ),
-                          );
-                        }),
-                        if (active)
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: Container(
-                              width: 20,
-                              height: 20,
-                              decoration: const BoxDecoration(
-                                color: Color(0xE6FFFFFF),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(LucideIcons.check,
-                                  size: 12, color: Color(0xFF111111)),
                             ),
                           ),
-                      ],
-                    );
-                  },
-                ),
+                        );
+                      }),
+                      if (active)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: const BoxDecoration(
+                              color: Color(0xE6FFFFFF),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(LucideIcons.check,
+                                size: 12, color: Color(0xFF111111)),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(6, 8, 6, 10),
-                child: Column(
-                  children: [
-                    Text(theme.emoji, style: const TextStyle(fontSize: 19.2, height: 1)),
-                    const SizedBox(height: 4),
-                    Text(
-                      _themeName(theme.id, lang),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 9.9,
-                        fontWeight: FontWeight.w600,
-                        color: active ? G.textPrimary : G.textSecondary,
-                      ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(6, 8, 6, 10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(theme.emoji, style: const TextStyle(fontSize: 19.2, height: 1)),
+                  const SizedBox(height: 4),
+                  Text(
+                    _themeName(theme.id, lang),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 9.9,
+                      height: 1.2,
+                      fontWeight: FontWeight.w600,
+                      color: active ? G.textPrimary : G.textSecondary,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

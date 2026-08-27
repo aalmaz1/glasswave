@@ -1,5 +1,5 @@
 {
-  "notes": "All",
+  "notes": "Notes",
   "archive": "Archive",
   "trash": "Trash",
   "search_hint": "Search notes...",
@@ -31,8 +31,7 @@
   "settings_font_lg": "Large",
   "settings_synced": "Synced",
   "note_just_now": "Just now",
-  "note_hours_ago": "h ago",
-  "note_days_ago": "d ago",
+  "note_yesterday": "Yesterday",
   "sort_title": "Sort by",
   "sort_default": "Default",
   "sort_default_sub": "Insertion order",
@@ -80,7 +79,6 @@
   "cancel": "Cancel",
   "delete_forever": "Delete permanently",
   "deleting": "Deleting…",
-  "editor_edit": "",
   "create_note": "Create note",
   "no_notes_subtitle": "Create your first note to get started.",
   "empty_trash_btn": "Empty trash",
@@ -92,5 +90,22 @@
   "unsaved_changes_body": "This note has unsaved text.",
   "unsaved_save": "Save",
   "unsaved_discard": "Don't save",
-  "note_yesterday": "Yesterday"
+  "welcome_note1_title": "GlassWave 🌊",
+  "welcome_note1_body": "A modern note-taking app with a glassmorphism design: translucent cards, background blur and smooth animations.",
+  "welcome_note2_title": "What GlassWave can do",
+  "welcome_note2_body": "Create and edit notes with formatting, pin, archive and trash, search, sort and reminders.",
+  "welcome_note3_title": "Sync & offline",
+  "welcome_note3_body": "Firebase sync across devices, offline work with a local cache, and a guest mode that needs no registration.",
+  "welcome_note4_title": "Languages & themes",
+  "welcome_note4_body": "Three interface languages (Russian, English, Korean) and 12 color themes to suit your mood.",
+  "note_min_ago": "{n} min ago",
+  "note_hours_ago": "{n} h ago",
+  "note_days_ago": "{n} d ago",
+  "editor_words_count": {
+    "one": "{} word",
+    "few": "{} words",
+    "many": "{} words",
+    "other": "{} words"
+  },
+  "editor_edit": ""
 }

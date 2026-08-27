@@ -10,6 +10,7 @@ import '../widgets/glass_container.dart';
 import '../widgets/note_card.dart';
 import '../widgets/confirm_dialog.dart';
 import '../models/note.dart';
+import '../services/welcome_notes.dart';
 import '../theme/app_theme_data.dart';
 import '../theme/design_tokens.dart';
 import 'settings_screen.dart';
@@ -25,15 +26,17 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
-  double _scrollY = 0;
+
+  /// Parallax offset for the background orbs. Kept out of [setState] so a
+  /// scroll frame repaints only the orb layer instead of the whole note grid
+  /// (React mutates the orb transforms directly for the same reason).
+  final ValueNotifier<double> _scrollY = ValueNotifier<double>(0);
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(() {
-      setState(() {
-        _scrollY = _scrollController.offset;
-      });
+      _scrollY.value = _scrollController.offset;
     });
     _searchController.addListener(() => setState(() {}));
   }
@@ -42,6 +45,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void dispose() {
     _scrollController.dispose();
     _searchController.dispose();
+    _scrollY.dispose();
     super.dispose();
   }
 
@@ -68,7 +72,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final prefs = ref.watch(themeProvider);
     final theme = allThemes.firstWhere((t) => t.id == prefs.themeId);
-    final notes = ref.watch(notesProvider);
+    final storedNotes = ref.watch(notesProvider);
+    final user = ref.watch(authProvider);
+    // React: a signed-out user with no notes of their own sees the intro cards
+    // instead of an empty dashboard; real notes replace them immediately.
+    final notes =
+        user == null && storedNotes.isEmpty ? buildWelcomeNotes() : storedNotes;
     final currentTab = ref.watch(dashboardTabProvider);
     final sortOrder = ref.watch(sortOrderProvider);
     final width = MediaQuery.of(context).size.width;
@@ -154,22 +163,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                       ),
                     ],
-                    if (pinned.isNotEmpty) ...[
-                      _SectionLabel(label: tr('pinned').toUpperCase()),
-                      _buildGrid(pinned, crossAxisCount, isMobile),
-                      if (others.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 24),
-                          child: _SectionLabel(label: tr('others').toUpperCase()),
-                        ),
-                    ],
-                    _buildGrid(others, crossAxisCount, isMobile),
-                    if (filteredNotes.isEmpty) ...[
+                    if (filteredNotes.isEmpty)
                       _EmptyState(
                         tab: currentTab,
                         showingSearch: search.isNotEmpty,
                         onCreate: () => openEditorOverlay(context),
-                      ),
+                      )
+                    else ...[
+                      if (pinned.isNotEmpty) ...[
+                        _SectionLabel(label: tr('pinned').toUpperCase()),
+                        _buildGrid(pinned, crossAxisCount, isMobile),
+                        if (others.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 24),
+                            child: _SectionLabel(label: tr('others').toUpperCase()),
+                          ),
+                      ],
+                      _buildGrid(others, crossAxisCount, isMobile),
                     ],
                   ]),
                 ),
@@ -357,14 +367,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   for (final item in items)
-                    Expanded(
-                      child: _NavItem(
-                        icon: item.$2,
-                        label: item.$3,
-                        active: currentTab == item.$1,
-                        onTap: () =>
-                            ref.read(dashboardTabProvider.notifier).state = item.$1,
-                      ),
+                    _NavItem(
+                      icon: item.$2,
+                      label: item.$3,
+                      active: currentTab == item.$1,
+                      onTap: () =>
+                          ref.read(dashboardTabProvider.notifier).state = item.$1,
                     ),
                 ],
               ),
@@ -474,9 +482,12 @@ class _EmptyState extends StatelessWidget {
       msg = tr('no_notes');
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 60),
+    return Container(
+      constraints: const BoxConstraints(minHeight: 260),
+      alignment: Alignment.center,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           GlassContainer(
             borderRadius: 14,
@@ -498,10 +509,17 @@ class _EmptyState extends StatelessWidget {
           ),
           if (!showingSearch && tab == 0) ...[
             const SizedBox(height: 14),
-            Text(
-              tr('no_notes_subtitle'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12.2, color: G.textMuted),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 280),
+              child: Text(
+                tr('no_notes_subtitle'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12.2,
+                  height: 1.5,
+                  color: G.textMuted,
+                ),
+              ),
             ),
             const SizedBox(height: 14),
             GestureDetector(
@@ -570,6 +588,10 @@ class _RoundIconButtonState extends State<_RoundIconButton> {
                 ? const Color(0x1FFFC83C) // rgba(255,200,60,0.12)
                 : (_hovered ? Colors.white.withValues(alpha: 0.08) : Colors.transparent),
             borderRadius: BorderRadius.circular(50),
+            // React adds `outline: 1px solid rgba(255,200,60,0.30)` when active.
+            border: widget.highlight
+                ? Border.all(color: const Color(0x4DFFC83C))
+                : null,
           ),
           child: SizedBox.expand(child: widget.child),
         ),
@@ -662,6 +684,7 @@ class _FabWithHoverState extends State<_FabWithHover> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 320),
         curve: const Cubic(0.34, 1.56, 0.64, 1.0),
@@ -670,6 +693,7 @@ class _FabWithHoverState extends State<_FabWithHover> {
           ..scale(_isHovered ? 1.04 : 1.0, _isHovered ? 1.04 : 1.0, 1.0),
         child: GlassContainer(
           borderRadius: 18,
+          hover: _isHovered,
           color: _isHovered ? Colors.white.withValues(alpha: 0.14) : G.bgHov,
           border: Border.all(
             color: _isHovered
@@ -686,9 +710,9 @@ class _FabWithHoverState extends State<_FabWithHover> {
                   BoxShadow(color: Colors.white.withValues(alpha: 0.10), blurRadius: 24),
                 ]
               : G.glassShadow(),
-          child: InkWell(
+          child: GestureDetector(
             onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(18),
+            behavior: HitTestBehavior.opaque,
             child: SizedBox(
               width: widget.size,
               height: widget.size,
