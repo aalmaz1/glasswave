@@ -111,15 +111,16 @@ final themeProvider = StateNotifierProvider<ThemeNotifier, AppPrefs>((ref) {
   return ThemeNotifier(service, email, initialTheme, preloadedLang ?? 'ru');
 });
 
+/// React (`src/app/model.ts`): `DEFAULT_THEME: ThemeId = "sunset"`.
+const ThemeId kDefaultTheme = ThemeId.sunset;
+
 ThemeId _parseThemeStatic(String? raw, {ThemeId? fallback}) {
   if (raw != null) {
     for (final t in ThemeId.values) {
       if (t.name == raw) return t;
     }
   }
-  if (fallback != null) return fallback;
-  final all = ThemeId.values;
-  return all[DateTime.now().microsecondsSinceEpoch % all.length];
+  return fallback ?? kDefaultTheme;
 }
 
 class ThemeNotifier extends StateNotifier<AppPrefs> {
@@ -137,7 +138,7 @@ class ThemeNotifier extends StateNotifier<AppPrefs> {
     bool isFirstLoad = false;
     if (_email != null) {
       final raw = _service.getPrefs(_email!);
-      theme = _parseTheme(raw['themeId'] as String?, fallback: ThemeId.sunset);
+      theme = _parseTheme(raw['themeId'] as String?, fallback: kDefaultTheme);
       final savedLang = raw['language'] as String?;
       if (savedLang == null) {
         // First login after register: keep the language currently active in UI.
@@ -147,9 +148,9 @@ class ThemeNotifier extends StateNotifier<AppPrefs> {
         lang = savedLang;
       }
     } else {
-      // Guest: load saved prefs; pick random theme once if nothing saved.
+      // Guest: load saved prefs; fall back to the React default theme.
       final savedTheme = _service.getGuestTheme();
-      theme = _parseTheme(savedTheme, fallback: null);
+      theme = _parseTheme(savedTheme, fallback: kDefaultTheme);
       if (savedTheme == null) isFirstLoad = true;
       final savedLang = _service.getGuestLanguageRaw();
       lang = savedLang ?? state.language;
@@ -160,7 +161,7 @@ class ThemeNotifier extends StateNotifier<AppPrefs> {
   }
 
   Future<void> _persistInitial() async {
-    // Persist the defaults that were chosen (random theme, current language).
+    // Persist the defaults that were chosen (theme + current language).
     if (_email != null) {
       await _service.savePrefs(_email!, {'themeId': state.themeId.name, 'language': state.language});
     } else {
@@ -175,9 +176,7 @@ class ThemeNotifier extends StateNotifier<AppPrefs> {
         if (t.name == raw) return t;
       }
     }
-    if (fallback != null) return fallback;
-    final all = ThemeId.values;
-    return all[DateTime.now().microsecondsSinceEpoch % all.length];
+    return fallback ?? kDefaultTheme;
   }
 
   void setTheme(ThemeId id) {
@@ -215,41 +214,13 @@ class NotesNotifier extends StateNotifier<List<Note>> {
     _loadNotes();
   }
 
-  List<Note> _defaultSeedNotes() {
-    final now = DateTime.now();
-    return [
-      Note(
-        id: now.millisecondsSinceEpoch - 3000,
-        title: 'GlassWave 🌊',
-        body: 'A modern cross-platform note-taking app with a glassmorphism design.\n\n'
-            'Features:\n'
-            '- Create & edit notes (Markdown support)\n'
-            '- Pin, archive & trash\n'
-            '- Search & sort\n'
-            '- Reminders\n'
-            '- 12 color themes\n'
-            '- 3 languages (RU/EN/KO)',
-        updatedAt: now.subtract(const Duration(minutes: 5)),
-        accentIdx: 0,
-        pinned: true,
-      ),
-    ];
-  }
-
   void _loadNotes() {
     if (_email != null) {
       state = _service.getNotes(_email!) ?? [];
     } else {
-      // First launch: show a welcome note with facts about GlassWave. Once the
-      // guest writes their own notes, only those are shown.
-      final saved = _service.getGuestNotes();
-      if (saved == null) {
-        final seed = _defaultSeedNotes();
-        state = seed;
-        unawaited(_service.saveGuestNotes(seed));
-      } else {
-        state = saved;
-      }
+      // Nothing is seeded on first launch: a guest with no notes sees the
+      // ephemeral welcome cards (React parity), which are never persisted.
+      state = _service.getGuestNotes() ?? [];
     }
   }
 
@@ -316,7 +287,9 @@ class NotesNotifier extends StateNotifier<List<Note>> {
 
   Future<void> setReminder(int id, DateTime? reminder) async {
     final note = state.firstWhere((n) => n.id == id);
-    await updateNote(note.copyWith(reminder: reminder));
+    await updateNote(
+      note.copyWith(reminder: reminder, clearReminder: reminder == null),
+    );
   }
 
   void clearNotes() { state = []; }

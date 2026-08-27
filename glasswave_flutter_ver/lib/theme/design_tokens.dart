@@ -43,6 +43,9 @@ abstract final class G {
     ),
   ];
 
-  /// Ring gradient stops (top-left → bottom-right), same as `.glass-ring`.
+  /// Ring gradient stops, same as `.glass-ring` (`0% / 40% / 100%`).
   static const List<double> ringStops = [0.0, 0.4, 1.0];
+
+  /// `.card:hover .glass-ring` moves the middle stop to 45%.
+  static const List<double> ringStopsHover = [0.0, 0.45, 1.0];
 }

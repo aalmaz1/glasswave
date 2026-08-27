@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../models/note.dart';
 import '../providers/app_providers.dart';
+import '../services/welcome_notes.dart';
 import '../theme/app_theme_data.dart';
 import '../theme/design_tokens.dart';
 import 'glass_container.dart';
@@ -37,19 +38,22 @@ class _NoteCardState extends ConsumerState<NoteCard> {
     }
   }
 
+  /// React `fmtDate()` (src/app/utils.ts): just now → minutes → hours →
+  /// yesterday → days → "27 August".
   String _fmtDate(DateTime d, String locale) {
     final diff = DateTime.now().difference(d);
-    if (diff.inMinutes < 60) return tr('note_just_now');
+    if (diff.inSeconds < 60) return tr('note_just_now');
+    if (diff.inMinutes < 60) {
+      return tr('note_min_ago', namedArgs: {'n': '${diff.inMinutes}'});
+    }
     if (diff.inHours < 24) {
-      final n = diff.inHours;
-      return '$n${tr('note_hours_ago')}';
+      return tr('note_hours_ago', namedArgs: {'n': '${diff.inHours}'});
     }
     if (diff.inDays == 1) return tr('note_yesterday');
     if (diff.inDays < 7) {
-      final n = diff.inDays;
-      return '$n${tr('note_days_ago')}';
+      return tr('note_days_ago', namedArgs: {'n': '${diff.inDays}'});
     }
-    return DateFormat('d MMM', _dateLocale(locale)).format(d);
+    return DateFormat('d MMMM', _dateLocale(locale)).format(d);
   }
 
   void _openReminder() {
@@ -71,6 +75,9 @@ class _NoteCardState extends ConsumerState<NoteCard> {
     final isTablet = width >= 768 && width < 1280;
     final tabIndex = ref.watch(dashboardTabProvider);
     final hoverActive = !isMobile && _isHovered;
+    // Welcome/demo cards are read-only samples: tap to open, but no pin or
+    // archive actions — they aren't real notes yet (React `isDemo`).
+    final isDemo = isWelcomeNoteId(widget.note.id);
 
     final minH = isMobile ? 130.0 : (isTablet ? 140.0 : 160.0);
     final pad = isMobile
@@ -81,7 +88,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
     final hasReminder = widget.note.reminder != null;
 
     void openEditor() {
-      openEditorOverlay(context, note: widget.note);
+      // Editing a demo card behaves like creating a note (React `persistNote`).
+      openEditorOverlay(context, note: widget.note, asNewNote: isDemo);
     }
 
     return MouseRegion(
@@ -98,15 +106,19 @@ class _NoteCardState extends ConsumerState<NoteCard> {
           onTap: openEditor,
           child: GlassContainer(
             borderRadius: 20,
-            blur: hoverActive ? 32 : 24,
+            blur: 24,
+            hover: hoverActive,
             color: hoverActive ? G.bgHov : G.bg,
             border: Border.all(color: hoverActive ? G.borderHov : G.border),
             boxShadow: G.glassShadow(hover: hoverActive),
             accentGradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              // React: `linear-gradient(145deg, accent 0%, rgba(255,255,255,0.01) 70%)`
+              // and `filter: brightness(1.6)` while hovered.
+              // 145° on a landscape card (~300x160) resolves to these ends.
+              begin: const Alignment(-0.58, -1.55),
+              end: const Alignment(0.58, 1.55),
               colors: [
-                accent,
+                hoverActive ? _brightness(accent, 1.6) : accent,
                 Colors.white.withValues(alpha: 0.01),
               ],
               stops: const [0.0, 0.7],
@@ -132,23 +144,32 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                               height: 1.3,
                               letterSpacing: -0.2,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const SizedBox(width: 8),
-                        _PinButton(
-                          pinned: widget.note.pinned,
-                          onTap: () =>
-                              ref.read(notesProvider.notifier).togglePin(widget.note.id),
-                        ),
+                        if (!isDemo)
+                          _PinButton(
+                            pinned: widget.note.pinned,
+                            onTap: () =>
+                                ref.read(notesProvider.notifier).togglePin(widget.note.id),
+                          )
+                        // Demo cards render a static pin glyph (no button).
+                        else if (widget.note.pinned)
+                          const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(
+                              LucideIcons.pin,
+                              size: 14,
+                              color: Color(0xB3FFFFFF),
+                            ),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Text(
-                        widget.note.body,
+                        _plainPreview(widget.note.body),
                         style: TextStyle(
                           color: G.textSecondary,
                           fontSize: bodyFont,
@@ -185,7 +206,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                             ),
                           ],
                         ),
-                        AnimatedOpacity(
+                        if (!isDemo)
+                          AnimatedOpacity(
                           duration: const Duration(milliseconds: 200),
                           opacity: (isMobile || _isHovered) ? 1.0 : 0.0,
                           child: IgnorePointer(
@@ -262,6 +284,31 @@ class _NoteCardState extends ConsumerState<NoteCard> {
   }
 }
 
+/// The React card preview renders `stripHtml(note.body)` — plain text without
+/// any formatting marks. The Flutter editor stores Markdown, so drop the
+/// syntax characters to get the same look.
+String _plainPreview(String body) {
+  var out = body;
+  out = out.replaceAll(RegExp(r'^[ \t]{0,3}#{1,6}[ \t]+', multiLine: true), '');
+  out = out.replaceAll(RegExp(r'^[ \t]{0,3}>[ \t]?', multiLine: true), '');
+  out = out.replaceAll(RegExp(r'^[ \t]{0,3}[-*+][ \t]+', multiLine: true), '');
+  out = out.replaceAll(RegExp(r'^[ \t]{0,3}\d+\.[ \t]+', multiLine: true), '');
+  out = out.replaceAll(
+      RegExp(r'^[ \t]{0,3}(-{3,}|\*{3,}|_{3,})[ \t]*$', multiLine: true), '');
+  out = out.replaceAll(RegExp(r'`{1,3}'), '');
+  out = out.replaceAll(RegExp(r'(\*\*|__|~~)'), '');
+  out = out.replaceAll(RegExp(r'\n{2,}'), '\n');
+  return out.trim();
+}
+
+/// CSS `filter: brightness(f)` — scales the colour channels, keeps the alpha.
+Color _brightness(Color c, double f) => Color.from(
+      alpha: c.a,
+      red: (c.r * f).clamp(0.0, 1.0),
+      green: (c.g * f).clamp(0.0, 1.0),
+      blue: (c.b * f).clamp(0.0, 1.0),
+    );
+
 class _PinButton extends StatelessWidget {
   final bool pinned;
   final VoidCallback onTap;
@@ -310,15 +357,14 @@ class _ReminderBadge extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(6, 3, 8, 3),
         decoration: BoxDecoration(
-          color: const Color(0x1FFFC83C),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+          color: const Color(0x1FFFC83C), // rgba(255,200,60,0.12)
+          border: Border.all(color: const Color(0x47FFC83C)), // 0.28
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(LucideIcons.bellRing,
-                size: 10, color: const Color(0xE6FFD250)),
+            const Icon(LucideIcons.bellRing, size: 10, color: Color(0xE6FFD250)),
             const SizedBox(width: 5),
             Text(
               fmt.format(date),
@@ -360,7 +406,7 @@ class _MiniAction extends StatelessWidget {
             ),
           ],
         ),
-        child: Center(child: Icon(icon, size: 14, color: color)),
+        child: Center(child: Icon(icon, size: 11, color: color)),
       ),
     );
   }

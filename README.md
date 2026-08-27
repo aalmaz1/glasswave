@@ -6,7 +6,7 @@ Notes app with a glassmorphism UI. The real product is the **React + Vite** web 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-There is also a **Flutter prototype** under `lib/`. It looks similar but stores everything on-device and does **not** talk to Firebase.
+There is also a **Flutter port** in [`glasswave_flutter_ver/`](glasswave_flutter_ver). Its UI is a 1:1 port of the React design (same tokens, glass layers, themes and screens), but it stores everything on-device and does **not** talk to Firebase.
 
 ## What it does
 
@@ -29,12 +29,12 @@ src/                    React + Vite app (this is the product)
   firebase.ts           Auth + Firestore client
   notifications.ts      reminder sound / native notifications
   pwa.ts
-lib/                    Flutter prototype (local-only)
+glasswave_flutter_ver/  Flutter port (local-only) — lib/, its platform
+                        shells (android/ ios/ linux/ macos/ windows/),
+                        pubspec.yaml and assets/translations/
 android-capacitor/      Capacitor Android project
 ios-capacitor/          Capacitor iOS project
 src-tauri/              Tauri desktop shell (Linux AppImage / .deb)
-android/ ios/ …         Flutter platform shells (not the shipping apps)
-assets/translations/    generated JSON for Flutter — do not edit by hand
 docs/                   APK, iOS, PWA, desktop, notification sound
 firestore.rules         owner-only notes + field/type/size checks
 ```
@@ -75,7 +75,7 @@ Do not commit `.env`. Security rules live in [`firestore.rules`](firestore.rules
 
 ## Native (same React app)
 
-Capacitor wraps the web build. Flutter’s native trees stay in `android/` and `ios/`.
+Capacitor wraps the web build. Flutter’s native trees stay in `glasswave_flutter_ver/android/` and `glasswave_flutter_ver/ios/`.
 
 **Android APK** — Node 22+, JDK 21, Android SDK (compileSdk 36):
 
@@ -111,16 +111,20 @@ the system — present on Ubuntu 22.04+/Debian 12/Fedora and friends.
 
 PWA notes (install, offline shell, what reminders can and cannot do in the browser): [docs/pwa.md](docs/pwa.md). Notification sound across web / Android / iOS: [docs/notification-sound.md](docs/notification-sound.md).
 
-## Flutter prototype
+## Flutter port
 
-Local-only. Accounts are a SHA-256 hash in `shared_preferences`. No cloud sync.
+Lives entirely in [`glasswave_flutter_ver/`](glasswave_flutter_ver) and mirrors the
+React UI: same design tokens, glass layers, 12 themes, dashboard/editor/settings
+layout and the guest-first flow (sign-in lives inside Settings). Local-only —
+accounts are a SHA-256 hash in `shared_preferences`, no cloud sync.
 
 ```bash
+cd glasswave_flutter_ver
 flutter pub get
 flutter run
 ```
 
-Dart SDK `^3.12.2` (see `pubspec.yaml`).
+Dart SDK `^3.12.2` (see `glasswave_flutter_ver/pubspec.yaml`).
 
 ## Using the app
 
@@ -138,7 +142,7 @@ The dashboard is one screen with **Notes / Archive / Trash** tabs. Pinned notes 
 [`src/i18n/translations.ts`](src/i18n/translations.ts) is the only place to add strings. After editing it:
 
 ```bash
-npm run i18n:export    # regenerates assets/translations/{ru,en,ko}.json
+npm run i18n:export    # regenerates glasswave_flutter_ver/assets/translations/{ru,en,ko}.json
 ```
 
 ## License

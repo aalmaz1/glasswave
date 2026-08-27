@@ -17,7 +17,11 @@ import '../widgets/confirm_dialog.dart';
 
 /// Opens the editor as a centered glass modal — same as the React Native
 /// `EditorModal` (overlay, 62% / 82% / mobile width, 88vh/92dvh height).
-Future<void> openEditorOverlay(BuildContext context, {Note? note}) {
+Future<void> openEditorOverlay(
+  BuildContext context, {
+  Note? note,
+  bool asNewNote = false,
+}) {
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -26,14 +30,20 @@ Future<void> openEditorOverlay(BuildContext context, {Note? note}) {
     transitionDuration: const Duration(milliseconds: 300),
       transitionBuilder: (context, animation, secondaryAnimation, child) => child,
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
-      return EditorScreen(note: note);
+      return EditorScreen(note: note, asNewNote: asNewNote);
     },
   );
 }
 
 class EditorScreen extends ConsumerStatefulWidget {
   final Note? note;
-  const EditorScreen({super.key, this.note});
+
+  /// The note is only a template (a welcome/demo card): its text pre-fills the
+  /// editor but saving creates a brand-new note, exactly like React's
+  /// `persistNote` when `isWelcomeNoteId(editing.id)`.
+  final bool asNewNote;
+
+  const EditorScreen({super.key, this.note, this.asNewNote = false});
 
   @override
   ConsumerState<EditorScreen> createState() => _EditorScreenState();
@@ -59,7 +69,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     super.initState();
     _baselineTitle = widget.note?.title ?? '';
     _baselineBody = widget.note?.body ?? '';
-    _noteId = widget.note?.id;
+    _noteId = widget.asNewNote ? null : widget.note?.id;
     _titleController = TextEditingController(text: _baselineTitle);
     _bodyController = TextEditingController(text: _baselineBody);
     _lastBodyText = _baselineBody;
@@ -74,6 +84,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     _bodyController.dispose();
     super.dispose();
   }
+
+  /// The note being edited in place — `null` while creating (or when the
+  /// editor was opened from a demo card).
+  Note? get _source => widget.asNewNote ? null : widget.note;
 
   bool get _dirty =>
       _titleController.text != _baselineTitle || _bodyController.text != _baselineBody;
@@ -127,7 +141,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final prefs = ref.read(themeProvider);
     final theme = allThemes.firstWhere((t) => t.id == prefs.themeId);
     final now = DateTime.now();
-    if (widget.note == null && _noteId == null) {
+    if (_source == null && _noteId == null) {
       final id = now.millisecondsSinceEpoch;
       _noteId = id;
       return Note(
@@ -135,11 +149,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         title: title,
         body: body,
         updatedAt: now,
-        accentIdx: now.millisecondsSinceEpoch % theme.accents.length,
+        // React keeps the accent of the demo card a note was started from.
+        accentIdx:
+            widget.note?.accentIdx ?? now.millisecondsSinceEpoch % theme.accents.length,
       );
     }
-    if (widget.note != null) {
-      return widget.note!.copyWith(title: title, body: body, updatedAt: now);
+    if (_source != null) {
+      return _source!.copyWith(title: title, body: body, updatedAt: now);
     }
     final existing = ref.read(notesProvider.notifier).findById(_noteId!);
     return (existing ??
@@ -157,7 +173,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     if (_titleController.text.trim().isEmpty && _bodyController.text.trim().isEmpty) return;
     final created = _buildNote();
     final notifier = ref.read(notesProvider.notifier);
-    if (widget.note == null) {
+    if (_source == null) {
       notifier.upsert(created);
     } else {
       notifier.updateNote(created);
@@ -174,7 +190,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
     final note = _buildNote();
     final notifier = ref.read(notesProvider.notifier);
-    if (widget.note == null) {
+    if (_source == null) {
       notifier.upsert(note);
     } else {
       notifier.updateNote(note);
@@ -383,7 +399,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                                   ],
                                 ),
                               ),
-                              if (!isMobile && widget.note == null)
+                              if (!isMobile && _source == null)
                                 Text(
                                   tr('editor_new').toUpperCase(),
                                   style: const TextStyle(
@@ -463,7 +479,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                               const Icon(LucideIcons.hash, size: 10, color: G.textMuted),
                               const SizedBox(width: 8),
                               Text(
-                                '${_wordCount} ${tr('editor_words')}',
+                                // React: `t.wordsCount(wc)` with per-locale plurals.
+                                plural('editor_words_count', _wordCount),
                                 style: const TextStyle(fontSize: 10.9, color: G.textMuted),
                               ),
                             ],
@@ -613,8 +630,9 @@ class _FmtBtnState extends State<_FmtBtn> {
       child: GestureDetector(
         onTap: widget.disabled ? null : widget.onTap,
         child: Container(
-          width: 30,
+          constraints: const BoxConstraints(minWidth: 30),
           height: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(8),
@@ -623,8 +641,9 @@ class _FmtBtnState extends State<_FmtBtn> {
           child: Text(
             widget.label,
             style: GoogleFonts.inter(
-              fontSize: 12.2,
+              fontSize: 12.8,
               fontWeight: FontWeight.w700,
+              height: 1,
               color: color,
             ),
           ),

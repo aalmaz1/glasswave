@@ -98,8 +98,8 @@ class GlassConfirmOverlay extends StatelessWidget {
                   borderRadius: 22,
                   border: Border.all(
                     color: danger
-                        ? Colors.white.withValues(alpha: 0.38)
-                        : Colors.white.withValues(alpha: 0.22),
+                        ? const Color(0x61FF7373) // rgba(255,115,115,0.38)
+                        : const Color(0x38FFFFFF), // rgba(255,255,255,0.22)
                   ),
                   boxShadow: G.confirmShadow,
                   padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
@@ -113,7 +113,7 @@ class GlassConfirmOverlay extends StatelessWidget {
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: danger
-                              ? Colors.white.withValues(alpha: 0.98)
+                              ? const Color(0xFAFFD7D7) // rgba(255,215,215,0.98)
                               : G.textPrimary,
                         ),
                       ),
@@ -195,7 +195,7 @@ class _ConfirmBtn extends StatelessWidget {
       case _ConfirmBtnStyle.danger:
         // rgba(225,55,65,0.42)
         background = const Color(0x6BE13741);
-        border = Colors.white.withValues(alpha: 0.55);
+        border = const Color(0x8CFF6969); // rgba(255,105,105,0.55)
         text = Colors.white;
         weight = FontWeight.w700;
         break;

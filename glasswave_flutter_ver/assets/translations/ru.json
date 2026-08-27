@@ -1,5 +1,5 @@
 {
-  "notes": "Все",
+  "notes": "Заметки",
   "archive": "Архив",
   "trash": "Корзина",
   "search_hint": "Поиск заметок...",
@@ -31,8 +31,7 @@
   "settings_font_lg": "Большой",
   "settings_synced": "Синхронизировано",
   "note_just_now": "Только что",
-  "note_hours_ago": "ч назад",
-  "note_days_ago": "д назад",
+  "note_yesterday": "Вчера",
   "sort_title": "Сортировка",
   "sort_default": "По умолчанию",
   "sort_default_sub": "Порядок добавления",
@@ -80,7 +79,6 @@
   "cancel": "Отмена",
   "delete_forever": "Удалить навсегда",
   "deleting": "Удаляем…",
-  "editor_edit": "",
   "create_note": "Создать заметку",
   "no_notes_subtitle": "Создайте первую заметку — она сохранится на этом устройстве.",
   "empty_trash_btn": "Очистить корзину",
@@ -92,5 +90,22 @@
   "unsaved_changes_body": "У этой заметки есть несохранённый текст.",
   "unsaved_save": "Сохранить",
   "unsaved_discard": "Не сохранять",
-  "note_yesterday": "Вчера"
+  "welcome_note1_title": "GlassWave 🌊",
+  "welcome_note1_body": "Современное приложение для заметок в стиле glassmorphism: полупрозрачные карточки, размытие фона и плавные анимации.",
+  "welcome_note2_title": "Что умеет GlassWave",
+  "welcome_note2_body": "Создание и редактирование заметок с форматированием, закрепление, архив и корзина, поиск, сортировка и напоминания.",
+  "welcome_note3_title": "Синхронизация и офлайн",
+  "welcome_note3_body": "Синхронизация между устройствами через Firebase, работа без интернета благодаря локальному кэшу и гостевой режим без регистрации.",
+  "welcome_note4_title": "Языки и темы",
+  "welcome_note4_body": "Три языка интерфейса (русский, английский, корейский) и 12 цветовых тем на любой вкус.",
+  "note_min_ago": "{n} мин. назад",
+  "note_hours_ago": "{n} ч. назад",
+  "note_days_ago": "{n} д. назад",
+  "editor_words_count": {
+    "one": "{} слово",
+    "few": "{} слова",
+    "many": "{} слов",
+    "other": "{} слов"
+  },
+  "editor_edit": ""
 }

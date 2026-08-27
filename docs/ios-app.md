@@ -4,7 +4,7 @@ The iOS app is the **React + Vite app** packaged with Capacitor 8, exactly like
 the Android APK.
 
 - Capacitor's Xcode project: **`ios-capacitor/`** (configured via `ios.path` in
-  `capacitor.config.ts`). Flutter's own native project stays in `ios/`.
+  `capacitor.config.ts`). Flutter's own native project stays in `glasswave_flutter_ver/ios/`.
 - Capacitor 8 uses **Swift Package Manager**, so there is no CocoaPods /
   `pod install` step.
 
