@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { createRoot } from "react-dom/client";
 import "./styles/index.css";
-import { LanguageProvider } from "./i18n";
+import { LanguageProvider, detectLanguage, loadTranslation } from "./i18n";
 import { AppErrorBoundary } from "./app/components/ErrorBoundary";
 import { initNativeShell } from "./native";
 import { registerServiceWorker } from "./pwa";
@@ -35,10 +35,17 @@ function renderStartupError(message: string) {
 
 async function bootstrap() {
   try {
-    const [{ default: App }] = await Promise.all([import("./app/App")]);
+    // The language chunk is fetched in parallel with the app chunk, so moving
+    // the strings out of the startup bundle costs no extra round trip and
+    // never shows a flash of the wrong language.
+    const initialLanguage = detectLanguage();
+    const [{ default: App }, initialT] = await Promise.all([
+      import("./app/App"),
+      loadTranslation(initialLanguage),
+    ]);
     if (rootEl) {
       createRoot(rootEl).render(
-        <LanguageProvider>
+        <LanguageProvider initialLanguage={initialLanguage} initialT={initialT}>
           <AppErrorBoundary>
             <App />
           </AppErrorBoundary>

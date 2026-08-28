@@ -1,5 +1,4 @@
-import { Capacitor } from "@capacitor/core";
-import { LocalNotifications } from "@capacitor/local-notifications";
+import { getPlatform, isNativeApp } from "./capDetect";
 
 /**
  * Notification helper that works in both environments:
@@ -12,22 +11,7 @@ import { LocalNotifications } from "@capacitor/local-notifications";
  * why the previous `Notification.requestPermission()` call was a silent no-op.
  */
 
-export const isNativeApp = (): boolean => {
-  try {
-    return Capacitor.isNativePlatform();
-  } catch {
-    return false;
-  }
-};
-
-/** Current Capacitor platform ("android" | "ios" | "web"), safe on plain web. */
-function getPlatform(): string {
-  try {
-    return Capacitor.getPlatform();
-  } catch {
-    return "web";
-  }
-}
+export { isNativeApp };
 
 /**
  * Android notification channel for reminders. On Android 8+ the channel (not
@@ -47,8 +31,9 @@ const LEGACY_CHANNEL_IDS = ["glasswave-reminders", "glasswave-reminders-v2"];
  *    `.wav`, `.aiff` or `.caf` container — an MP3 is ignored and the system
  *    default sound is used instead, hence the decoded WAV copy.
  */
-const REMINDER_SOUND =
-  getPlatform() === "ios" ? "glasswave_notification.wav" : "glasswave_notification.mp3";
+function reminderSound(): string {
+  return getPlatform() === "ios" ? "glasswave_notification.wav" : "glasswave_notification.mp3";
+}
 /** Web copy of the same sound, bundled under `public/sounds/`. */
 const WEB_SOUND_URL = "/sounds/glasswave-notification.mp3";
 
@@ -69,6 +54,7 @@ function notifIdForKey(key: string): number {
  */
 export async function ensureReminderChannel(name = "Reminders"): Promise<void> {
   if (!isNativeApp()) return;
+  const { LocalNotifications } = await import("@capacitor/local-notifications");
   try {
     for (const legacyId of LEGACY_CHANNEL_IDS) {
       await LocalNotifications.deleteChannel({ id: legacyId }).catch(() => {});
@@ -77,7 +63,7 @@ export async function ensureReminderChannel(name = "Reminders"): Promise<void> {
       id: REMINDER_CHANNEL_ID,
       name,
       description: "GlassWave",
-      sound: REMINDER_SOUND,
+      sound: reminderSound(),
       importance: 4, // HIGH — heads-up so the sound is audible
       visibility: 1, // public
       vibration: true,
@@ -110,6 +96,7 @@ export function playReminderSound(): void {
 export async function ensureNotificationPermission(): Promise<boolean> {
   if (isNativeApp()) {
     try {
+      const { LocalNotifications } = await import("@capacitor/local-notifications");
       const current = await LocalNotifications.checkPermissions();
       if (current.display === "granted") return true;
       const res = await LocalNotifications.requestPermissions();
@@ -140,6 +127,7 @@ export async function scheduleReminderNotification(
 ): Promise<void> {
   if (!isNativeApp()) return;
   const id = notifIdForKey(key);
+  const { LocalNotifications } = await import("@capacitor/local-notifications");
   try {
     // Make sure the channel (and its custom sound) exists first: on
     // Android 8+ a notification posted to a missing channel never fires.
@@ -154,7 +142,7 @@ export async function scheduleReminderNotification(
           body,
           schedule: { at, allowWhileIdle: true },
           channelId: REMINDER_CHANNEL_ID,
-          sound: REMINDER_SOUND,
+          sound: reminderSound(),
           smallIcon: "ic_launcher",
         },
       ],
@@ -167,6 +155,7 @@ export async function scheduleReminderNotification(
 /** Cancel a previously scheduled reminder notification (native no-op on web). */
 export async function cancelReminderNotification(key: string): Promise<void> {
   if (!isNativeApp()) return;
+  const { LocalNotifications } = await import("@capacitor/local-notifications");
   try {
     await LocalNotifications.cancel({ notifications: [{ id: notifIdForKey(key) }] });
   } catch (e) {

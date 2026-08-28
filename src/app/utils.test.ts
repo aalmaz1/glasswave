@@ -1,8 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { coerceDate, inferCreatedAt, stripHtml, fmtDate, countWords, newNoteId } from "./utils";
-import { TRANSLATIONS } from "../i18n/translations";
-
-const en = TRANSLATIONS.en;
+import en from "../i18n/lang/en";
 
 describe("stripHtml", () => {
   it("returns empty for empty/falsy input", () => {

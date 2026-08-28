@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { TRANSLATIONS, type Language } from "./translations";
+import type { Language } from "./translations";
+import ru from "./lang/ru";
+import en from "./lang/en";
+import ko from "./lang/ko";
+
+const TRANSLATIONS: Record<Language, typeof ru> = { ru, en, ko };
 
 const LANGS: Language[] = ["ru", "en", "ko"];
 
