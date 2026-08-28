@@ -41,7 +41,8 @@ const t: Translation = {
   noSearchResults: "Nothing found",
   emptyTrash: "Empty trash",
   emptyTrashConfirmTitle: "Empty trash?",
-  emptyTrashConfirmBody: "Every note in the trash will be permanently deleted. This cannot be undone.",
+  emptyTrashConfirmBody:
+    "Every note in the trash will be permanently deleted. This cannot be undone.",
   confirmDeleteNoteTitle: "Delete this note forever?",
   confirmDeleteNoteBody: "The note will be permanently deleted and cannot be restored.",
   unsavedChangesTitle: "Save changes?",
@@ -136,7 +137,8 @@ const t: Translation = {
   haveAccount: "Already have an account?",
   guestMode: "Guest mode",
   loading: "Loading...",
-  authHint: "Without an account, notes stay in this browser. After you sign in, they sync across devices.",
+  authHint:
+    "Without an account, notes stay in this browser. After you sign in, they sync across devices.",
   showPassword: "Show password",
   hidePassword: "Hide password",
   closeModal: "Close",
@@ -147,11 +149,15 @@ const t: Translation = {
   authErrBadCreds: "Invalid email or password",
   authErrEmailUsed: "This email is already registered",
   authErrWeakPw: "Password must be at least 6 characters",
-  authErrNotAllowed: "Email/password sign-in is not enabled in Firebase. In the glasswave-4f5da console open Authentication → Sign-in method and enable Email/Password (not Email link).",
-  authErrNotConfigured: "The app is not connected to Firebase. Check the glasswave-4f5da project configuration.",
-  authErrUnauthorizedDomain: "This domain is not listed in Firebase Authentication authorized domains.",
+  authErrNotAllowed:
+    "Email/password sign-in is not enabled in Firebase. In the glasswave-4f5da console open Authentication → Sign-in method and enable Email/Password (not Email link).",
+  authErrNotConfigured:
+    "The app is not connected to Firebase. Check the glasswave-4f5da project configuration.",
+  authErrUnauthorizedDomain:
+    "This domain is not listed in Firebase Authentication authorized domains.",
   authErrNetwork: "Could not reach Firebase. Check your connection and try again.",
-  authErrInvalidApiKey: "Invalid Firebase API key. Make sure the app is connected to the glasswave-4f5da project.",
+  authErrInvalidApiKey:
+    "Invalid Firebase API key. Make sure the app is connected to the glasswave-4f5da project.",
   authErrTooMany: "Too many attempts. Please try again later",
   authErrGeneric: "Sign-in failed. Please try again",
   authErrLoggedOut: "Session already ended. Sign in again and retry.",

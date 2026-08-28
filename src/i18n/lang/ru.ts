@@ -84,7 +84,8 @@ const t: Translation = {
   word: "слово",
   words: "слов",
   wordsCount: (n) => {
-    const mod10 = n % 10, mod100 = n % 100;
+    const mod10 = n % 10,
+      mod100 = n % 100;
     if (mod10 === 1 && mod100 !== 11) return `${n} слово`;
     if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${n} слова`;
     return `${n} слов`;
@@ -95,9 +96,11 @@ const t: Translation = {
   save: "Сохранить",
   saving: "Сохранение...",
   saved: "Сохранено",
-  noteSyncError: "Не удалось синхронизировать изменения заметки. Проверьте подключение и повторите попытку.",
+  noteSyncError:
+    "Не удалось синхронизировать изменения заметки. Проверьте подключение и повторите попытку.",
   errorTitle: "Что-то пошло не так",
-  errorMessage: "Произошла непредвиденная ошибка. Перезагрузите страницу — ваши заметки в безопасности.",
+  errorMessage:
+    "Произошла непредвиденная ошибка. Перезагрузите страницу — ваши заметки в безопасности.",
   errorReload: "Перезагрузить",
   close: "Закрыть",
   closeEditor: "Закрыть редактор",
@@ -141,7 +144,8 @@ const t: Translation = {
   haveAccount: "Уже есть аккаунт?",
   guestMode: "Гостевой режим",
   loading: "Загрузка...",
-  authHint: "Без аккаунта заметки хранятся только в этом браузере. После входа они синхронизируются между устройствами.",
+  authHint:
+    "Без аккаунта заметки хранятся только в этом браузере. После входа они синхронизируются между устройствами.",
   showPassword: "Показать пароль",
   hidePassword: "Скрыть пароль",
   closeModal: "Закрыть",
@@ -152,18 +156,23 @@ const t: Translation = {
   authErrBadCreds: "Неверный email или пароль",
   authErrEmailUsed: "Этот email уже зарегистрирован",
   authErrWeakPw: "Пароль должен быть не менее 6 символов",
-  authErrNotAllowed: "В Firebase не включён вход по email и паролю. В консоли проекта glasswave-4f5da откройте Authentication → Sign-in method и включите Email/Password (не Email link).",
-  authErrNotConfigured: "Приложение не подключено к Firebase. Проверьте конфигурацию проекта glasswave-4f5da.",
-  authErrUnauthorizedDomain: "Этот домен не добавлен в Authorized domains в Firebase Authentication.",
+  authErrNotAllowed:
+    "В Firebase не включён вход по email и паролю. В консоли проекта glasswave-4f5da откройте Authentication → Sign-in method и включите Email/Password (не Email link).",
+  authErrNotConfigured:
+    "Приложение не подключено к Firebase. Проверьте конфигурацию проекта glasswave-4f5da.",
+  authErrUnauthorizedDomain:
+    "Этот домен не добавлен в Authorized domains в Firebase Authentication.",
   authErrNetwork: "Нет соединения с Firebase. Проверьте интернет и повторите попытку.",
-  authErrInvalidApiKey: "Неверный Firebase API-ключ. Убедитесь, что приложение подключено к проекту glasswave-4f5da.",
+  authErrInvalidApiKey:
+    "Неверный Firebase API-ключ. Убедитесь, что приложение подключено к проекту glasswave-4f5da.",
   authErrTooMany: "Слишком много попыток. Повторите позже",
   authErrGeneric: "Не удалось выполнить вход. Повторите попытку",
   authErrLoggedOut: "Сессия уже завершена. Войдите снова и повторите попытку.",
   authErrPasswordRequired: "Введите пароль для подтверждения.",
   authErrDeleteBadPw: "Неверный пароль. Аккаунт не был удалён.",
   authErrReauth: "Войдите в аккаунт заново и повторите попытку.",
-  authErrDeletePerm: "Не удалось удалить данные аккаунта. Проверьте права Firebase и повторите попытку.",
+  authErrDeletePerm:
+    "Не удалось удалить данные аккаунта. Проверьте права Firebase и повторите попытку.",
   authErrDeleteGeneric: "Не удалось удалить аккаунт. Повторите попытку позже.",
   registerOk: "Аккаунт создан! Входим…",
   forgotPassword: "Забыли пароль?",
@@ -208,7 +217,8 @@ const t: Translation = {
     "Три языка интерфейса (русский, английский, корейский) и 12 цветовых тем на любой вкус.",
 
   settingsSync: "Синхронизируйте заметки",
-  settingsSyncDesc: "Войдите, чтобы сохранять заметки в облаке и использовать их на других устройствах.",
+  settingsSyncDesc:
+    "Войдите, чтобы сохранять заметки в облаке и использовать их на других устройствах.",
   settingsAuthBtn: "Войти или Регистрация",
   settingsFont: "Размер шрифта",
   settingsFontSm: "Маленький",
@@ -218,7 +228,8 @@ const t: Translation = {
   editorEditMode: "Правка",
   remindPick: "Выбрать дату...",
   remindMondayAt: "Пн 08:00",
-  authFooter: "Ваши данные надежно защищены в облаке.\nЗаметки синхронизируются между всеми устройствами.",
+  authFooter:
+    "Ваши данные надежно защищены в облаке.\nЗаметки синхронизируются между всеми устройствами.",
   authErrNotFound: "Пользователь не найден",
   authErrWrongPw: "Неверный пароль",
   authErrEmailInUse: "Этот email уже используется",

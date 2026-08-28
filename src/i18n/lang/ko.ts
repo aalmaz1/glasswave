@@ -9,7 +9,8 @@ const t: Translation = {
   deleteAccount: "계정 삭제",
   deleteDescription: "프로필, 환경설정 및 모든 노트가 영구적으로 삭제됩니다.",
   deleteConfirmTitle: "계정을 삭제하시겠습니까?",
-  deleteWarning: "이 작업은 되돌릴 수 없습니다. 다음 계정의 프로필, 환경설정 및 모든 노트가 삭제됩니다:",
+  deleteWarning:
+    "이 작업은 되돌릴 수 없습니다. 다음 계정의 프로필, 환경설정 및 모든 노트가 삭제됩니다:",
   deleteSuffix: " 계정이 삭제됩니다.",
   confirmPassword: "비밀번호 확인",
   passwordPlaceholder: "비밀번호",
@@ -41,7 +42,8 @@ const t: Translation = {
   noSearchResults: "검색 결과 없음",
   emptyTrash: "휴지통 비우기",
   emptyTrashConfirmTitle: "휴지통을 비울까요?",
-  emptyTrashConfirmBody: "휴지통의 모든 노트가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+  emptyTrashConfirmBody:
+    "휴지통의 모든 노트가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
   confirmDeleteNoteTitle: "이 노트를 영구 삭제할까요?",
   confirmDeleteNoteBody: "노트는 영구적으로 삭제되며 복원할 수 없습니다.",
   unsavedChangesTitle: "변경 사항을 저장할까요?",
@@ -92,7 +94,8 @@ const t: Translation = {
   saved: "저장됨",
   noteSyncError: "노트 변경 사항을 동기화할 수 없습니다. 연결을 확인한 후 다시 시도하세요.",
   errorTitle: "문제가 발생했습니다",
-  errorMessage: "예기치 않은 오류가 발생했습니다. 페이지를 새로고침하세요. 노트는 안전하게 저장되어 있습니다.",
+  errorMessage:
+    "예기치 않은 오류가 발생했습니다. 페이지를 새로고침하세요. 노트는 안전하게 저장되어 있습니다.",
   errorReload: "새로고침",
   close: "닫기",
   closeEditor: "편집기 닫기",
@@ -136,7 +139,8 @@ const t: Translation = {
   haveAccount: "이미 계정이 있으신가요?",
   guestMode: "게스트 모드",
   loading: "로딩 중...",
-  authHint: "계정 없이 사용하면 노트는 이 브라우저에만 저장됩니다. 로그인하면 기기 간에 동기화됩니다.",
+  authHint:
+    "계정 없이 사용하면 노트는 이 브라우저에만 저장됩니다. 로그인하면 기기 간에 동기화됩니다.",
   showPassword: "비밀번호 표시",
   hidePassword: "비밀번호 숨기기",
   closeModal: "닫기",
@@ -147,11 +151,14 @@ const t: Translation = {
   authErrBadCreds: "이메일 또는 비밀번호가 잘못되었습니다",
   authErrEmailUsed: "이미 가입된 이메일입니다",
   authErrWeakPw: "비밀번호는 6자 이상이어야 합니다",
-  authErrNotAllowed: "Firebase에서 이메일/비밀번호 로그인이 활성화되지 않았습니다. glasswave-4f5da 콘솔의 Authentication → Sign-in method에서 Email/Password를 켜세요(Email link가 아님).",
-  authErrNotConfigured: "앱이 Firebase에 연결되어 있지 않습니다. glasswave-4f5da 프로젝트 구성을 확인하세요.",
+  authErrNotAllowed:
+    "Firebase에서 이메일/비밀번호 로그인이 활성화되지 않았습니다. glasswave-4f5da 콘솔의 Authentication → Sign-in method에서 Email/Password를 켜세요(Email link가 아님).",
+  authErrNotConfigured:
+    "앱이 Firebase에 연결되어 있지 않습니다. glasswave-4f5da 프로젝트 구성을 확인하세요.",
   authErrUnauthorizedDomain: "이 도메인이 Firebase Authentication의 승인된 도메인에 없습니다.",
   authErrNetwork: "Firebase에 연결할 수 없습니다. 네트워크를 확인한 후 다시 시도하세요.",
-  authErrInvalidApiKey: "Firebase API 키가 올바르지 않습니다. 앱이 glasswave-4f5da 프로젝트에 연결되어 있는지 확인하세요.",
+  authErrInvalidApiKey:
+    "Firebase API 키가 올바르지 않습니다. 앱이 glasswave-4f5da 프로젝트에 연결되어 있는지 확인하세요.",
   authErrTooMany: "시도 횟수가 너무 많습니다. 나중에 다시 시도하세요",
   authErrGeneric: "로그인에 실패했습니다. 다시 시도하세요",
   authErrLoggedOut: "세션이 종료되었습니다. 다시 로그인한 후 시도하세요.",
@@ -213,7 +220,8 @@ const t: Translation = {
   editorEditMode: "편집",
   remindPick: "날짜 선택...",
   remindMondayAt: "월 08:00",
-  authFooter: "데이터는 Firebase 클라우드에서 안전하게 보호됩니다.\n모든 기기에서 노트가 동기화됩니다.",
+  authFooter:
+    "데이터는 Firebase 클라우드에서 안전하게 보호됩니다.\n모든 기기에서 노트가 동기화됩니다.",
   authErrNotFound: "사용자를 찾을 수 없습니다",
   authErrWrongPw: "잘못된 비밀번호입니다",
   authErrEmailInUse: "이미 사용 중인 이메일입니다",

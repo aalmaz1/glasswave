@@ -23,7 +23,7 @@ import {
   NotesLoadError,
   NoteSyncError,
 } from "./components/NotesView";
-import { SettingsScreen } from "./components/SettingsScreen";
+import { prefetchOnIdle } from "../prefetch";
 import { useTheme } from "./hooks/useTheme";
 import {
   DEFAULT_THEME,
@@ -63,6 +63,10 @@ import { newNoteId, stripHtml } from "./utils";
 
 const EditorModal = React.lazy(() =>
   import("./components/EditorDialogs").then((module) => ({ default: module.EditorModal }))
+);
+
+const SettingsScreen = React.lazy(() =>
+  import("./components/SettingsScreen").then((module) => ({ default: module.SettingsScreen }))
 );
 
 function useWidth() {
@@ -128,6 +132,17 @@ export default function App() {
       (host.children[i] as HTMLElement).style.transform =
         `translateY(${(y * (0.07 + i * 0.05)).toFixed(1)}px)`;
     }
+  }, []);
+
+  // Warm the lazily-imported screens once the browser is idle.
+  //
+  // Settings used to be part of the startup bundle, and the editor already
+  // showed a spinner the first time it opened. Prefetching both during idle
+  // keeps their bytes off the critical path while the screens themselves still
+  // open instantly — the user should not be able to tell they are lazy now.
+  useEffect(() => {
+    prefetchOnIdle(() => import("./components/SettingsScreen"));
+    prefetchOnIdle(() => import("./components/EditorDialogs"));
   }, []);
 
   // Ticker every 60s for relative times
@@ -715,15 +730,23 @@ export default function App() {
               padding: isMobile ? "0 16px" : isTablet ? "0 28px" : "0 44px",
             }}
           >
-            <SettingsScreen
-              themeId={themeId}
-              setThemeId={updateTheme}
-              onBack={() => setScreen("dashboard")}
-              currentUser={currentUser}
-              onLogout={handleLogout}
-              onDeleteAccount={handleDeleteAccount}
-              language={language}
-            />
+            <React.Suspense
+              fallback={
+                <div className="app-loading" role="status">
+                  {t.loading}
+                </div>
+              }
+            >
+              <SettingsScreen
+                themeId={themeId}
+                setThemeId={updateTheme}
+                onBack={() => setScreen("dashboard")}
+                currentUser={currentUser}
+                onLogout={handleLogout}
+                onDeleteAccount={handleDeleteAccount}
+                language={language}
+              />
+            </React.Suspense>
           </div>
         ) : (
           <>
