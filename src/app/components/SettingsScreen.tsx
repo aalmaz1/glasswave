@@ -128,7 +128,7 @@ export function SettingsScreen({
         >
           {THEMES.map((th) => {
             const active = th.id === themeId;
-            const name = themeNameByLang(th.id, language);
+            const name = themeNameByLang(th.id, t);
             return (
               <button
                 key={th.id}
