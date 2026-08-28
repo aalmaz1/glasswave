@@ -1,4 +1,4 @@
-import { Capacitor } from "@capacitor/core";
+import { isNativeApp } from "./capDetect";
 
 /**
  * Service worker registration for the PWA.
@@ -15,7 +15,7 @@ export function registerServiceWorker(): void {
   if (!import.meta.env.PROD) return;
 
   try {
-    if (Capacitor.isNativePlatform()) return;
+    if (isNativeApp()) return;
   } catch {
     /* not running under Capacitor — continue */
   }
