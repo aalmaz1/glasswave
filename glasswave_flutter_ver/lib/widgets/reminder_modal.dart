@@ -2,8 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:intl/intl.dart';
 import 'package:easy_localization/easy_localization.dart';
+import '../services/date_formats.dart';
 import '../theme/design_tokens.dart';
 import 'glass_container.dart';
 
@@ -44,17 +44,6 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
   void initState() {
     super.initState();
     _selectedDate = widget.initialDate;
-  }
-
-  String _dateLocale(String langCode) {
-    switch (langCode) {
-      case 'ru':
-        return 'ru_RU';
-      case 'ko':
-        return 'ko_KR';
-      default:
-        return 'en_US';
-    }
   }
 
   DateTime _todayAt(int h) {
@@ -110,8 +99,7 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
   @override
   Widget build(BuildContext context) {
     final locale = context.locale.languageCode;
-    final dateLocale = _dateLocale(locale);
-    final fmt = DateFormat('d MMMM, HH:mm', dateLocale);
+    String fmt(DateTime d) => GlassDates.reminder(d, locale);
 
     final quickPicks = [
       (tr('remind_today'), _todayAt(20)),
@@ -150,6 +138,10 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                   borderRadius: 24,
                   border: Border.all(color: Colors.white.withValues(alpha: 0.26)),
                   boxShadow: G.modalShadow,
+                  // React draws a ring here: white 0.38 / 0.05 @50% / 0.
+                  showRing: true,
+                  ringColors: G.ringReminder,
+                  ringStops: G.ringReminderStops,
                   padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
                                     child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -214,7 +206,7 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                                     ),
                                   ),
                                   Text(
-                                    fmt.format(pick.$2),
+                                    fmt(pick.$2),
                                     style: const TextStyle(
                                       fontSize: 12.2,
                                       color: G.textSecondary,
@@ -226,14 +218,16 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                           ),
                         );
                       }),
-                      const SizedBox(height: 12),
+                      // React: the pick list has `marginBottom: 18` and its own
+                      // `gap: 8` — 8px of that gap is already on the last row.
+                      const SizedBox(height: 10),
                       Text(
                         tr('remind_custom'),
                         style: const TextStyle(
                           fontSize: 10.9,
                           fontWeight: FontWeight.w600,
                           color: G.textMuted,
-                          letterSpacing: 1.3,
+                          letterSpacing: 0.87,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -253,7 +247,7 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                               Text(
                                 _selectedDate == null
                                     ? tr('remind_pick')
-                                    : fmt.format(_selectedDate!),
+                                    : fmt(_selectedDate!),
                                 style: TextStyle(
                                   fontSize: 13.8,
                                   color: _selectedDate == null
@@ -279,7 +273,7 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                                     Navigator.pop(context);
                                   },
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    padding: const EdgeInsets.symmetric(vertical: 11),
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
                                       color: const Color(0x14FF5050), // rgba(255,80,80,0.08)
@@ -310,7 +304,7 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                                       Navigator.pop(context);
                                     },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(vertical: 11),
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
                                   color:

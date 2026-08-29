@@ -3,14 +3,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../theme/design_tokens.dart';
 
-/// Glass panel matching the React Native `.card-glass` + `.glass-ring` +
-/// `.glass-sheen` layering:
+/// Glass panel matching the React reference `glassBase()` helper plus the
+/// optional `.glass-ring` / `.glass-sheen` overlays:
 ///
 /// 1. backdrop blur + translucent fill + 1px border
 /// 2. optional accent gradient
-/// 3. 45° sheen (`rgba(255,255,255,0.06) → transparent → 0.03`, opacity 0.6)
+/// 3. 45° sheen (`rgba(255,255,255,0.06) → transparent → 0.03`) — cards & FAB
 /// 4. inset top highlight (white 0.15) and bottom shade (black 0.20)
-/// 5. 1px ring gradient (160°, white 0.35 → 0.08 → 0.02)
+/// 5. 1px ring gradient (160°, white 0.35 → 0.08 → 0.02) — only where the
+///    React app renders a `.glass-ring` element
 class GlassContainer extends StatelessWidget {
   final Widget child;
   final double blur;
@@ -20,12 +21,22 @@ class GlassContainer extends StatelessWidget {
   final List<BoxShadow>? boxShadow;
   final Gradient? accentGradient;
   final EdgeInsetsGeometry? padding;
-  final bool showRing;
-  final bool showSheen;
-  final bool showInnerEdges;
 
-  /// Mirrors the `.card:hover` state: brighter ring and a fully opaque sheen.
-  final bool hover;
+  /// React only draws a ring where it renders a `.glass-ring` element, so this
+  /// is off by default (`glassBase()` alone has none).
+  final bool showRing;
+  final List<Color> ringColors;
+  final List<double> ringStops;
+
+  /// Same story for `.glass-sheen` — cards and the FAB only.
+  final bool showSheen;
+  final double sheenOpacity;
+
+  /// The two `inset 0 ±1px 0 …` halves of the `glassBase()` shadow.
+  final bool showInnerEdges;
+  final Color innerTop;
+  final Color innerBottom;
+
   final StackFit fit;
 
   const GlassContainer({
@@ -38,10 +49,14 @@ class GlassContainer extends StatelessWidget {
     this.boxShadow,
     this.accentGradient,
     this.padding,
-    this.showRing = true,
-    this.showSheen = true,
+    this.showRing = false,
+    this.ringColors = G.ringCard,
+    this.ringStops = G.ringStops,
+    this.showSheen = false,
+    this.sheenOpacity = G.sheenOpacity,
     this.showInnerEdges = true,
-    this.hover = false,
+    this.innerTop = G.innerTop,
+    this.innerBottom = G.innerBottom,
     this.fit = StackFit.loose,
   });
 
@@ -85,7 +100,7 @@ class GlassContainer extends StatelessWidget {
             if (showSheen)
               Positioned.fill(
                 child: Opacity(
-                  opacity: hover ? 1.0 : 0.6,
+                  opacity: sheenOpacity,
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(borderRadius),
@@ -111,14 +126,14 @@ class GlassContainer extends StatelessWidget {
                 left: 0,
                 right: 0,
                 height: 1,
-                child: Container(color: Colors.white.withValues(alpha: 0.15)),
+                child: Container(color: innerTop),
               ),
               Positioned(
                 bottom: 0,
                 left: 0,
                 right: 0,
                 height: 1,
-                child: Container(color: Colors.black.withValues(alpha: 0.20)),
+                child: Container(color: innerBottom),
               ),
             ],
             // Gradient ring (`.glass-ring`)
@@ -128,18 +143,8 @@ class GlassContainer extends StatelessWidget {
                   child: CustomPaint(
                     painter: _RingPainter(
                       radius: radius,
-                      colors: hover
-                          ? [
-                              Colors.white.withValues(alpha: 0.60),
-                              Colors.white.withValues(alpha: 0.14),
-                              Colors.white.withValues(alpha: 0.02),
-                            ]
-                          : [
-                              Colors.white.withValues(alpha: 0.35),
-                              Colors.white.withValues(alpha: 0.08),
-                              Colors.white.withValues(alpha: 0.02),
-                            ],
-                      stops: hover ? G.ringStopsHover : G.ringStops,
+                      colors: ringColors,
+                      stops: ringStops,
                     ),
                   ),
                 ),
@@ -217,7 +222,6 @@ class GlassChip extends StatelessWidget {
                 : G.border,
           ),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          showInnerEdges: false,
           child: child,
         ),
       ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -26,11 +27,16 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
 
   /// Parallax offset for the background orbs. Kept out of [setState] so a
   /// scroll frame repaints only the orb layer instead of the whole note grid
   /// (React mutates the orb transforms directly for the same reason).
   final ValueNotifier<double> _scrollY = ValueNotifier<double>(0);
+
+  /// React re-renders every 60s (`setInterval(() => setNow(Date.now()), 60000)`)
+  /// so relative timestamps on the cards ("5 мин. назад") stay fresh.
+  Timer? _nowTicker;
 
   @override
   void initState() {
@@ -39,12 +45,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       _scrollY.value = _scrollController.offset;
     });
     _searchController.addListener(() => setState(() {}));
+    // Repaint for the `.search-bar:focus-within` style only.
+    _searchFocus.addListener(() => setState(() {}));
+    _nowTicker = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    _nowTicker?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
+    _searchFocus.dispose();
     _scrollY.dispose();
     super.dispose();
   }
@@ -225,74 +238,93 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // ── Search bar ────────────────────────────────────────────────────
   Widget _buildSearchBar() {
     final sortActive = ref.watch(sortOrderProvider) != SortOrder.defaultValue;
+    // React `.search-bar:focus-within` — brighter border and a deeper shadow.
+    final focused = _searchFocus.hasFocus;
     return GlassContainer(
       blur: 20,
       borderRadius: 50,
       color: G.bg,
-      border: Border.all(color: G.border),
-      showInnerEdges: false,
+      border: Border.all(
+        color: focused ? Colors.white.withValues(alpha: 0.40) : G.border,
+      ),
+      boxShadow: focused
+          ? [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.55),
+                blurRadius: 40,
+                offset: const Offset(0, 12),
+              ),
+            ]
+          : G.glassShadow(),
       padding: const EdgeInsets.only(left: 16, right: 12),
       child: SizedBox(
         height: 52,
         child: Row(
           children: [
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              style: const TextStyle(color: G.textPrimary, fontSize: 15.2),
-              decoration: InputDecoration(
-                hintText: tr('search_hint'),
-                hintStyle: const TextStyle(color: Colors.white30, fontSize: 15.2),
-                border: InputBorder.none,
-                isDense: true,
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocus,
+                style: const TextStyle(
+                  color: G.textPrimary,
+                  fontSize: 15.2,
+                  // React: `letterSpacing: "0.01em"`.
+                  letterSpacing: 0.15,
+                ),
+                decoration: InputDecoration(
+                  hintText: tr('search_hint'),
+                  hintStyle: const TextStyle(color: Colors.white30, fontSize: 15.2),
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
               ),
             ),
-          ),
-          if (_searchController.text.isNotEmpty)
-            IconButton(
-              onPressed: _searchController.clear,
-              icon: const Icon(LucideIcons.x, size: 16, color: Colors.white30),
-              padding: const EdgeInsets.all(6),
-              constraints: const BoxConstraints(),
-            ),
-          _RoundIconButton(
-            onTap: () => _showSortSheet(),
-            child: Stack(
-              children: [
-                Center(
-                  child: Icon(
-                    LucideIcons.slidersHorizontal,
-                    size: 17,
-                    color: sortActive
-                        ? const Color(0xE6FFD246)
-                        : G.textSecondary,
-                  ),
-                ),
-                if (sortActive)
-                  const Positioned(
-                    top: 4,
-                    right: 4,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Color(0xE6FFC83C),
-                        shape: BoxShape.circle,
-                      ),
-                      child: SizedBox(width: 6, height: 6),
+            if (_searchController.text.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              IconButton(
+                onPressed: _searchController.clear,
+                icon: const Icon(LucideIcons.x, size: 16, color: G.textMuted),
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(),
+              ),
+            ],
+            const SizedBox(width: 4),
+            _RoundIconButton(
+              onTap: () => _showSortSheet(),
+              child: Stack(
+                children: [
+                  Center(
+                    child: Icon(
+                      LucideIcons.slidersHorizontal,
+                      size: 17,
+                      color: sortActive ? const Color(0xE6FFD246) : G.textSecondary,
                     ),
                   ),
-              ],
+                  if (sortActive)
+                    const Positioned(
+                      top: 4,
+                      right: 4,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Color(0xE6FFC83C),
+                          shape: BoxShape.circle,
+                        ),
+                        child: SizedBox(width: 6, height: 6),
+                      ),
+                    ),
+                ],
+              ),
+              highlight: sortActive,
             ),
-            highlight: sortActive,
-          ),
-          const SizedBox(width: 4),
-          _RoundIconButton(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            const SizedBox(width: 4),
+            _RoundIconButton(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              ),
+              child: const Icon(LucideIcons.settings, size: 18, color: G.textSecondary),
             ),
-            child: const Icon(LucideIcons.settings, size: 18, color: G.textSecondary),
-          ),
-        ],
+          ],
         ),
       ),
     );
@@ -361,6 +393,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           child: GlassContainer(
             blur: 28,
             borderRadius: 30,
+            // React draws an explicit 1px ring here:
+            // `linear-gradient(160deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.04) 60%)`.
+            showRing: true,
+            ringColors: G.ringNav,
+            ringStops: G.ringNavStops,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
               child: Row(
@@ -436,7 +473,6 @@ class _EmptyTrashButton extends StatelessWidget {
         borderRadius: 11,
         border: Border.all(color: const Color(0x52FF7878)), // rgba(255,120,120,0.32)
         color: const Color(0x2E911423), // rgba(145,20,35,0.18)
-        showInnerEdges: false,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -527,7 +563,6 @@ class _EmptyState extends StatelessWidget {
               child: GlassContainer(
                 blur: 14,
                 borderRadius: 11,
-                showInnerEdges: false,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -688,12 +723,19 @@ class _FabWithHoverState extends State<_FabWithHover> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 320),
         curve: const Cubic(0.34, 1.56, 0.64, 1.0),
+        // CSS `.fab-btn` scales from its centre, not the top-left corner.
+        transformAlignment: Alignment.center,
         transform: Matrix4.identity()
           ..translate(0.0, _isHovered ? -3.0 : 0.0, 0.0)
           ..scale(_isHovered ? 1.04 : 1.0, _isHovered ? 1.04 : 1.0, 1.0),
         child: GlassContainer(
           borderRadius: 18,
-          hover: _isHovered,
+          showRing: true,
+          showSheen: true,
+          ringColors: _isHovered ? G.ringCardHover : G.ringCard,
+          ringStops: _isHovered ? G.ringStopsHover : G.ringStops,
+          // `.fab-btn > .card-glass > .glass-sheen{opacity:0.7}` (1.0 on hover)
+          sheenOpacity: _isHovered ? 1.0 : 0.7,
           color: _isHovered ? Colors.white.withValues(alpha: 0.14) : G.bgHov,
           border: Border.all(
             color: _isHovered
@@ -768,80 +810,100 @@ class SortSheetOverlay extends ConsumerWidget {
                 child: child,
               );
             },
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xF5121218),
-                border: Border(
-                  top: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
-                ),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.60),
-                    blurRadius: 60,
-                    offset: const Offset(0, -16),
-                  ),
-                ],
-              ),
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).padding.bottom + 16,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 12, 0, 4),
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(2),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              child: BackdropFilter(
+                // React: `backdropFilter: blur(40px)` on the sheet itself.
+                filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xF5121218),
+                    border: Border(
+                      top: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
+                    ),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.60),
+                        blurRadius: 60,
+                        offset: const Offset(0, -16),
                       ),
-                    ),
+                    ],
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-                    child: Row(
-                      children: [
-                        const Icon(LucideIcons.slidersHorizontal, size: 16, color: G.textMuted),
-                        const SizedBox(width: 10),
-                        Text(
-                          tr('sort_title'),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15.4,
-                            color: G.textPrimary,
-                            letterSpacing: -0.2,
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).padding.bottom + 16,
+                  ),
+                  child: Stack(
+                    children: [
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(0, 12, 0, 4),
+                            child: Container(
+                              width: 36,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 24),
-                    height: 1,
-                    color: Colors.white.withValues(alpha: 0.06),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
-                    child: Column(
-                      children: [
-                        for (final opt in opts)
-                          _SortOption(
-                            title: opt.$2,
-                            subtitle: opt.$3,
-                            icon: opt.$4,
-                            active: current == opt.$1,
-                            onTap: () {
-                              ref.read(sortOrderProvider.notifier).state = opt.$1;
-                              Navigator.pop(context);
-                            },
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                            child: Row(
+                              children: [
+                                const Icon(LucideIcons.slidersHorizontal,
+                                    size: 16, color: G.textMuted),
+                                const SizedBox(width: 10),
+                                Text(
+                                  tr('sort_title'),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15.4,
+                                    color: G.textPrimary,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                      ],
-                    ),
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 24),
+                            height: 1,
+                            color: Colors.white.withValues(alpha: 0.06),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
+                            child: Column(
+                              children: [
+                                for (final opt in opts)
+                                  _SortOption(
+                                    title: opt.$2,
+                                    subtitle: opt.$3,
+                                    icon: opt.$4,
+                                    active: current == opt.$1,
+                                    onTap: () {
+                                      ref.read(sortOrderProvider.notifier).state = opt.$1;
+                                      Navigator.pop(context);
+                                    },
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      // `inset 0 1px 0 rgba(255,255,255,0.12)`
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: 1,
+                        child: Container(color: Colors.white.withValues(alpha: 0.12)),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -925,6 +987,8 @@ class _SortOptionState extends State<_SortOption> {
                         color: widget.active ? G.textPrimary : G.textSecondary,
                       ),
                     ),
+                    // React: `margin: "2px 0 0"` on the subtitle.
+                    const SizedBox(height: 2),
                     Text(
                       widget.subtitle,
                       style: const TextStyle(fontSize: 11.8, color: G.textMuted),

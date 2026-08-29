@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:intl/intl.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/note.dart';
 import '../providers/app_providers.dart';
+import '../services/date_formats.dart';
 import '../theme/app_theme_data.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/glass_container.dart';
@@ -114,17 +114,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     if (!_dirty) return;
     _autosaveTimer?.cancel();
     _autosaveTimer = Timer(const Duration(milliseconds: 1500), _persistSilent);
-  }
-
-  String _dateLocale(String langCode) {
-    switch (langCode) {
-      case 'ru':
-        return 'ru_RU';
-      case 'ko':
-        return 'ko_KR';
-      default:
-        return 'en_US';
-    }
   }
 
   int get _wordCount {
@@ -310,15 +299,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final isMobile = width < 768;
     final isTablet = width >= 768 && width < 1280;
 
+    // React: width 100% / 82% / 62% with maxWidth 100% / 760 / 720.
     final mW = isMobile
         ? double.infinity
         : isTablet
-            ? width * 0.82
+            ? math.min(760.0, width * 0.82)
             : math.min(720.0, width * 0.62);
     final mH = media.size.height * (isMobile ? 0.92 : 0.88);
     final screenRadius = isMobile ? 20.0 : 24.0;
-    final today = DateFormat('d MMMM yyyy', _dateLocale(context.locale.languageCode))
-        .format(DateTime.now());
+    final today = GlassDates.long(DateTime.now(), context.locale.languageCode);
 
     return CallbackShortcuts(
       bindings: {
@@ -365,6 +354,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     color: G.bg,
                     border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
                     boxShadow: G.modalShadow,
+                    // The editor paints its own ring: white 0.40 / 0.06 @45% /
+                    // 0.01 — slightly brighter than the card ring.
+                    showRing: true,
+                    ringColors: G.ringModal,
+                    ringStops: G.ringModalStops,
                     fit: StackFit.expand,
                     child: Column(
                       children: [
@@ -399,14 +393,18 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                                   ],
                                 ),
                               ),
-                              if (!isMobile && _source == null)
+                              // React shows the "new note" caption only while
+                              // `creating` — i.e. when no card was opened, not
+                              // when a demo card pre-fills the editor.
+                              if (!isMobile && widget.note == null)
                                 Text(
                                   tr('editor_new').toUpperCase(),
                                   style: const TextStyle(
                                     fontSize: 10.6,
                                     fontWeight: FontWeight.w500,
                                     color: G.textMuted,
-                                    letterSpacing: 1.3,
+                                    // React: 0.08em of 0.66rem.
+                                    letterSpacing: 0.84,
                                   ),
                                 )
                               else
@@ -474,7 +472,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                                 style: const TextStyle(fontSize: 10.9, color: G.textMuted),
                               ),
                               const SizedBox(width: 8),
-                              const Text('·', style: TextStyle(fontSize: 10.9, color: G.textMuted)),
+                              // React: `<span style={{ opacity: 0.5 }}>·</span>`
+                              const Opacity(
+                                opacity: 0.5,
+                                child:
+                                    Text('·', style: TextStyle(fontSize: 10.9, color: G.textMuted)),
+                              ),
                               const SizedBox(width: 8),
                               const Icon(LucideIcons.hash, size: 10, color: G.textMuted),
                               const SizedBox(width: 8),
@@ -489,31 +492,36 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                         // Body scroll area with formatting toolbar
                         Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                            // React scroll host: `padding: 12px 24px 24px`
+                            padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
                             child: Column(
                               children: [
                                 _buildToolbar(),
                                 const SizedBox(height: 8),
                                 Expanded(
-                                  child: TextField(
-                                    controller: _bodyController,
-                                    maxLines: null,
-                                    minLines: null,
-                                    expands: true,
-                                    textAlignVertical: TextAlignVertical.top,
-                                    keyboardType: TextInputType.multiline,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 16,
-                                      height: 1.75,
-                                      color: Colors.white.withValues(alpha: 0.82),
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: tr('editor_body'),
-                                      hintStyle: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.30),
+                                  // React `.rich-text-content`: `padding: 4px 2px 40px`
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(2, 4, 2, 40),
+                                    child: TextField(
+                                      controller: _bodyController,
+                                      maxLines: null,
+                                      minLines: null,
+                                      expands: true,
+                                      textAlignVertical: TextAlignVertical.top,
+                                      keyboardType: TextInputType.multiline,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 16,
+                                        height: 1.75,
+                                        color: Colors.white.withValues(alpha: 0.82),
                                       ),
-                                      border: InputBorder.none,
-                                      isDense: true,
+                                      decoration: InputDecoration(
+                                        hintText: tr('editor_body'),
+                                        hintStyle: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.30),
+                                        ),
+                                        border: InputBorder.none,
+                                        isDense: true,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -640,7 +648,9 @@ class _FmtBtnState extends State<_FmtBtn> {
           alignment: Alignment.center,
           child: Text(
             widget.label,
-            style: GoogleFonts.inter(
+            // React `.rt-btn` uses `font-family: inherit` → Manrope (only the
+            // note *content* switches to Inter).
+            style: TextStyle(
               fontSize: 12.8,
               fontWeight: FontWeight.w700,
               height: 1,
