@@ -52,7 +52,8 @@ class SettingsScreen extends ConsumerWidget {
                           fontWeight: FontWeight.w700,
                           fontSize: 20.8,
                           color: G.textPrimary,
-                          letterSpacing: -0.3,
+                          // React: `letterSpacing: "-0.02em"` on 1.3rem.
+                          letterSpacing: -0.42,
                         ),
                       ),
                     ),
@@ -196,7 +197,6 @@ class _BackButton extends StatelessWidget {
       child: GlassContainer(
         blur: 16,
         borderRadius: 12,
-        showInnerEdges: false,
         child: const SizedBox(
           width: 38,
           height: 38,
@@ -227,7 +227,8 @@ class _AccountCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user.name,
+                  // React: `{user.name || user.email}`
+                  user.name.isNotEmpty ? user.name : user.email,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
@@ -235,6 +236,8 @@ class _AccountCard extends ConsumerWidget {
                     color: G.textPrimary,
                   ),
                 ),
+                // React: `margin: "2px 0 0"`.
+                const SizedBox(height: 2),
                 Text(
                   user.email,
                   overflow: TextOverflow.ellipsis,
@@ -243,6 +246,7 @@ class _AccountCard extends ConsumerWidget {
               ],
             ),
           ),
+          // React: a single `gap: 16` between all three children.
           const SizedBox(width: 16),
           Container(
             width: 36,
@@ -254,7 +258,7 @@ class _AccountCard extends ConsumerWidget {
             ),
             child: const Icon(LucideIcons.shield, size: 15, color: Color(0xCC00DC64)),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           _LogoutButton(
             onTap: () async {
               await ref.read(authProvider.notifier).logout();
@@ -282,7 +286,6 @@ class _LogoutButton extends StatelessWidget {
       child: GlassContainer(
         blur: 12,
         borderRadius: 10,
-        showInnerEdges: false,
         child: const SizedBox(
           width: 36,
           height: 36,
@@ -624,7 +627,11 @@ class _ThemeGrid extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = MediaQuery.of(context).size.width;
-        final cols = width >= 992 ? 6 : 4;
+        // React CSS: `@media (max-width:768px)` → 4 columns (gap 8),
+        // `@media (min-width:992px)` → 6 columns (gap 10). Between those two
+        // breakpoints React falls back to `flex-wrap`, and the section is
+        // capped at 666px, so ~92px-wide tiles wrap at 6 per row there too.
+        final cols = width < 768 ? 4 : 6;
         final gap = width < 768 ? 8.0 : 10.0;
         final itemW = (constraints.maxWidth - gap * (cols - 1)) / cols;
         return Wrap(
@@ -662,9 +669,6 @@ class _ThemeTile extends StatelessWidget {
       child: GlassContainer(
         blur: 20,
         borderRadius: 18,
-        showInnerEdges: false,
-        showSheen: false,
-        showRing: false,
         border: Border.all(
           color: active ? const Color(0x80FFFFFF) : G.border, // white 0.50 / 0.20
         ),
@@ -677,6 +681,10 @@ class _ThemeTile extends StatelessWidget {
                 ),
               ]
             : G.glassShadow(),
+        // Active tiles use `inset 0 1px 0 rgba(255,255,255,0.28)` and drop the
+        // bottom inset; inactive ones keep the standard `glassBase()` edges.
+        innerTop: active ? G.innerTopStrong : G.innerTop,
+        innerBottom: active ? Colors.transparent : G.innerBottom,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -831,35 +839,34 @@ class _DangerZone extends ConsumerWidget {
       border: Border.all(color: const Color(0x47FF6464)), // rgba(255,100,100,0.28)
       color: const Color(0x21911423), // rgba(145,20,35,0.13)
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tr('delete_account'),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14.7,
-                    color: Color(0xFAFFBEBE),
-                  ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // React: `flexWrap: wrap` with a `flex: 1 1 180px` text block, so the
+          // button drops below the copy once the row gets too narrow.
+          final wide = constraints.maxWidth >= 300;
+          final text = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                tr('delete_account'),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14.7,
+                  color: Color(0xFAFFBEBE),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  tr('delete_account_desc'),
-                  style: const TextStyle(
-                    fontSize: 12.2,
-                    height: 1.55,
-                    color: Color(0x9EFFDCDC),
-                  ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                tr('delete_account_desc'),
+                style: const TextStyle(
+                  fontSize: 12.2,
+                  height: 1.55,
+                  color: Color(0x9EFFDCDC),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          GestureDetector(
+              ),
+            ],
+          );
+          final button = GestureDetector(
             onTap: () => _confirmDelete(context, ref),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
@@ -877,8 +884,18 @@ class _DangerZone extends ConsumerWidget {
                 ),
               ),
             ),
-          ),
-        ],
+          );
+          if (!wide) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [text, const SizedBox(height: 16), button],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [Expanded(child: text), const SizedBox(width: 16), button],
+          );
+        },
       ),
     );
   }
@@ -1037,12 +1054,14 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
                               style:
                                   const TextStyle(color: G.textPrimary, fontWeight: FontWeight.w700),
                             ),
+                            // React: `{t.deleteWarning} <strong>{email}</strong>{suffix}`
+                            TextSpan(text: tr('delete_account_suffix')),
                           ],
                         ),
                       ),
                       const SizedBox(height: 18),
                       Text(
-                        tr('password'),
+                        tr('password_confirm'),
                         style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
@@ -1059,7 +1078,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
                         onSubmitted: (_) => _submit(),
                         style: const TextStyle(fontSize: 13.8, color: G.textPrimary),
                         decoration: InputDecoration(
-                          hintText: tr('password'),
+                          hintText: tr('password_placeholder'),
                           isDense: true,
                           contentPadding:
                               const EdgeInsets.fromLTRB(13, 11, 42, 11),

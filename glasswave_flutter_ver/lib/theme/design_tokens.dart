@@ -48,4 +48,60 @@ abstract final class G {
 
   /// `.card:hover .glass-ring` moves the middle stop to 45%.
   static const List<double> ringStopsHover = [0.0, 0.45, 1.0];
+
+  /* ── Ring gradients ───────────────────────────────────────────────────
+     IMPORTANT: React only paints a ring where it explicitly renders a
+     `.glass-ring` element. `glassBase()` alone (search bar, chips, settings
+     panels, dialogs…) has NO ring and NO sheen — only the fill, the 1px
+     border and the box-shadow with its two inset edges. The ring colours
+     below are the four places React does draw one. */
+
+  /// `.glass-ring` — rgba(255,255,255,0.35) / 0.08 @40% / 0.02.
+  static const List<Color> ringCard = [
+    Color(0x59FFFFFF),
+    Color(0x14FFFFFF),
+    Color(0x05FFFFFF),
+  ];
+
+  /// `.card:hover .glass-ring` — 0.60 / 0.14 @45% / 0.02.
+  static const List<Color> ringCardHover = [
+    Color(0x99FFFFFF),
+    Color(0x24FFFFFF),
+    Color(0x05FFFFFF),
+  ];
+
+  /// `BottomNav` ring — rgba(255,255,255,0.28) → 0.04 @60%.
+  static const List<Color> ringNav = [Color(0x47FFFFFF), Color(0x0AFFFFFF)];
+  static const List<double> ringNavStops = [0.0, 0.6];
+
+  /// `EditorModal` ring — rgba(255,255,255,0.40) / 0.06 @45% / 0.01.
+  static const List<Color> ringModal = [
+    Color(0x66FFFFFF),
+    Color(0x0FFFFFFF),
+    Color(0x03FFFFFF),
+  ];
+  static const List<double> ringModalStops = [0.0, 0.45, 1.0];
+
+  /// `ReminderModal` ring — rgba(255,255,255,0.38) / 0.05 @50% / 0.
+  static const List<Color> ringReminder = [
+    Color(0x61FFFFFF),
+    Color(0x0DFFFFFF),
+    Color(0x00FFFFFF),
+  ];
+  static const List<double> ringReminderStops = [0.0, 0.5, 1.0];
+
+  /* ── Inset edges ──────────────────────────────────────────────────────
+     The `inset 0 1px 0 …` halves of every `glassBase()` shadow. */
+
+  /// `inset 0 1px 0 rgba(255,255,255,0.15)`.
+  static const Color innerTop = Color(0x26FFFFFF);
+
+  /// `inset 0 -1px 0 rgba(0,0,0,0.20)`.
+  static const Color innerBottom = Color(0x33000000);
+
+  /// Active theme tile: `inset 0 1px 0 rgba(255,255,255,0.28)`.
+  static const Color innerTopStrong = Color(0x47FFFFFF);
+
+  /// `.glass-sheen` base opacity (1.0 on hover, 0.7 on the FAB).
+  static const double sheenOpacity = 0.6;
 }

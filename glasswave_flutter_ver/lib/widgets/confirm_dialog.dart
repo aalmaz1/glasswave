@@ -127,23 +127,25 @@ class GlassConfirmOverlay extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                      // React: `display:flex; gap:8; justify-content:flex-end;
+                      // flex-wrap:wrap` — three labels can overflow 400px.
+                      Wrap(
+                        alignment: WrapAlignment.end,
+                        runAlignment: WrapAlignment.end,
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
                           _ConfirmBtn(
                             label: cancelLabel,
                             onTap: onCancel,
                             style: _ConfirmBtnStyle.neutral,
                           ),
-                          if (extraLabel != null && onExtra != null) ...[
-                            const SizedBox(width: 8),
+                          if (extraLabel != null && onExtra != null)
                             _ConfirmBtn(
                               label: extraLabel!,
                               onTap: onExtra!,
                               style: _ConfirmBtnStyle.light,
                             ),
-                          ],
-                          const SizedBox(width: 8),
                           _ConfirmBtn(
                             label: confirmLabel,
                             onTap: onConfirm,

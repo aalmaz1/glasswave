@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:intl/intl.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../models/note.dart';
 import '../providers/app_providers.dart';
+import '../services/date_formats.dart';
 import '../services/welcome_notes.dart';
 import '../theme/app_theme_data.dart';
 import '../theme/design_tokens.dart';
@@ -27,17 +27,6 @@ class NoteCard extends ConsumerStatefulWidget {
 class _NoteCardState extends ConsumerState<NoteCard> {
   bool _isHovered = false;
 
-  String _dateLocale(String langCode) {
-    switch (langCode) {
-      case 'ru':
-        return 'ru_RU';
-      case 'ko':
-        return 'ko_KR';
-      default:
-        return 'en_US';
-    }
-  }
-
   /// React `fmtDate()` (src/app/utils.ts): just now → minutes → hours →
   /// yesterday → days → "27 August".
   String _fmtDate(DateTime d, String locale) {
@@ -53,7 +42,7 @@ class _NoteCardState extends ConsumerState<NoteCard> {
     if (diff.inDays < 7) {
       return tr('note_days_ago', namedArgs: {'n': '${diff.inDays}'});
     }
-    return DateFormat('d MMMM', _dateLocale(locale)).format(d);
+    return GlassDates.monthDay(d, locale);
   }
 
   void _openReminder() {
@@ -97,8 +86,12 @@ class _NoteCardState extends ConsumerState<NoteCard> {
       onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 280),
+        // React `.card`: `transition: transform 0.32s cubic-bezier(0.34,1.56,0.64,1)`.
+        duration: const Duration(milliseconds: 320),
         curve: const Cubic(0.34, 1.56, 0.64, 1.0),
+        // CSS `.card{transform-origin:center center}` — Flutter would otherwise
+        // scale from the top-left corner.
+        transformAlignment: Alignment.center,
         transform: Matrix4.identity()
           ..translate(0.0, hoverActive ? -6.0 : 0.0, 0.0)
           ..scale(hoverActive ? 1.02 : 1.0, hoverActive ? 1.02 : 1.0, 1.0),
@@ -107,7 +100,11 @@ class _NoteCardState extends ConsumerState<NoteCard> {
           child: GlassContainer(
             borderRadius: 20,
             blur: 24,
-            hover: hoverActive,
+            showRing: true,
+            showSheen: true,
+            ringColors: hoverActive ? G.ringCardHover : G.ringCard,
+            ringStops: hoverActive ? G.ringStopsHover : G.ringStops,
+            sheenOpacity: hoverActive ? 1.0 : G.sheenOpacity,
             color: hoverActive ? G.bgHov : G.bg,
             border: Border.all(color: hoverActive ? G.borderHov : G.border),
             boxShadow: G.glassShadow(hover: hoverActive),
@@ -142,7 +139,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                               fontWeight: FontWeight.w700,
                               fontSize: titleFont,
                               height: 1.3,
-                              letterSpacing: -0.2,
+                              // React: `letterSpacing: "-0.02em"`.
+                              letterSpacing: -0.02 * titleFont,
                             ),
                           ),
                         ),
@@ -183,8 +181,7 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                     if (hasReminder && widget.note.reminder != null) ...[
                       _ReminderBadge(
                         date: widget.note.reminder!,
-                        locale: locale,
-                        dateLocale: _dateLocale(locale),
+                        langCode: locale,
                         onTap: _openReminder,
                       ),
                       const SizedBox(height: 8),
@@ -309,27 +306,41 @@ Color _brightness(Color c, double f) => Color.from(
       blue: (c.b * f).clamp(0.0, 1.0),
     );
 
-class _PinButton extends StatelessWidget {
+class _PinButton extends StatefulWidget {
   final bool pinned;
   final VoidCallback onTap;
 
   const _PinButton({required this.pinned, required this.onTap});
 
   @override
+  State<_PinButton> createState() => _PinButtonState();
+}
+
+class _PinButtonState extends State<_PinButton> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Icon(
-          pinned ? LucideIcons.pinOff : LucideIcons.pin,
-          size: 14,
-          color: pinned
-              ? Colors.white.withValues(alpha: 0.70)
-              : G.textSecondary,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            // React `.card-pin:hover{background:rgba(255,255,255,0.10)}`.
+            color: _hovered ? Colors.white.withValues(alpha: 0.10) : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(
+            widget.pinned ? LucideIcons.pinOff : LucideIcons.pin,
+            size: 14,
+            color: widget.pinned
+                ? Colors.white.withValues(alpha: 0.70)
+                : G.textSecondary,
+          ),
         ),
       ),
     );
@@ -338,20 +349,17 @@ class _PinButton extends StatelessWidget {
 
 class _ReminderBadge extends StatelessWidget {
   final DateTime date;
-  final String locale;
-  final String dateLocale;
+  final String langCode;
   final VoidCallback onTap;
 
   const _ReminderBadge({
     required this.date,
-    required this.locale,
-    required this.dateLocale,
+    required this.langCode,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final fmt = DateFormat('d MMM, HH:mm', dateLocale);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -367,7 +375,7 @@ class _ReminderBadge extends StatelessWidget {
             const Icon(LucideIcons.bellRing, size: 10, color: Color(0xE6FFD250)),
             const SizedBox(width: 5),
             Text(
-              fmt.format(date),
+              GlassDates.short(date, langCode),
               style: const TextStyle(
                 fontSize: 10.9,
                 fontWeight: FontWeight.w600,
@@ -392,21 +400,18 @@ class _MiniAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 26,
-        height: 26,
-        decoration: BoxDecoration(
-          color: G.bg,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.20),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
+      // React `MiniAction`: `...glassBase(10)` with the border overridden to
+      // `none` — so: 26×26, blur 10, radius 8, G.shadow (with inset edges).
+      child: GlassContainer(
+        blur: 10,
+        borderRadius: 8,
+        border: Border.all(color: Colors.transparent),
+        padding: EdgeInsets.zero,
+        child: SizedBox(
+          width: 26,
+          height: 26,
+          child: Center(child: Icon(icon, size: 11, color: color)),
         ),
-        child: Center(child: Icon(icon, size: 11, color: color)),
       ),
     );
   }
