@@ -14,6 +14,30 @@ flutter pub get
 flutter run
 ```
 
+### Android size and release builds
+
+The source code is not what makes a Flutter APK large: a Flutter release also
+contains the native Flutter engine and, unless split, native binaries for every
+CPU architecture. A debug/universal APK can therefore be around 100–115 MB even
+when the Dart code is small. It should not be used as the download artifact.
+
+Use an Android App Bundle for Play Store distribution (Google delivers only the
+right ABI to each device), or build ABI-specific APKs for direct downloads:
+
+```bash
+# Recommended for Google Play
+flutter build appbundle --release
+
+# Direct APK downloads: produces arm64, arm32 and x86_64 APKs separately
+flutter build apk --release --split-per-abi
+```
+
+The Android Gradle configuration disables the universal APK as an additional
+safeguard. This changes packaging only, not runtime behavior or UI. Unused
+`flutter_markdown` and `flutter_staggered_grid_view` dependencies were also
+removed; the editor uses its own Markdown field and the dashboard uses native
+rows.
+
 Dart SDK `^3.12.2` (see [`pubspec.yaml`](pubspec.yaml)).
 
 ## Layout

@@ -15,8 +15,6 @@ import '../theme/design_tokens.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/confirm_dialog.dart';
 
-/// Opens the editor as a centered glass modal — same as the React Native
-/// `EditorModal` (overlay, 62% / 82% / mobile width, 88vh/92dvh height).
 Future<void> openEditorOverlay(
   BuildContext context, {
   Note? note,
@@ -38,9 +36,6 @@ Future<void> openEditorOverlay(
 class EditorScreen extends ConsumerStatefulWidget {
   final Note? note;
 
-  /// The note is only a template (a welcome/demo card): its text pre-fills the
-  /// editor but saving creates a brand-new note, exactly like React's
-  /// `persistNote` when `isWelcomeNoteId(editing.id)`.
   final bool asNewNote;
 
   const EditorScreen({super.key, this.note, this.asNewNote = false});
@@ -85,8 +80,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     super.dispose();
   }
 
-  /// The note being edited in place — `null` while creating (or when the
-  /// editor was opened from a demo card).
   Note? get _source => widget.asNewNote ? null : widget.note;
 
   bool get _dirty =>
@@ -138,7 +131,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         title: title,
         body: body,
         updatedAt: now,
-        // React keeps the accent of the demo card a note was started from.
         accentIdx:
             widget.note?.accentIdx ?? now.millisecondsSinceEpoch % theme.accents.length,
       );
@@ -209,7 +201,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
   }
 
-  // ── Markdown helpers ──────────────────────────────────────────────
   void _insertFormat(String prefix, [String suffix = '']) {
     final text = _bodyController.text;
     final selection = _bodyController.selection;
@@ -291,7 +282,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     return text.substring(start, end).trimLeft();
   }
 
-  // ── Build ─────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
@@ -299,7 +289,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final isMobile = width < 768;
     final isTablet = width >= 768 && width < 1280;
 
-    // React: width 100% / 82% / 62% with maxWidth 100% / 760 / 720.
     final mW = isMobile
         ? double.infinity
         : isTablet
@@ -354,15 +343,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     color: G.bg,
                     border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
                     boxShadow: G.modalShadow,
-                    // The editor paints its own ring: white 0.40 / 0.06 @45% /
-                    // 0.01 — slightly brighter than the card ring.
                     showRing: true,
                     ringColors: G.ringModal,
                     ringStops: G.ringModalStops,
                     fit: StackFit.expand,
                     child: Column(
                       children: [
-                        // Header: close chip · "New note" · save chip
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                           decoration: BoxDecoration(
@@ -393,9 +379,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                                   ],
                                 ),
                               ),
-                              // React shows the "new note" caption only while
-                              // `creating` — i.e. when no card was opened, not
-                              // when a demo card pre-fills the editor.
                               if (!isMobile && widget.note == null)
                                 Text(
                                   tr('editor_new').toUpperCase(),
@@ -403,7 +386,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                                     fontSize: 10.6,
                                     fontWeight: FontWeight.w500,
                                     color: G.textMuted,
-                                    // React: 0.08em of 0.66rem.
                                     letterSpacing: 0.84,
                                   ),
                                 )
@@ -431,7 +413,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                             ],
                           ),
                         ),
-                        // Title
                         Padding(
                           padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
                           child: TextField(
@@ -453,7 +434,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                             ),
                           ),
                         ),
-                        // Meta row: date · words
                         Container(
                           padding: const EdgeInsets.fromLTRB(24, 6, 24, 12),
                           decoration: BoxDecoration(
@@ -472,7 +452,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                                 style: const TextStyle(fontSize: 10.9, color: G.textMuted),
                               ),
                               const SizedBox(width: 8),
-                              // React: `<span style={{ opacity: 0.5 }}>·</span>`
                               const Opacity(
                                 opacity: 0.5,
                                 child:
@@ -482,24 +461,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                               const Icon(LucideIcons.hash, size: 10, color: G.textMuted),
                               const SizedBox(width: 8),
                               Text(
-                                // React: `t.wordsCount(wc)` with per-locale plurals.
                                 plural('editor_words_count', _wordCount),
                                 style: const TextStyle(fontSize: 10.9, color: G.textMuted),
                               ),
                             ],
                           ),
                         ),
-                        // Body scroll area with formatting toolbar
                         Expanded(
                           child: Padding(
-                            // React scroll host: `padding: 12px 24px 24px`
                             padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
                             child: Column(
                               children: [
                                 _buildToolbar(),
                                 const SizedBox(height: 8),
                                 Expanded(
-                                  // React `.rich-text-content`: `padding: 4px 2px 40px`
                                   child: Padding(
                                     padding: const EdgeInsets.fromLTRB(2, 4, 2, 40),
                                     child: TextField(
@@ -648,8 +623,6 @@ class _FmtBtnState extends State<_FmtBtn> {
           alignment: Alignment.center,
           child: Text(
             widget.label,
-            // React `.rt-btn` uses `font-family: inherit` → Manrope (only the
-            // note *content* switches to Inter).
             style: TextStyle(
               fontSize: 12.8,
               fontWeight: FontWeight.w700,

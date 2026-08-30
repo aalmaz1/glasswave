@@ -7,8 +7,6 @@ import '../services/date_formats.dart';
 import '../theme/design_tokens.dart';
 import 'glass_container.dart';
 
-/// Opens the reminder modal styled 1:1 like the React Native `ReminderModal`
-/// (glass 24, quick picks, custom picker, delete/save actions).
 Future<void> showReminderModal(
   BuildContext context, {
   DateTime? initialDate,
@@ -138,7 +136,6 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                   borderRadius: 24,
                   border: Border.all(color: Colors.white.withValues(alpha: 0.26)),
                   boxShadow: G.modalShadow,
-                  // React draws a ring here: white 0.38 / 0.05 @50% / 0.
                   showRing: true,
                   ringColors: G.ringReminder,
                   ringStops: G.ringReminderStops,
@@ -218,8 +215,6 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                           ),
                         );
                       }),
-                      // React: the pick list has `marginBottom: 18` and its own
-                      // `gap: 8` — 8px of that gap is already on the last row.
                       const SizedBox(height: 10),
                       Text(
                         tr('remind_custom'),

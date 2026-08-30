@@ -31,8 +31,6 @@ class Note {
     bool? archived,
     bool? trashed,
     DateTime? reminder,
-    /// `reminder: null` cannot mean "remove" in a copyWith, so removing a
-    /// reminder (React's "Delete reminder") goes through this flag.
     bool clearReminder = false,
   }) {
     return Note(

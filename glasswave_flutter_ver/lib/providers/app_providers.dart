@@ -20,7 +20,6 @@ final authProvider = StateNotifierProvider<AuthNotifier, AppUser?>((ref) {
   return AuthNotifier(service);
 });
 
-/// Error keys returned by [AuthNotifier] — translate in the UI via `tr(key)`.
 class AuthErrors {
   static const wrongCredentials = 'auth_err_wrong_pw';
   static const emailInUse = 'auth_err_email_in_use';
@@ -111,7 +110,6 @@ final themeProvider = StateNotifierProvider<ThemeNotifier, AppPrefs>((ref) {
   return ThemeNotifier(service, email, initialTheme, preloadedLang ?? 'ru');
 });
 
-/// React (`src/app/model.ts`): `DEFAULT_THEME: ThemeId = "sunset"`.
 const ThemeId kDefaultTheme = ThemeId.sunset;
 
 ThemeId _parseThemeStatic(String? raw, {ThemeId? fallback}) {
@@ -141,14 +139,12 @@ class ThemeNotifier extends StateNotifier<AppPrefs> {
       theme = _parseTheme(raw['themeId'] as String?, fallback: kDefaultTheme);
       final savedLang = raw['language'] as String?;
       if (savedLang == null) {
-        // First login after register: keep the language currently active in UI.
         lang = state.language;
         isFirstLoad = true;
       } else {
         lang = savedLang;
       }
     } else {
-      // Guest: load saved prefs; fall back to the React default theme.
       final savedTheme = _service.getGuestTheme();
       theme = _parseTheme(savedTheme, fallback: kDefaultTheme);
       if (savedTheme == null) isFirstLoad = true;
@@ -161,7 +157,6 @@ class ThemeNotifier extends StateNotifier<AppPrefs> {
   }
 
   Future<void> _persistInitial() async {
-    // Persist the defaults that were chosen (theme + current language).
     if (_email != null) {
       await _service.savePrefs(_email!, {'themeId': state.themeId.name, 'language': state.language});
     } else {
@@ -218,8 +213,6 @@ class NotesNotifier extends StateNotifier<List<Note>> {
     if (_email != null) {
       state = _service.getNotes(_email!) ?? [];
     } else {
-      // Nothing is seeded on first launch: a guest with no notes sees the
-      // ephemeral welcome cards (React parity), which are never persisted.
       state = _service.getGuestNotes() ?? [];
     }
   }
@@ -244,7 +237,6 @@ class NotesNotifier extends StateNotifier<List<Note>> {
     await _saveNotes();
   }
 
-  /// Add or update — used by the editor (React `persistNote` parity).
   Future<void> upsert(Note note) async {
     if (state.any((n) => n.id == note.id)) {
       state = state.map((n) => n.id == note.id ? note : n).toList();
@@ -254,7 +246,6 @@ class NotesNotifier extends StateNotifier<List<Note>> {
     await _saveNotes();
   }
 
-  /// Delete every trashed note (React "empty trash").
   Future<void> clearTrash() async {
     state = state.where((n) => !n.trashed).toList();
     await _saveNotes();
