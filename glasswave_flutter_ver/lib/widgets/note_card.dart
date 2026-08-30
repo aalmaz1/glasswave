@@ -107,6 +107,9 @@ class _NoteCardState extends ConsumerState<NoteCard> {
             sheenOpacity: hoverActive ? 1.0 : G.sheenOpacity,
             color: hoverActive ? G.bgHov : G.bg,
             border: Border.all(color: hoverActive ? G.borderHov : G.border),
+            // React's hover shadow uses a stronger inset top highlight
+            // (0.25 vs 0.15 at rest), not just a larger outer shadow.
+            innerTop: hoverActive ? const Color(0x40FFFFFF) : G.innerTop,
             boxShadow: G.glassShadow(hover: hoverActive),
             accentGradient: LinearGradient(
               // React: `linear-gradient(145deg, accent 0%, rgba(255,255,255,0.01) 70%)`
@@ -286,6 +289,16 @@ class _NoteCardState extends ConsumerState<NoteCard> {
 /// syntax characters to get the same look.
 String _plainPreview(String body) {
   var out = body;
+  // Notes created by older/web builds can still contain HTML. React uses
+  // stripHtml() for the preview, so remove tags before the Markdown cleanup
+  // used by the Flutter editor.
+  out = out.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+  out = out.replaceAll(RegExp(r'</p\s*>', caseSensitive: false), '\n');
+  out = out.replaceAll(RegExp(r'<[^>]*>'), '');
+  out = out.replaceAll(RegExp(r'&nbsp;', caseSensitive: false), ' ');
+  out = out.replaceAll(RegExp(r'&amp;', caseSensitive: false), '&');
+  out = out.replaceAll(RegExp(r'&lt;', caseSensitive: false), '<');
+  out = out.replaceAll(RegExp(r'&gt;', caseSensitive: false), '>');
   out = out.replaceAll(RegExp(r'^[ \t]{0,3}#{1,6}[ \t]+', multiLine: true), '');
   out = out.replaceAll(RegExp(r'^[ \t]{0,3}>[ \t]?', multiLine: true), '');
   out = out.replaceAll(RegExp(r'^[ \t]{0,3}[-*+][ \t]+', multiLine: true), '');

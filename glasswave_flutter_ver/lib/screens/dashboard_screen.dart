@@ -247,6 +247,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       border: Border.all(
         color: focused ? Colors.white.withValues(alpha: 0.40) : G.border,
       ),
+      // React's :focus-within shadow also raises the inset top highlight from
+      // 0.15 to 0.22; keeping it on the glass layer avoids a subtle flat spot
+      // around the focused search field.
+      showInnerEdges: true,
+      innerTop: focused ? const Color(0x38FFFFFF) : G.innerTop,
       boxShadow: focused
           ? [
               BoxShadow(
@@ -742,6 +747,8 @@ class _FabWithHoverState extends State<_FabWithHover> {
                 ? Colors.white.withValues(alpha: 0.40)
                 : G.border,
           ),
+          // Match the hover state's inset highlight from the React shadow.
+          innerTop: _isHovered ? const Color(0x40FFFFFF) : G.innerTop,
           boxShadow: _isHovered
               ? [
                   BoxShadow(
