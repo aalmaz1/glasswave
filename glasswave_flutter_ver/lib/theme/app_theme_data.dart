@@ -20,8 +20,6 @@ class AppThemeData {
   final ThemeId id;
   final String emoji;
 
-  /// CSS gradient angle in degrees, exactly as written in the React app
-  /// (`linear-gradient(145deg, …)`): 0 = to top, 90 = to right.
   final double bgAngle;
   final List<Color> bgColors;
   final List<double> bgStops;
@@ -38,13 +36,6 @@ class AppThemeData {
     required this.accents,
   });
 
-  /// Builds the background gradient for a box of [size] so that it matches a
-  /// CSS `linear-gradient(<angle>deg, …)` pixel for pixel.
-  ///
-  /// CSS positions the gradient line through the centre of the box along
-  /// `(sin a, -cos a)` and stretches it until it covers every corner
-  /// (`L = |W·sin a| + |H·cos a|`). Flutter alignments are relative to half the
-  /// box, hence the `L / W` and `L / H` scaling below.
   LinearGradient bgGradient(Size size) {
     final rad = bgAngle * math.pi / 180.0;
     final dx = math.sin(rad);

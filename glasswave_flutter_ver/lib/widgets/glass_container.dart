@@ -3,15 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../theme/design_tokens.dart';
 
-/// Glass panel matching the React reference `glassBase()` helper plus the
-/// optional `.glass-ring` / `.glass-sheen` overlays:
-///
-/// 1. backdrop blur + translucent fill + 1px border
-/// 2. optional accent gradient
-/// 3. 45° sheen (`rgba(255,255,255,0.06) → transparent → 0.03`) — cards & FAB
-/// 4. inset top highlight (white 0.15) and bottom shade (black 0.20)
-/// 5. 1px ring gradient (160°, white 0.35 → 0.08 → 0.02) — only where the
-///    React app renders a `.glass-ring` element
 class GlassContainer extends StatelessWidget {
   final Widget child;
   final double blur;
@@ -22,17 +13,13 @@ class GlassContainer extends StatelessWidget {
   final Gradient? accentGradient;
   final EdgeInsetsGeometry? padding;
 
-  /// React only draws a ring where it renders a `.glass-ring` element, so this
-  /// is off by default (`glassBase()` alone has none).
   final bool showRing;
   final List<Color> ringColors;
   final List<double> ringStops;
 
-  /// Same story for `.glass-sheen` — cards and the FAB only.
   final bool showSheen;
   final double sheenOpacity;
 
-  /// The two `inset 0 ±1px 0 …` halves of the `glassBase()` shadow.
   final bool showInnerEdges;
   final Color innerTop;
   final Color innerBottom;
@@ -73,7 +60,6 @@ class GlassContainer extends StatelessWidget {
         child: Stack(
           fit: fit,
           children: [
-            // Backdrop blur + fill (`.card-glass`)
             Positioned.fill(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
@@ -86,7 +72,6 @@ class GlassContainer extends StatelessWidget {
                 ),
               ),
             ),
-            // Accent gradient (`.card-accent`)
             if (accentGradient != null)
               Positioned.fill(
                 child: Container(
@@ -96,7 +81,6 @@ class GlassContainer extends StatelessWidget {
                   ),
                 ),
               ),
-            // Sheen (`.glass-sheen`)
             if (showSheen)
               Positioned.fill(
                 child: Opacity(
@@ -105,7 +89,6 @@ class GlassContainer extends StatelessWidget {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(borderRadius),
                       gradient: LinearGradient(
-                        // CSS `linear-gradient(45deg, …)` runs bottom-left → top-right.
                         begin: Alignment.bottomLeft,
                         end: Alignment.topRight,
                         colors: [
@@ -119,7 +102,6 @@ class GlassContainer extends StatelessWidget {
                   ),
                 ),
               ),
-            // Inset edges: top highlight + bottom shade
             if (showInnerEdges) ...[
               Positioned(
                 top: 0,
@@ -136,7 +118,6 @@ class GlassContainer extends StatelessWidget {
                 child: Container(color: innerBottom),
               ),
             ],
-            // Gradient ring (`.glass-ring`)
             if (showRing)
               Positioned.fill(
                 child: IgnorePointer(
@@ -175,7 +156,6 @@ class _RingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
       ..shader = LinearGradient(
-        // CSS `linear-gradient(160deg, …)`: almost straight down, tilted right.
         begin: const Alignment(-0.34, -0.94),
         end: const Alignment(0.34, 0.94),
         colors: colors,
@@ -192,8 +172,6 @@ class _RingPainter extends CustomPainter {
   }
 }
 
-/// Glass pill used in the editor header (close / save), matching React's
-/// `GlassChip` (blur 16, radius 12, 7px 14px padding, optional highlight).
 class GlassChip extends StatelessWidget {
   final Widget child;
   final VoidCallback onTap;

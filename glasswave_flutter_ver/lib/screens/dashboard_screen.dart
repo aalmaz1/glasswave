@@ -29,13 +29,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
 
-  /// Parallax offset for the background orbs. Kept out of [setState] so a
-  /// scroll frame repaints only the orb layer instead of the whole note grid
-  /// (React mutates the orb transforms directly for the same reason).
   final ValueNotifier<double> _scrollY = ValueNotifier<double>(0);
 
-  /// React re-renders every 60s (`setInterval(() => setNow(Date.now()), 60000)`)
-  /// so relative timestamps on the cards ("5 мин. назад") stay fresh.
   Timer? _nowTicker;
 
   @override
@@ -45,7 +40,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       _scrollY.value = _scrollController.offset;
     });
     _searchController.addListener(() => setState(() {}));
-    // Repaint for the `.search-bar:focus-within` style only.
     _searchFocus.addListener(() => setState(() {}));
     _nowTicker = Timer.periodic(const Duration(seconds: 60), (_) {
       if (mounted) setState(() {});
@@ -87,8 +81,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final theme = allThemes.firstWhere((t) => t.id == prefs.themeId);
     final storedNotes = ref.watch(notesProvider);
     final user = ref.watch(authProvider);
-    // React: a signed-out user with no notes of their own sees the intro cards
-    // instead of an empty dashboard; real notes replace them immediately.
     final notes =
         user == null && storedNotes.isEmpty ? buildWelcomeNotes() : storedNotes;
     final currentTab = ref.watch(dashboardTabProvider);
@@ -141,7 +133,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               constraints: BoxConstraints(maxWidth: maxContentWidth),
               child: Stack(
                 children: [
-                  // Scrollable content (React `.scroll-host`)
                   CustomScrollView(
             controller: _scrollController,
             slivers: [
@@ -199,7 +190,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ],
           ),
-          // Fixed search bar (React. KeepSearchBar)
           Positioned(
             top: 0,
             left: 0,
@@ -235,10 +225,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // ── Search bar ────────────────────────────────────────────────────
   Widget _buildSearchBar() {
     final sortActive = ref.watch(sortOrderProvider) != SortOrder.defaultValue;
-    // React `.search-bar:focus-within` — brighter border and a deeper shadow.
     final focused = _searchFocus.hasFocus;
     return GlassContainer(
       blur: 20,
@@ -247,9 +235,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       border: Border.all(
         color: focused ? Colors.white.withValues(alpha: 0.40) : G.border,
       ),
-      // React's :focus-within shadow also raises the inset top highlight from
-      // 0.15 to 0.22; keeping it on the glass layer avoids a subtle flat spot
-      // around the focused search field.
       showInnerEdges: true,
       innerTop: focused ? const Color(0x38FFFFFF) : G.innerTop,
       boxShadow: focused
@@ -273,7 +258,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 style: const TextStyle(
                   color: G.textPrimary,
                   fontSize: 15.2,
-                  // React: `letterSpacing: "0.01em"`.
                   letterSpacing: 0.15,
                 ),
                 decoration: InputDecoration(
@@ -335,7 +319,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // ── Grid (CSS-grid rows, cards stretch to the row height) ─────────
   Widget _buildGrid(List<Note> items, int cols, bool isMobile) {
     if (items.isEmpty) return const SizedBox.shrink();
     final gap = _contentGap;
@@ -364,7 +347,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // ── FAB ───────────────────────────────────────────────────────────
   Widget _buildFab(bool isMobile, double safeBottom) {
     return Positioned(
       bottom: isMobile ? 92 + safeBottom : 32,
@@ -377,7 +359,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // ── Bottom nav ────────────────────────────────────────────────────
   Widget _buildBottomNav(double width, bool isMobile, double safeBottom) {
     final currentTab = ref.watch(dashboardTabProvider);
     final navWidth = isMobile
@@ -398,8 +379,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           child: GlassContainer(
             blur: 28,
             borderRadius: 30,
-            // React draws an explicit 1px ring here:
-            // `linear-gradient(160deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.04) 60%)`.
             showRing: true,
             ringColors: G.ringNav,
             ringStops: G.ringNavStops,
@@ -440,9 +419,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 }
 
-// ════════════════════════════════════════════════════════════════════
-// Pieces
-// ════════════════════════════════════════════════════════════════════
 
 class _SectionLabel extends StatelessWidget {
   final String label;
@@ -628,7 +604,6 @@ class _RoundIconButtonState extends State<_RoundIconButton> {
                 ? const Color(0x1FFFC83C) // rgba(255,200,60,0.12)
                 : (_hovered ? Colors.white.withValues(alpha: 0.08) : Colors.transparent),
             borderRadius: BorderRadius.circular(50),
-            // React adds `outline: 1px solid rgba(255,200,60,0.30)` when active.
             border: widget.highlight
                 ? Border.all(color: const Color(0x4DFFC83C))
                 : null,
@@ -728,7 +703,6 @@ class _FabWithHoverState extends State<_FabWithHover> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 320),
         curve: const Cubic(0.34, 1.56, 0.64, 1.0),
-        // CSS `.fab-btn` scales from its centre, not the top-left corner.
         transformAlignment: Alignment.center,
         transform: Matrix4.identity()
           ..translate(0.0, _isHovered ? -3.0 : 0.0, 0.0)
@@ -739,7 +713,6 @@ class _FabWithHoverState extends State<_FabWithHover> {
           showSheen: true,
           ringColors: _isHovered ? G.ringCardHover : G.ringCard,
           ringStops: _isHovered ? G.ringStopsHover : G.ringStops,
-          // `.fab-btn > .card-glass > .glass-sheen{opacity:0.7}` (1.0 on hover)
           sheenOpacity: _isHovered ? 1.0 : 0.7,
           color: _isHovered ? Colors.white.withValues(alpha: 0.14) : G.bgHov,
           border: Border.all(
@@ -747,7 +720,6 @@ class _FabWithHoverState extends State<_FabWithHover> {
                 ? Colors.white.withValues(alpha: 0.40)
                 : G.border,
           ),
-          // Match the hover state's inset highlight from the React shadow.
           innerTop: _isHovered ? const Color(0x40FFFFFF) : G.innerTop,
           boxShadow: _isHovered
               ? [
@@ -778,9 +750,6 @@ class _FabWithHoverState extends State<_FabWithHover> {
   }
 }
 
-// ════════════════════════════════════════════════════════════════════
-// Sort sheet (React. SortSheet)
-// ════════════════════════════════════════════════════════════════════
 
 class SortSheetOverlay extends ConsumerWidget {
   const SortSheetOverlay({super.key});
@@ -820,7 +789,6 @@ class SortSheetOverlay extends ConsumerWidget {
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               child: BackdropFilter(
-                // React: `backdropFilter: blur(40px)` on the sheet itself.
                 filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
                 child: Container(
                   decoration: BoxDecoration(
@@ -900,7 +868,6 @@ class SortSheetOverlay extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      // `inset 0 1px 0 rgba(255,255,255,0.12)`
                       Positioned(
                         top: 0,
                         left: 0,
@@ -994,7 +961,6 @@ class _SortOptionState extends State<_SortOption> {
                         color: widget.active ? G.textPrimary : G.textSecondary,
                       ),
                     ),
-                    // React: `margin: "2px 0 0"` on the subtitle.
                     const SizedBox(height: 2),
                     Text(
                       widget.subtitle,

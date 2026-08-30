@@ -10,10 +10,6 @@ import '../theme/design_tokens.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/background_orbs.dart';
 
-/// Settings screen restyled 1:1 after the React Native `SettingsScreen`:
-/// max-width 666 sections, glass back button, theme grid with previews +
-/// check badge, dropdown language selector, account card with shield badge,
-/// red-tinted danger zone and a glass delete-account dialog.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -30,7 +26,6 @@ class SettingsScreen extends ConsumerWidget {
       body: Stack(
         children: [
           BackgroundOrbs(theme: theme),
-          // React scrolls the whole settings page, header included.
           ListView(
             padding: const EdgeInsets.only(bottom: 64),
             children: [
@@ -52,7 +47,6 @@ class SettingsScreen extends ConsumerWidget {
                           fontWeight: FontWeight.w700,
                           fontSize: 20.8,
                           color: G.textPrimary,
-                          // React: `letterSpacing: "-0.02em"` on 1.3rem.
                           letterSpacing: -0.42,
                         ),
                       ),
@@ -89,9 +83,6 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-// ════════════════════════════════════════════════════════════════════
-// Helpers
-// ════════════════════════════════════════════════════════════════════
 
 String _themeName(ThemeId id, String lang) {
   const names = {
@@ -207,9 +198,6 @@ class _BackButton extends StatelessWidget {
   }
 }
 
-// ════════════════════════════════════════════════════════════════════
-// Account
-// ════════════════════════════════════════════════════════════════════
 
 class _AccountCard extends ConsumerWidget {
   final AppUser user;
@@ -227,7 +215,6 @@ class _AccountCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  // React: `{user.name || user.email}`
                   user.name.isNotEmpty ? user.name : user.email,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -236,7 +223,6 @@ class _AccountCard extends ConsumerWidget {
                     color: G.textPrimary,
                   ),
                 ),
-                // React: `margin: "2px 0 0"`.
                 const SizedBox(height: 2),
                 Text(
                   user.email,
@@ -246,7 +232,6 @@ class _AccountCard extends ConsumerWidget {
               ],
             ),
           ),
-          // React: a single `gap: 16` between all three children.
           const SizedBox(width: 16),
           Container(
             width: 36,
@@ -296,9 +281,6 @@ class _LogoutButton extends StatelessWidget {
   }
 }
 
-// ════════════════════════════════════════════════════════════════════
-// Auth panel (React. AuthPanel inside Settings)
-// ════════════════════════════════════════════════════════════════════
 
 class _AuthPanel extends ConsumerStatefulWidget {
   const _AuthPanel();
@@ -614,9 +596,6 @@ class _SubmitButtonState extends State<_SubmitButton> {
   }
 }
 
-// ════════════════════════════════════════════════════════════════════
-// Theme grid
-// ════════════════════════════════════════════════════════════════════
 
 class _ThemeGrid extends ConsumerWidget {
   final ThemeId current;
@@ -627,10 +606,6 @@ class _ThemeGrid extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = MediaQuery.of(context).size.width;
-        // React CSS: `@media (max-width:768px)` → 4 columns (gap 8),
-        // `@media (min-width:992px)` → 6 columns (gap 10). Between those two
-        // breakpoints React falls back to `flex-wrap`, and the section is
-        // capped at 666px, so ~92px-wide tiles wrap at 6 per row there too.
         final cols = width < 768 ? 4 : 6;
         final gap = width < 768 ? 8.0 : 10.0;
         final itemW = (constraints.maxWidth - gap * (cols - 1)) / cols;
@@ -681,8 +656,6 @@ class _ThemeTile extends StatelessWidget {
                 ),
               ]
             : G.glassShadow(),
-        // Active tiles use `inset 0 1px 0 rgba(255,255,255,0.28)` and drop the
-        // bottom inset; inactive ones keep the standard `glassBase()` edges.
         innerTop: active ? G.innerTopStrong : G.innerTop,
         innerBottom: active ? Colors.transparent : G.innerBottom,
         child: Column(
@@ -707,7 +680,6 @@ class _ThemeTile extends StatelessWidget {
                       ...theme.orbs.take(2).toList().asMap().entries.map((entry) {
                         final i = entry.key;
                         final orb = entry.value;
-                        // React: size * 0.3, top -30% / 20%, left -10% / 52%
                         final orbW = orb.size * 0.30;
                         return Positioned(
                           top: i == 0 ? -16.8 : 11.2,
@@ -774,9 +746,6 @@ class _ThemeTile extends StatelessWidget {
 
 }
 
-// ════════════════════════════════════════════════════════════════════
-// Language
-// ════════════════════════════════════════════════════════════════════
 
 class _LanguageSelector extends ConsumerWidget {
   final String current;
@@ -824,9 +793,6 @@ class _LanguageSelector extends ConsumerWidget {
   }
 }
 
-// ════════════════════════════════════════════════════════════════════
-// Danger zone + delete dialog
-// ════════════════════════════════════════════════════════════════════
 
 class _DangerZone extends ConsumerWidget {
   final String email;
@@ -841,8 +807,6 @@ class _DangerZone extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // React: `flexWrap: wrap` with a `flex: 1 1 180px` text block, so the
-          // button drops below the copy once the row gets too narrow.
           final wide = constraints.maxWidth >= 300;
           final text = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -958,7 +922,6 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
       });
       return;
     }
-    // Close the dialog, then the settings screen (React: back to dashboard).
     final navigator = Navigator.of(context);
     navigator.pop();
     if (navigator.canPop()) navigator.pop();
@@ -1054,7 +1017,6 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
                               style:
                                   const TextStyle(color: G.textPrimary, fontWeight: FontWeight.w700),
                             ),
-                            // React: `{t.deleteWarning} <strong>{email}</strong>{suffix}`
                             TextSpan(text: tr('delete_account_suffix')),
                           ],
                         ),

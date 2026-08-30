@@ -1,12 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import '../models/note.dart';
 
-/// Welcome cards shown to a brand-new user (no notes yet), ported from the
-/// React reference (`src/app/services/guestNotes.ts` → `buildWelcomeNotes`).
-///
-/// They are ephemeral: never persisted, never editable in place, and they
-/// disappear the moment a real note exists. Reserved negative ids keep them
-/// from ever colliding with a real note.
 List<Note> buildWelcomeNotes() {
   final now = DateTime.now();
 
@@ -29,5 +23,4 @@ List<Note> buildWelcomeNotes() {
   ];
 }
 
-/// Welcome/demo cards use reserved negative ids (React: `isWelcomeNoteId`).
 bool isWelcomeNoteId(int id) => id < 0;

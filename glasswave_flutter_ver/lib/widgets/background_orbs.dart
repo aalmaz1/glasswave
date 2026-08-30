@@ -2,13 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/app_theme_data.dart';
 
-/// Background orbs matching the React reference implementation:
-/// `radial-gradient(circle, color 0%, transparent 68%)` + `blur(2px)`, with a
-/// per-orb parallax of `translateY(scrollTop * (0.07 + i * 0.05))`.
-///
-/// The parallax listens to [scrollY] through a [ValueListenable] so scrolling
-/// repaints only this layer — React mutates the orb transforms directly for
-/// exactly the same reason (a state update per frame re-rendered the grid).
 class BackgroundOrbs extends StatelessWidget {
   final AppThemeData theme;
   final ValueListenable<double>? scrollY;
@@ -28,7 +21,6 @@ class BackgroundOrbs extends StatelessWidget {
         ...theme.orbs.asMap().entries.map((entry) {
           final i = entry.key;
           final orb = entry.value;
-          // React: `translateY(scrollTop * (0.07 + i * 0.05))`
           final parallax = 0.07 + i * 0.05;
           final orbWidget = ImageFiltered(
             imageFilter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),

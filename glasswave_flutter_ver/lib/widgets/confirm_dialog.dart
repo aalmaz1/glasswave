@@ -5,8 +5,6 @@ import 'glass_container.dart';
 
 enum GlassConfirmChoice { cancel, confirm, extra }
 
-/// Opens a glass confirm dialog styled 1:1 like the React Native
-/// `ConfirmDialog` (max 400px, radius 22, danger/neutral variants).
 Future<GlassConfirmChoice?> showGlassConfirm(
   BuildContext context, {
   required String title,
@@ -127,8 +125,6 @@ class GlassConfirmOverlay extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      // React: `display:flex; gap:8; justify-content:flex-end;
-                      // flex-wrap:wrap` — three labels can overflow 400px.
                       Wrap(
                         alignment: WrapAlignment.end,
                         runAlignment: WrapAlignment.end,
@@ -195,7 +191,6 @@ class _ConfirmBtn extends StatelessWidget {
         weight = FontWeight.w600;
         break;
       case _ConfirmBtnStyle.danger:
-        // rgba(225,55,65,0.42)
         background = const Color(0x6BE13741);
         border = const Color(0x8CFF6969); // rgba(255,105,105,0.55)
         text = Colors.white;

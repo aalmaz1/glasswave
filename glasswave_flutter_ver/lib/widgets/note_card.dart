@@ -13,9 +13,6 @@ import 'reminder_modal.dart';
 import 'confirm_dialog.dart';
 import '../screens/editor_screen.dart';
 
-/// Note card matching the React Native `NoteCard` 1:1:
-/// min-height 130/140/160, padding 14x16 / 18x20, title 700, body clamped to
-/// 3 lines, amber reminder badge, clock + date footer and three mini actions.
 class NoteCard extends ConsumerStatefulWidget {
   final Note note;
   const NoteCard({super.key, required this.note});
@@ -27,8 +24,6 @@ class NoteCard extends ConsumerStatefulWidget {
 class _NoteCardState extends ConsumerState<NoteCard> {
   bool _isHovered = false;
 
-  /// React `fmtDate()` (src/app/utils.ts): just now → minutes → hours →
-  /// yesterday → days → "27 August".
   String _fmtDate(DateTime d, String locale) {
     final diff = DateTime.now().difference(d);
     if (diff.inSeconds < 60) return tr('note_just_now');
@@ -64,8 +59,6 @@ class _NoteCardState extends ConsumerState<NoteCard> {
     final isTablet = width >= 768 && width < 1280;
     final tabIndex = ref.watch(dashboardTabProvider);
     final hoverActive = !isMobile && _isHovered;
-    // Welcome/demo cards are read-only samples: tap to open, but no pin or
-    // archive actions — they aren't real notes yet (React `isDemo`).
     final isDemo = isWelcomeNoteId(widget.note.id);
 
     final minH = isMobile ? 130.0 : (isTablet ? 140.0 : 160.0);
@@ -77,7 +70,6 @@ class _NoteCardState extends ConsumerState<NoteCard> {
     final hasReminder = widget.note.reminder != null;
 
     void openEditor() {
-      // Editing a demo card behaves like creating a note (React `persistNote`).
       openEditorOverlay(context, note: widget.note, asNewNote: isDemo);
     }
 
@@ -86,11 +78,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
       onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
       child: AnimatedContainer(
-        // React `.card`: `transition: transform 0.32s cubic-bezier(0.34,1.56,0.64,1)`.
         duration: const Duration(milliseconds: 320),
         curve: const Cubic(0.34, 1.56, 0.64, 1.0),
-        // CSS `.card{transform-origin:center center}` — Flutter would otherwise
-        // scale from the top-left corner.
         transformAlignment: Alignment.center,
         transform: Matrix4.identity()
           ..translate(0.0, hoverActive ? -6.0 : 0.0, 0.0)
@@ -107,14 +96,9 @@ class _NoteCardState extends ConsumerState<NoteCard> {
             sheenOpacity: hoverActive ? 1.0 : G.sheenOpacity,
             color: hoverActive ? G.bgHov : G.bg,
             border: Border.all(color: hoverActive ? G.borderHov : G.border),
-            // React's hover shadow uses a stronger inset top highlight
-            // (0.25 vs 0.15 at rest), not just a larger outer shadow.
             innerTop: hoverActive ? const Color(0x40FFFFFF) : G.innerTop,
             boxShadow: G.glassShadow(hover: hoverActive),
             accentGradient: LinearGradient(
-              // React: `linear-gradient(145deg, accent 0%, rgba(255,255,255,0.01) 70%)`
-              // and `filter: brightness(1.6)` while hovered.
-              // 145° on a landscape card (~300x160) resolves to these ends.
               begin: const Alignment(-0.58, -1.55),
               end: const Alignment(0.58, 1.55),
               colors: [
@@ -142,7 +126,6 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                               fontWeight: FontWeight.w700,
                               fontSize: titleFont,
                               height: 1.3,
-                              // React: `letterSpacing: "-0.02em"`.
                               letterSpacing: -0.02 * titleFont,
                             ),
                           ),
@@ -154,7 +137,6 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                             onTap: () =>
                                 ref.read(notesProvider.notifier).togglePin(widget.note.id),
                           )
-                        // Demo cards render a static pin glyph (no button).
                         else if (widget.note.pinned)
                           const Padding(
                             padding: EdgeInsets.all(4),
@@ -284,14 +266,8 @@ class _NoteCardState extends ConsumerState<NoteCard> {
   }
 }
 
-/// The React card preview renders `stripHtml(note.body)` — plain text without
-/// any formatting marks. The Flutter editor stores Markdown, so drop the
-/// syntax characters to get the same look.
 String _plainPreview(String body) {
   var out = body;
-  // Notes created by older/web builds can still contain HTML. React uses
-  // stripHtml() for the preview, so remove tags before the Markdown cleanup
-  // used by the Flutter editor.
   out = out.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
   out = out.replaceAll(RegExp(r'</p\s*>', caseSensitive: false), '\n');
   out = out.replaceAll(RegExp(r'<[^>]*>'), '');
@@ -311,7 +287,6 @@ String _plainPreview(String body) {
   return out.trim();
 }
 
-/// CSS `filter: brightness(f)` — scales the colour channels, keeps the alpha.
 Color _brightness(Color c, double f) => Color.from(
       alpha: c.a,
       red: (c.r * f).clamp(0.0, 1.0),
@@ -343,7 +318,6 @@ class _PinButtonState extends State<_PinButton> {
         child: Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            // React `.card-pin:hover{background:rgba(255,255,255,0.10)}`.
             color: _hovered ? Colors.white.withValues(alpha: 0.10) : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
           ),
@@ -413,8 +387,6 @@ class _MiniAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      // React `MiniAction`: `...glassBase(10)` with the border overridden to
-      // `none` — so: 26×26, blur 10, radius 8, G.shadow (with inset edges).
       child: GlassContainer(
         blur: 10,
         borderRadius: 8,

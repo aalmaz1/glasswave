@@ -10,7 +10,6 @@ import 'screens/dashboard_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
-  // `intl` date symbols for ru_RU / en_US / ko_KR (note cards, editor, reminders).
   await initializeDateFormatting();
   final prefs = await SharedPreferences.getInstance();
 
@@ -57,8 +56,6 @@ class GlassWaveApp extends ConsumerWidget {
         ),
       ),
       themeMode: ThemeMode.dark,
-      // Like the React app, the dashboard is the entry point: guests can use
-      // the app straight away and sign in later from Settings.
       home: const DashboardScreen(),
     );
   }
