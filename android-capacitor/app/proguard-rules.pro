@@ -5,6 +5,16 @@
 # are invoked reflectively. @capacitor/android already ships these keeps as
 # consumer rules, but we repeat them here in app scope so the build stays
 # correct even if the library rules change upstream.
+#
+# Runtime annotations MUST survive: requestPermissions() looks up
+# @PermissionCallback methods by name, and LocalNotifications 8.3 schedules
+# alarms via BroadcastReceivers registered only in the plugin manifest.
+
+-keepattributes *Annotation*,InnerClasses,Signature,EnclosingMethod,SourceFile,LineNumberTable
+-renamesourcefileattribute GlassWave
+
+-keep class com.getcapacitor.** { *; }
+-keep class com.capacitorjs.** { *; }
 
 -keep @com.getcapacitor.annotation.CapacitorPlugin public class * {
     @com.getcapacitor.annotation.PermissionCallback <methods>;
@@ -14,9 +24,9 @@
 }
 -keep public class * extends com.getcapacitor.Plugin { *; }
 
-# Official Capacitor plugins (e.g. @capacitor/local-notifications ->
-# com.capacitorjs.plugins.localnotifications).
--keep class com.capacitorjs.** { *; }
+# Receivers / providers declared in plugin manifests (alarm fire, boot restore).
+-keep public class * extends android.content.BroadcastReceiver { *; }
+-keep public class * extends android.content.ContentProvider { *; }
 
 # Cordova compatibility plugins.
 -keep public class * extends org.apache.cordova.* {
@@ -31,10 +41,6 @@
 -keepclasseswithmembers class * {
     @android.webkit.JavascriptInterface <methods>;
 }
-
-# Keep release stack traces readable without the mapping file.
--keepattributes SourceFile,LineNumberTable
--renamesourcefileattribute GlassWave
 
 # Optional dependencies of bundled libraries that we intentionally do not ship.
 -dontwarn org.apache.cordova.**

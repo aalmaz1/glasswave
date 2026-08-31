@@ -57,10 +57,11 @@ The release build is tuned for a small, fast APK without losing functionality:
 - **R8 + resource shrinking** (`minifyEnabled` / `shrinkResources` in
   `android-capacitor/app/build.gradle`) strip dead Java code and unused
   resources. Capacitor's reflection-based plugin bridge is protected by
-  `android-capacitor/app/proguard-rules.pro` (Capacitor/Cordova `@PluginMethod`
-  keeps, `@JavascriptInterface` keeps), and the reminder sound — resolved at
-  runtime via `Resources.getIdentifier`, so the shrinker cannot see it — is
-  pinned by `android-capacitor/app/src/main/res/values/keep.xml`.
+  `android-capacitor/app/proguard-rules.pro` (keeps for `com.getcapacitor.**`,
+  `com.capacitorjs.**`, `@PluginMethod` / `@PermissionCallback`, and
+  BroadcastReceivers). The reminder sound and status-bar icon are resolved at
+  runtime via `Resources.getIdentifier`, so the shrinker cannot see them —
+  both are pinned by `android-capacitor/app/src/main/res/values/keep.xml`.
 - **Locale pruning**: `resConfigs "en", "ru", "ko"` matches the app's i18n
   languages; other library translations fall back to default.
 - **WebP assets**: splash screens and launcher icons ship as WebP instead of

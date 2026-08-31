@@ -20,6 +20,11 @@ const config: CapacitorConfig = {
       style: "LIGHT",
       hidden: false,
     },
+    LocalNotifications: {
+      // White silhouette in res/drawable — never the adaptive launcher icon.
+      smallIcon: "ic_stat_notify",
+      iconColor: "#F5C542",
+    },
   },
 };
 
