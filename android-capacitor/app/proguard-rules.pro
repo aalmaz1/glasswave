@@ -1,21 +1,41 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
+# GlassWave release build rules (R8 full mode).
 #
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Capacitor wires Java <-> JS by reflection: @CapacitorPlugin/@PluginMethod
+# annotated classes are looked up by name at bridge startup and their methods
+# are invoked reflectively. @capacitor/android already ships these keeps as
+# consumer rules, but we repeat them here in app scope so the build stays
+# correct even if the library rules change upstream.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+-keep @com.getcapacitor.annotation.CapacitorPlugin public class * {
+    @com.getcapacitor.annotation.PermissionCallback <methods>;
+    @com.getcapacitor.annotation.ActivityCallback <methods>;
+    @com.getcapacitor.annotation.Permission <methods>;
+    @com.getcapacitor.PluginMethod public <methods>;
+}
+-keep public class * extends com.getcapacitor.Plugin { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Official Capacitor plugins (e.g. @capacitor/local-notifications ->
+# com.capacitorjs.plugins.localnotifications).
+-keep class com.capacitorjs.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Cordova compatibility plugins.
+-keep public class * extends org.apache.cordova.* {
+    public <methods>;
+    public <fields>;
+}
+
+# Anything exposed to JavaScript inside the WebView must survive obfuscation.
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+-keepclasseswithmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# Keep release stack traces readable without the mapping file.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute GlassWave
+
+# Optional dependencies of bundled libraries that we intentionally do not ship.
+-dontwarn org.apache.cordova.**
+-dontwarn kotlinx.coroutines.**
