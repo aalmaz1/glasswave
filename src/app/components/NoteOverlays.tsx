@@ -8,7 +8,6 @@ import {
   X,
 } from "lucide-react";
 import type { Language, Translation } from "../../i18n";
-import { ensureNotificationPermission } from "../../notifications";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { G, glassBase } from "../theme";
 import type { Note, SortOrder } from "../model";
@@ -242,20 +241,23 @@ export function ReminderModal({
 
   const fmt = (d: Date) => d.toLocaleString(language, t.dateFormatReminder as any);
 
-  const saveReminder = async () => {
+  /**
+   * Saving a reminder must never depend on the notification stack.
+   *
+   * This used to `await ensureNotificationPermission()` before calling
+   * `onSave`. On a native shell where the permission bridge call never calls
+   * back (plugin missing, activity recreated, OEM permission dialog swallowed)
+   * that promise hangs forever, so the modal stayed open with a disabled
+   * button and the whole app looked frozen. The reminder is persisted first
+   * and the permission prompt + OS scheduling happen afterwards in `onSave`
+   * (see App.tsx), where they can fail harmlessly.
+   */
+  const saveReminder = () => {
     if (!val || saving) return;
     const at = new Date(val);
     if (Number.isNaN(at.getTime())) return;
     setSaving(true);
-    try {
-      // Must await: a fire-and-forget request races Capacitor 8.3's
-      // schedule() permission / exact-alarm flow, which leaves the app
-      // (Alarms & reminders settings) and never shows POST_NOTIFICATIONS.
-      await ensureNotificationPermission();
-      onSave(at);
-    } finally {
-      setSaving(false);
-    }
+    onSave(at);
   };
 
   return (
@@ -427,9 +429,7 @@ export function ReminderModal({
               </button>
             )}
             <button
-              onClick={() => {
-                void saveReminder();
-              }}
+              onClick={saveReminder}
               disabled={!val || saving}
               aria-label={t.reminderSave}
               style={{

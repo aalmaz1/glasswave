@@ -7,6 +7,7 @@ import { useFirestoreQuery } from "../hooks/useFirestoreQuery";
 import { listenNativeBackButton } from "../native";
 import {
   cancelReminderNotification,
+  ensureNotificationPermission,
   ensureReminderChannel,
   playReminderSound,
   scheduleReminderNotification,
@@ -923,19 +924,26 @@ export default function App() {
             <ReminderModal
               note={n}
               onSave={(d) => {
+                // Persist + close first: the reminder itself must be saved even
+                // if the notification stack is unavailable or hangs.
                 mutNote(n.id, { reminder: d });
                 const key = `${n.firestoreId || `local-${n.id}`}`;
-                if (d) {
-                  scheduleReminderNotification(
-                    key,
-                    n.title || t.untitled,
-                    stripHtml(n.body).slice(0, 140),
-                    d
-                  );
-                } else {
-                  cancelReminderNotification(key);
-                }
+                const title = n.title || t.untitled;
+                const body = stripHtml(n.body).slice(0, 140);
                 setReminderNoteId(null);
+                void (async () => {
+                  if (!d) {
+                    await cancelReminderNotification(key);
+                    return;
+                  }
+                  // Sequential, never parallel: requesting permission while
+                  // schedule() runs makes Capacitor 8.3 open the "Alarms &
+                  // reminders" settings screen instead of the
+                  // POST_NOTIFICATIONS dialog.
+                  const granted = await ensureNotificationPermission();
+                  if (!granted) return;
+                  await scheduleReminderNotification(key, title, body, d);
+                })();
               }}
               onClose={() => setReminderNoteId(null)}
               language={language}

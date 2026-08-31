@@ -42,15 +42,63 @@ const REMINDER_SMALL_ICON = "ic_stat_notify";
 
 type LocalNotificationsPlugin = typeof import("@capacitor/local-notifications").LocalNotifications;
 
+/**
+ * Watchdog for every call that crosses the Capacitor bridge.
+ *
+ * A native bridge call is just a promise the WebView resolves when the Java /
+ * Swift side calls back. If the plugin is missing, the activity is being
+ * recreated, or the OEM blocks the permission dialog, that callback never
+ * arrives and the promise hangs *forever* — no rejection, no timeout. Anything
+ * awaiting it (previously: the reminder "Save" button) then freezes silently.
+ * A bounded wait turns that into a normal, recoverable failure.
+ */
+const BRIDGE_TIMEOUT_MS = 8000;
+
+function withTimeout<T>(promise: Promise<T>, fallback: T, label: string, ms = BRIDGE_TIMEOUT_MS) {
+  return new Promise<T>((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      console.warn(`[Notifications] ${label} timed out after ${ms}ms — continuing without it.`);
+      resolve(fallback);
+    }, ms);
+    Promise.resolve(promise).then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        console.warn(`[Notifications] ${label} failed`, error);
+        resolve(fallback);
+      }
+    );
+  });
+}
+
+let pluginPromise: Promise<LocalNotificationsPlugin | null> | null = null;
+
 async function loadLocalNotifications(): Promise<LocalNotificationsPlugin | null> {
   if (!isNativeApp()) return null;
-  try {
-    const mod = await import("@capacitor/local-notifications");
-    return mod.LocalNotifications;
-  } catch (error) {
-    console.warn("[Notifications] Could not load LocalNotifications plugin.", error);
-    return null;
+  // The dynamic import can also hang (a chunk request served by a stale
+  // service worker that never answers), so it gets the same watchdog.
+  // Memoized: the chunk is fetched at most once per session.
+  if (!pluginPromise) {
+    pluginPromise = withTimeout(
+      import("@capacitor/local-notifications").then((mod) => mod.LocalNotifications),
+      null,
+      "LocalNotifications import"
+    ).then((plugin) => {
+      if (!plugin) pluginPromise = null; // allow a later retry
+      return plugin;
+    });
   }
+  return pluginPromise;
 }
 
 /** Stable 31-bit notification id derived from an arbitrary string key. */
@@ -75,11 +123,11 @@ function isUsableDate(at: Date): boolean {
 export async function ensureReminderChannel(name = "Reminders"): Promise<void> {
   const LocalNotifications = await loadLocalNotifications();
   if (!LocalNotifications) return;
-  try {
-    for (const legacyId of LEGACY_CHANNEL_IDS) {
-      await LocalNotifications.deleteChannel({ id: legacyId }).catch(() => {});
-    }
-    await LocalNotifications.createChannel({
+  for (const legacyId of LEGACY_CHANNEL_IDS) {
+    await withTimeout(LocalNotifications.deleteChannel({ id: legacyId }), undefined, "deleteChannel");
+  }
+  await withTimeout(
+    LocalNotifications.createChannel({
       id: REMINDER_CHANNEL_ID,
       name,
       description: "GlassWave",
@@ -87,10 +135,10 @@ export async function ensureReminderChannel(name = "Reminders"): Promise<void> {
       importance: 4, // HIGH — heads-up so the sound is audible
       visibility: 1, // public
       vibration: true,
-    });
-  } catch (error) {
-    console.warn("[Notifications] Could not create reminder channel.", error);
-  }
+    }),
+    undefined,
+    "createChannel"
+  );
 }
 
 /**
@@ -112,22 +160,25 @@ export function playReminderSound(): void {
 export async function hasNotificationPermission(): Promise<boolean> {
   const LocalNotifications = await loadLocalNotifications();
   if (LocalNotifications) {
-    try {
-      const current = await LocalNotifications.checkPermissions();
-      return current.display === "granted";
-    } catch (error) {
-      console.warn("[Notifications] checkPermissions failed", error);
-      return false;
-    }
+    const current = await withTimeout(
+      LocalNotifications.checkPermissions(),
+      null,
+      "checkPermissions"
+    );
+    return current?.display === "granted";
   }
-  if (!("Notification" in window)) return false;
+  if (typeof window === "undefined" || !("Notification" in window)) return false;
   return Notification.permission === "granted";
 }
 
 /**
  * Ask the user for notification permission. Returns true if permission is
- * (or becomes) granted. Must be called from a user gesture (the reminder
- * Save tap) so Android 13+ / iOS actually show the system dialog.
+ * (or becomes) granted.
+ *
+ * Never rejects and never hangs: every bridge call is bounded (see
+ * `withTimeout`), so a wedged plugin degrades to "not granted" instead of
+ * freezing the caller. It must NOT be awaited before the reminder itself is
+ * persisted — saving a reminder has to work even when notifications don't.
  *
  * Callers MUST await this before `scheduleReminderNotification`. Firing it
  * in parallel with `schedule()` races two permission flows: Capacitor 8.3+
@@ -137,17 +188,23 @@ export async function hasNotificationPermission(): Promise<boolean> {
 export async function ensureNotificationPermission(): Promise<boolean> {
   const LocalNotifications = await loadLocalNotifications();
   if (LocalNotifications) {
-    try {
-      const current = await LocalNotifications.checkPermissions();
-      if (current.display === "granted") return true;
-      const res = await LocalNotifications.requestPermissions();
-      return res.display === "granted";
-    } catch (error) {
-      console.warn("[Notifications] permission request failed", error);
-      return false;
-    }
+    const current = await withTimeout(
+      LocalNotifications.checkPermissions(),
+      null,
+      "checkPermissions"
+    );
+    if (current?.display === "granted") return true;
+    // The system dialog is user-driven, so it gets a longer leash than a
+    // plain bridge round-trip — but still a finite one.
+    const res = await withTimeout(
+      LocalNotifications.requestPermissions(),
+      null,
+      "requestPermissions",
+      60_000
+    );
+    return res?.display === "granted";
   }
-  if (!("Notification" in window)) return false;
+  if (typeof window === "undefined" || !("Notification" in window)) return false;
   if (Notification.permission === "granted") return true;
   if (Notification.permission === "denied") return false;
   const perm = await Notification.requestPermission().catch(
@@ -165,12 +222,12 @@ export async function ensureNotificationPermission(): Promise<boolean> {
  * the second, which is fine for a note reminder.
  */
 async function canUseExactAlarms(LocalNotifications: LocalNotificationsPlugin): Promise<boolean> {
-  try {
-    const status = await LocalNotifications.checkExactNotificationSetting();
-    return status.exact_alarm === "granted";
-  } catch {
-    return false;
-  }
+  const status = await withTimeout(
+    LocalNotifications.checkExactNotificationSetting(),
+    null,
+    "checkExactNotificationSetting"
+  );
+  return status?.exact_alarm === "granted";
 }
 
 /**
@@ -196,13 +253,13 @@ export async function scheduleReminderNotification(
   const id = notifIdForKey(key);
   const LocalNotifications = await loadLocalNotifications();
   if (!LocalNotifications) return;
-  try {
-    // Make sure the channel (and its custom sound) exists first: on
-    // Android 8+ a notification posted to a missing channel never fires.
-    await ensureReminderChannel();
-    await LocalNotifications.cancel({ notifications: [{ id }] });
-    const exact = await canUseExactAlarms(LocalNotifications);
-    await LocalNotifications.schedule({
+  // Make sure the channel (and its custom sound) exists first: on
+  // Android 8+ a notification posted to a missing channel never fires.
+  await ensureReminderChannel();
+  await withTimeout(LocalNotifications.cancel({ notifications: [{ id }] }), undefined, "cancel");
+  const exact = await canUseExactAlarms(LocalNotifications);
+  await withTimeout(
+    LocalNotifications.schedule({
       notifications: [
         {
           id,
@@ -215,21 +272,21 @@ export async function scheduleReminderNotification(
           isExactNotification: exact,
         },
       ],
-    });
-  } catch (e) {
-    console.warn("[Notifications] schedule failed", e);
-  }
+    }),
+    undefined,
+    "schedule"
+  );
 }
 
 /** Cancel a previously scheduled reminder notification (native no-op on web). */
 export async function cancelReminderNotification(key: string): Promise<void> {
   const LocalNotifications = await loadLocalNotifications();
   if (!LocalNotifications) return;
-  try {
-    await LocalNotifications.cancel({ notifications: [{ id: notifIdForKey(key) }] });
-  } catch (e) {
-    console.warn("[Notifications] cancel failed", e);
-  }
+  await withTimeout(
+    LocalNotifications.cancel({ notifications: [{ id: notifIdForKey(key) }] }),
+    undefined,
+    "cancel"
+  );
 }
 
 export type NativeReminder = {

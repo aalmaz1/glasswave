@@ -69,6 +69,59 @@ describe("notification permissions", () => {
     expect(await ensureNotificationPermission()).toBe(true);
     expect(LocalNotifications.requestPermissions).not.toHaveBeenCalled();
   });
+
+  // Regression: a bridge call that never calls back used to hang the reminder
+  // "Save" button forever, so the app looked frozen.
+  it("ensureNotificationPermission gives up when the bridge never answers", async () => {
+    LocalNotifications.checkPermissions.mockResolvedValue({ display: "granted" });
+    await ensureNotificationPermission(); // warm the memoized plugin import
+    vi.useFakeTimers();
+    try {
+      LocalNotifications.checkPermissions.mockReturnValue(new Promise(() => {}));
+      LocalNotifications.requestPermissions.mockReturnValue(new Promise(() => {}));
+      const pending = ensureNotificationPermission();
+      await vi.advanceTimersByTimeAsync(70_000);
+      expect(await pending).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ensureNotificationPermission gives up when the permission dialog never returns", async () => {
+    LocalNotifications.checkPermissions.mockResolvedValue({ display: "granted" });
+    await ensureNotificationPermission(); // warm the memoized plugin import
+    vi.useFakeTimers();
+    try {
+      LocalNotifications.checkPermissions.mockResolvedValue({ display: "prompt" });
+      LocalNotifications.requestPermissions.mockReturnValue(new Promise(() => {}));
+      const pending = ensureNotificationPermission();
+      await vi.advanceTimersByTimeAsync(61_000);
+      expect(await pending).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("hasNotificationPermission gives up when the bridge never answers", async () => {
+    LocalNotifications.checkPermissions.mockResolvedValue({ display: "granted" });
+    await hasNotificationPermission(); // warm the memoized plugin import
+    vi.useFakeTimers();
+    try {
+      LocalNotifications.checkPermissions.mockReturnValue(new Promise(() => {}));
+      const pending = hasNotificationPermission();
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(await pending).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejected bridge calls resolve instead of throwing", async () => {
+    LocalNotifications.checkPermissions.mockRejectedValue(new Error("not implemented"));
+    LocalNotifications.requestPermissions.mockRejectedValue(new Error("not implemented"));
+    await expect(ensureNotificationPermission()).resolves.toBe(false);
+    await expect(hasNotificationPermission()).resolves.toBe(false);
+  });
 });
 
 describe("scheduleReminderNotification", () => {
