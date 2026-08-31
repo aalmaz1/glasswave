@@ -211,6 +211,7 @@ export function ReminderModal({
   const toVal = (d: Date) =>
     `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   const [val, setVal] = useState(note.reminder ? toVal(note.reminder) : "");
+  const [saving, setSaving] = useState(false);
   const trapRef = useFocusTrap<HTMLDivElement>(true, onClose);
 
   const todayAt = (h: number, m = 0) => {
@@ -240,6 +241,22 @@ export function ReminderModal({
   ];
 
   const fmt = (d: Date) => d.toLocaleString(language, t.dateFormatReminder as any);
+
+  const saveReminder = async () => {
+    if (!val || saving) return;
+    const at = new Date(val);
+    if (Number.isNaN(at.getTime())) return;
+    setSaving(true);
+    try {
+      // Must await: a fire-and-forget request races Capacitor 8.3's
+      // schedule() permission / exact-alarm flow, which leaves the app
+      // (Alarms & reminders settings) and never shows POST_NOTIFICATIONS.
+      await ensureNotificationPermission();
+      onSave(at);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div
@@ -411,23 +428,17 @@ export function ReminderModal({
             )}
             <button
               onClick={() => {
-                if (val) {
-                  // Native (Capacitor): triggers the Android 13+ POST_NOTIFICATIONS
-                  // runtime dialog via the LocalNotifications plugin.
-                  // Web: falls back to the browser Notification permission prompt.
-                  ensureNotificationPermission().catch(() => {});
-                  onSave(new Date(val));
-                }
+                void saveReminder();
               }}
-              disabled={!val}
+              disabled={!val || saving}
               aria-label={t.reminderSave}
               style={{
                 flex: 2,
                 padding: "11px 0",
                 borderRadius: 14,
                 border: "1px solid rgba(255,200,60,0.35)",
-                background: val ? "rgba(255,200,60,0.14)" : "rgba(255,255,255,0.04)",
-                cursor: val ? "pointer" : "not-allowed",
+                background: val && !saving ? "rgba(255,200,60,0.14)" : "rgba(255,255,255,0.04)",
+                cursor: val && !saving ? "pointer" : "not-allowed",
                 fontFamily: "inherit",
                 fontSize: "0.84rem",
                 fontWeight: 700,

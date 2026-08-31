@@ -10,6 +10,7 @@ import {
   ensureReminderChannel,
   playReminderSound,
   scheduleReminderNotification,
+  syncNativeReminders,
 } from "../notifications";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ReminderModal, SortSheet } from "./components/NoteOverlays";
@@ -373,6 +374,29 @@ export default function App() {
   useEffect(() => {
     void ensureReminderChannel(t.reminder);
   }, [t.reminder]);
+  // Re-arm OS notifications for every future reminder. Covers a cold start
+  // after an update that never got to schedule them (the 1.0.51 exact-alarm
+  // settings jump) without prompting for permission on launch.
+  const reminderSyncKey = useMemo(
+    () =>
+      allNotes
+        .filter((n) => n.reminder && !n.trashed)
+        .map((n) => `${n.firestoreId || n.id}:${n.reminder!.toISOString()}`)
+        .sort()
+        .join("|"),
+    [allNotes]
+  );
+  useEffect(() => {
+    const pending = allNotes
+      .filter((n) => n.reminder && !n.trashed && n.reminder.getTime() > Date.now())
+      .map((n) => ({
+        key: `${n.firestoreId || `local-${n.id}`}`,
+        title: n.title || t.untitled,
+        body: stripHtml(n.body).slice(0, 140),
+        at: n.reminder!,
+      }));
+    void syncNativeReminders(pending);
+  }, [reminderSyncKey, allNotes, t.untitled]);
   useEffect(() => {
     const tick = () => {
       const nowMs = Date.now();
