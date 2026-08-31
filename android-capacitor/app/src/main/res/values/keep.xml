@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  shrinkResources cannot see resources resolved at runtime through
+  Resources.getIdentifier — and the notification sound is loaded exactly that
+  way (the JS side passes the plain name "glasswave_notification.mp3" to
+  @capacitor/local-notifications, see src/notifications.ts). Pin the file so
+  the release APK keeps the reminder sound.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/glasswave_notification" />

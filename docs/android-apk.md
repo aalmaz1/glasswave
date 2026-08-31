@@ -49,3 +49,34 @@ Sync the web build without compiling Gradle:
 npm run cap:sync
 npx cap open android
 ```
+
+## APK size and release hardening
+
+The release build is tuned for a small, fast APK without losing functionality:
+
+- **R8 + resource shrinking** (`minifyEnabled` / `shrinkResources` in
+  `android-capacitor/app/build.gradle`) strip dead Java code and unused
+  resources. Capacitor's reflection-based plugin bridge is protected by
+  `android-capacitor/app/proguard-rules.pro` (Capacitor/Cordova `@PluginMethod`
+  keeps, `@JavascriptInterface` keeps), and the reminder sound — resolved at
+  runtime via `Resources.getIdentifier`, so the shrinker cannot see it — is
+  pinned by `android-capacitor/app/src/main/res/values/keep.xml`.
+- **Locale pruning**: `resConfigs "en", "ru", "ko"` matches the app's i18n
+  languages; other library translations fall back to default.
+- **WebP assets**: splash screens and launcher icons ship as WebP instead of
+  PNG (supported natively since our `minSdk 24`), roughly −40 % on those
+  assets with no visible quality loss.
+- **Web bundle**: the Vite build is already code-split and Firebase, the
+  TipTap editor and the settings screen load lazily, so the startup path
+  stays small. Everything lands in the APK regardless — the lazy chunks
+  primarily make cold start faster.
+
+If the app is ever distributed through Google Play, switch the CI artifact to
+an Android App Bundle (`./gradlew bundleRelease`) — Play then serves each
+device a smaller, density/locale-specific split APK automatically. Direct APK
+distribution (GitHub Releases) keeps using the universal APK above.
+
+> When debugging a release crash, R8 keeps source file names and line numbers
+> (`-keepattributes SourceFile,LineNumberTable`), and the deobfuscation
+> mapping lives at
+> `android-capacitor/app/build/outputs/mapping/release/mapping.txt`.

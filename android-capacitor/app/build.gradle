@@ -28,6 +28,10 @@ android {
         versionCode = appVersionCode
         versionName = appVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // The app only ships these languages (see src/i18n). Stripping the
+        // remaining ~80 appcompat translations saves a few hundred KB with no
+        // functional loss — untranslated locales simply fall back to default.
+        resConfigs "en", "ru", "ko"
     }
     signingConfigs {
         release {
@@ -41,8 +45,15 @@ android {
     }
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8 code shrinking/obfuscation + resource shrinking. Capacitor and
+            // its plugins ship consumer ProGuard rules, and the reflection-based
+            // pieces (plugins offered to JS, the notification sound resolved via
+            // Resources.getIdentifier) are protected in proguard-rules.pro and
+            // res/values/keep.xml, so this is function-loss-free — but noticeably
+            // smaller and faster (stripped dex, dead code removed).
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             if (hasReleaseKeystore) {
                 signingConfig signingConfigs.release
             } else {
