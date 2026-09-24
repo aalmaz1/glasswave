@@ -81,14 +81,18 @@ class _NoteCardState extends ConsumerState<NoteCard> {
         duration: const Duration(milliseconds: 320),
         curve: const Cubic(0.34, 1.56, 0.64, 1.0),
         transformAlignment: Alignment.center,
+        // ignore: deprecated_member_use
         transform: Matrix4.identity()
+          // ignore: deprecated_member_use
           ..translate(0.0, hoverActive ? -6.0 : 0.0, 0.0)
+          // ignore: deprecated_member_use
           ..scale(hoverActive ? 1.02 : 1.0, hoverActive ? 1.02 : 1.0, 1.0),
         child: GestureDetector(
           onTap: openEditor,
-          child: GlassContainer(
+          child: RepaintBoundary(
+            child: GlassContainer(
             borderRadius: 20,
-            blur: 24,
+            blur: isMobile ? 0 : 16,
             showRing: true,
             showSheen: true,
             ringColors: hoverActive ? G.ringCardHover : G.ringCard,
@@ -114,64 +118,72 @@ class _NoteCardState extends ConsumerState<NoteCard> {
                 padding: pad,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: Text(
-                            widget.note.title.isEmpty ? tr('editor_no_title') : widget.note.title,
-                            style: TextStyle(
-                              color: G.textPrimary,
-                              fontWeight: FontWeight.w700,
-                              fontSize: titleFont,
-                              height: 1.3,
-                              letterSpacing: -0.02 * titleFont,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                widget.note.title.isEmpty
+                                    ? tr('editor_no_title')
+                                    : widget.note.title,
+                                style: TextStyle(
+                                  color: G.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: titleFont,
+                                  height: 1.28,
+                                  letterSpacing: -0.02 * titleFont,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 8),
+                            if (!isDemo)
+                              _PinButton(
+                                pinned: widget.note.pinned,
+                                onTap: () =>
+                                    ref.read(notesProvider.notifier).togglePin(widget.note.id),
+                              )
+                            else if (widget.note.pinned)
+                              const Padding(
+                                padding: EdgeInsets.all(4),
+                                child: Icon(
+                                  LucideIcons.pin,
+                                  size: 14,
+                                  color: Color(0xB3FFFFFF),
+                                ),
+                              ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        if (!isDemo)
-                          _PinButton(
-                            pinned: widget.note.pinned,
-                            onTap: () =>
-                                ref.read(notesProvider.notifier).togglePin(widget.note.id),
-                          )
-                        else if (widget.note.pinned)
-                          const Padding(
-                            padding: EdgeInsets.all(4),
-                            child: Icon(
-                              LucideIcons.pin,
-                              size: 14,
-                              color: Color(0xB3FFFFFF),
-                            ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _plainPreview(widget.note.body),
+                          style: TextStyle(
+                            color: G.textSecondary,
+                            fontSize: bodyFont,
+                            height: 1.5,
+                            fontWeight: FontWeight.w400,
                           ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (hasReminder && widget.note.reminder != null) ...[
+                          const SizedBox(height: 8),
+                          _ReminderBadge(
+                            date: widget.note.reminder!,
+                            langCode: locale,
+                            onTap: _openReminder,
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        _plainPreview(widget.note.body),
-                        style: TextStyle(
-                          color: G.textSecondary,
-                          fontSize: bodyFont,
-                          height: 1.65,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (hasReminder && widget.note.reminder != null) ...[
-                      _ReminderBadge(
-                        date: widget.note.reminder!,
-                        langCode: locale,
-                        onTap: _openReminder,
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    const Spacer(),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -262,8 +274,9 @@ class _NoteCardState extends ConsumerState<NoteCard> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 String _plainPreview(String body) {

@@ -279,7 +279,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ],
             const SizedBox(width: 4),
             _RoundIconButton(
-              onTap: () => _showSortSheet(),
+              onTap: _showSortSheet,
+              highlight: sortActive,
               child: Stack(
                 children: [
                   Center(
@@ -303,7 +304,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
                 ],
               ),
-              highlight: sortActive,
             ),
             const SizedBox(width: 4),
             _RoundIconButton(
@@ -575,8 +575,8 @@ class _RoundIconButton extends StatefulWidget {
   final bool highlight;
 
   const _RoundIconButton({
-    required this.child,
     required this.onTap,
+    required this.child,
     this.highlight = false,
   });
 
@@ -704,8 +704,11 @@ class _FabWithHoverState extends State<_FabWithHover> {
         duration: const Duration(milliseconds: 320),
         curve: const Cubic(0.34, 1.56, 0.64, 1.0),
         transformAlignment: Alignment.center,
+        // ignore: deprecated_member_use
         transform: Matrix4.identity()
+          // ignore: deprecated_member_use
           ..translate(0.0, _isHovered ? -3.0 : 0.0, 0.0)
+          // ignore: deprecated_member_use
           ..scale(_isHovered ? 1.04 : 1.0, _isHovered ? 1.04 : 1.0, 1.0),
         child: GlassContainer(
           borderRadius: 18,
@@ -763,8 +766,10 @@ class SortSheetOverlay extends ConsumerWidget {
       (SortOrder.updated, tr('sort_updated'), tr('sort_updated_sub'), LucideIcons.refreshCw),
     ];
 
-    return Stack(
-      children: [
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
         Positioned.fill(
           child: GestureDetector(
             onTap: () => Navigator.pop(context),
@@ -883,8 +888,9 @@ class SortSheetOverlay extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 }
 
 class _SortOption extends StatefulWidget {

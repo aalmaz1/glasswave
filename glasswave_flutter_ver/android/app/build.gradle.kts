@@ -28,18 +28,7 @@ android {
         versionName = flutter.versionName
     }
 
-    // Do not ship one universal APK containing native Flutter binaries for
-    // every CPU. Flutter's default universal APK is the main reason a small
-    // app can appear to be 100+ MB. Each release APK now contains only the
-    // ABI it needs; the Play Store/AAB path remains fully supported.
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("armeabi-v7a", "arm64-v8a", "x86_64")
-            isUniversalApk = false
-        }
-    }
+
 
     buildTypes {
         release {

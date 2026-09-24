@@ -53,8 +53,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   int? _noteId;
 
   bool _restoring = false;
-  List<String> _undoStack = [];
-  List<String> _redoStack = [];
+  final List<String> _undoStack = [];
+  final List<String> _redoStack = [];
   String _lastBodyText = '';
 
   Timer? _autosaveTimer;
@@ -228,23 +228,23 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final selection = _bodyController.selection;
     final currentPos = selection.baseOffset != -1 ? selection.baseOffset : text.length;
 
-    int lineStart = text.lastIndexOf('\n', currentPos - 1);
-    if (lineStart == -1) lineStart = 0;
+    int lineStart = currentPos > 0 ? text.lastIndexOf('\n', currentPos - 1) : -1;
+    final startIdx = lineStart == -1 ? 0 : lineStart + 1;
     int lineEnd = text.indexOf('\n', currentPos);
     if (lineEnd == -1) lineEnd = text.length;
 
-    final line = text.substring(lineStart, lineEnd);
+    final line = text.substring(startIdx, lineEnd);
     final trimmed = line.trimLeft();
 
     if (trimmed.startsWith(prefix)) {
       final newLine = line.replaceFirst(prefix, '');
-      final newText = text.replaceRange(lineStart, lineEnd, newLine);
+      final newText = text.replaceRange(startIdx, lineEnd, newLine);
       _bodyController.text = newText;
-      final newPos = (currentPos - lineStart - prefix.length).clamp(0, newLine.length);
-      _bodyController.selection = TextSelection.collapsed(offset: lineStart + newPos);
+      final newPos = (currentPos - startIdx - prefix.length).clamp(0, newLine.length);
+      _bodyController.selection = TextSelection.collapsed(offset: startIdx + newPos);
     } else {
       final newLine = line.replaceFirst(RegExp(r'^\s*'), prefix);
-      final newText = text.replaceRange(lineStart, lineEnd, newLine);
+      final newText = text.replaceRange(startIdx, lineEnd, newLine);
       _bodyController.text = newText;
       final newPos = currentPos + prefix.length;
       _bodyController.selection = TextSelection.collapsed(offset: newPos);
@@ -275,7 +275,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final text = _bodyController.text;
     final pos = _bodyController.selection.baseOffset;
     final caret = pos != -1 ? pos : text.length;
-    final lineStart = text.lastIndexOf('\n', caret - 1);
+    final lineStart = caret > 0 ? text.lastIndexOf('\n', caret - 1) : -1;
     final start = lineStart == -1 ? 0 : lineStart + 1;
     final lineEnd = text.indexOf('\n', caret);
     final end = lineEnd == -1 ? text.length : lineEnd;
@@ -304,10 +304,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         SingleActivator(LogicalKeyboardKey.keyS, control: true): _save,
         SingleActivator(LogicalKeyboardKey.keyS, meta: true): _save,
       },
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
+      child: Material(
+        type: MaterialType.transparency,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
               onTap: _requestClose,
               child: BackdropFilter(
                 filter: ImageFilter.blur(
@@ -330,7 +332,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     offset: Offset(0, 22 * (1 - value)),
                     child: Transform.scale(
                       scale: 0.97 + (0.03 * value),
-                      child: Opacity(opacity: value, child: child),
+                      child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
                     ),
                   );
                 },
@@ -513,7 +515,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildToolbar() {
@@ -531,41 +534,42 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
           ),
-          child: Wrap(
-            spacing: 2,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _FmtBtn('H1', () => _toggleLinePrefix('# '), active: startsWith('# ')),
-              _FmtBtn('H2', () => _toggleLinePrefix('## '), active: startsWith('## ')),
-              const _FmtSep(),
-              _FmtBtn('B', () => _insertFormat('**', '**'),
-                  active: _bodyController.text.contains('**')),
-              _FmtBtn('I', () => _insertFormat('_', '_'),
-                  active: _bodyController.text.contains('_')),
-              _FmtBtn('S', () => _insertFormat('~~', '~~'),
-                  active: _bodyController.text.contains('~~')),
-              _FmtBtn('U', () => _insertFormat('__', '__'),
-                  active: _bodyController.text.contains('__')),
-              const _FmtSep(),
-              _FmtBtn('•', () => _toggleLinePrefix('- '), active: startsWith('- ')),
-              _FmtBtn('1.', () => _toggleLinePrefix('1. '),
-                  active: RegExp(r'^\d+\. ').hasMatch(line)),
-              _FmtBtn('❝', () => _toggleLinePrefix('> '), active: startsWith('> ')),
-              _FmtBtn('</>', () {
-                _insertFormat('```\n', '\n```');
-              }),
-              _FmtBtn('―', () {
-                final text = _bodyController.text;
-                final needsNl = text.isNotEmpty && !text.endsWith('\n') ? '\n' : '';
-                _bodyController.text = '$text$needsNl\n---\n';
-                _bodyController.selection =
-                    TextSelection.collapsed(offset: _bodyController.text.length);
-              }),
-              const _FmtSep(),
-              _FmtBtn('↶', _undo, active: false, disabled: _undoStack.isEmpty),
-              _FmtBtn('↷', _redo, active: false, disabled: _redoStack.isEmpty),
-            ],
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _FmtBtn('H1', () => _toggleLinePrefix('# '), active: startsWith('# ')),
+                _FmtBtn('H2', () => _toggleLinePrefix('## '), active: startsWith('## ')),
+                const _FmtSep(),
+                _FmtBtn('B', () => _insertFormat('**', '**'),
+                    active: _bodyController.text.contains('**')),
+                _FmtBtn('I', () => _insertFormat('_', '_'),
+                    active: _bodyController.text.contains('_')),
+                _FmtBtn('S', () => _insertFormat('~~', '~~'),
+                    active: _bodyController.text.contains('~~')),
+                _FmtBtn('U', () => _insertFormat('__', '__'),
+                    active: _bodyController.text.contains('__')),
+                const _FmtSep(),
+                _FmtBtn('•', () => _toggleLinePrefix('- '), active: startsWith('- ')),
+                _FmtBtn('1.', () => _toggleLinePrefix('1. '),
+                    active: RegExp(r'^\d+\. ').hasMatch(line)),
+                _FmtBtn('❝', () => _toggleLinePrefix('> '), active: startsWith('> ')),
+                _FmtBtn('</>', () {
+                  _insertFormat('```\n', '\n```');
+                }),
+                _FmtBtn('―', () {
+                  final text = _bodyController.text;
+                  final needsNl = text.isNotEmpty && !text.endsWith('\n') ? '\n' : '';
+                  _bodyController.text = '$text$needsNl\n---\n';
+                  _bodyController.selection =
+                      TextSelection.collapsed(offset: _bodyController.text.length);
+                }),
+                const _FmtSep(),
+                _FmtBtn('↶', _undo, active: false, disabled: _undoStack.isEmpty),
+                _FmtBtn('↷', _redo, active: false, disabled: _redoStack.isEmpty),
+              ],
+            ),
           ),
         ),
       ),

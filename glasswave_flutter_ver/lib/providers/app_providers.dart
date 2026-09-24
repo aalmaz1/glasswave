@@ -135,7 +135,7 @@ class ThemeNotifier extends StateNotifier<AppPrefs> {
     String lang;
     bool isFirstLoad = false;
     if (_email != null) {
-      final raw = _service.getPrefs(_email!);
+      final raw = _service.getPrefs(_email);
       theme = _parseTheme(raw['themeId'] as String?, fallback: kDefaultTheme);
       final savedLang = raw['language'] as String?;
       if (savedLang == null) {
@@ -158,7 +158,7 @@ class ThemeNotifier extends StateNotifier<AppPrefs> {
 
   Future<void> _persistInitial() async {
     if (_email != null) {
-      await _service.savePrefs(_email!, {'themeId': state.themeId.name, 'language': state.language});
+      await _service.savePrefs(_email, {'themeId': state.themeId.name, 'language': state.language});
     } else {
       await _service.setGuestTheme(state.themeId.name);
       await _service.setGuestLanguage(state.language);
@@ -187,7 +187,7 @@ class ThemeNotifier extends StateNotifier<AppPrefs> {
   Future<void> _persist() async {
     if (_email != null) {
       final p = {'themeId': state.themeId.name, 'language': state.language};
-      await _service.savePrefs(_email!, p);
+      await _service.savePrefs(_email, p);
     } else {
       await _service.setGuestTheme(state.themeId.name);
       await _service.setGuestLanguage(state.language);
@@ -211,7 +211,7 @@ class NotesNotifier extends StateNotifier<List<Note>> {
 
   void _loadNotes() {
     if (_email != null) {
-      state = _service.getNotes(_email!) ?? [];
+      state = _service.getNotes(_email) ?? [];
     } else {
       state = _service.getGuestNotes() ?? [];
     }
@@ -219,7 +219,7 @@ class NotesNotifier extends StateNotifier<List<Note>> {
 
   Future<void> _saveNotes() async {
     if (_email != null) {
-      await _service.saveNotes(_email!, state);
+      await _service.saveNotes(_email, state);
     } else {
       await _service.saveGuestNotes(state);
     }

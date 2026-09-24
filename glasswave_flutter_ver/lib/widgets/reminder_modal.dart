@@ -105,7 +105,9 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
       (tr('remind_next_week'), _nextMonday()),
     ];
 
-    return Stack(
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
       children: [
         Positioned.fill(
           child: GestureDetector(
@@ -126,7 +128,7 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
               builder: (context, value, child) {
                 return Transform.scale(
                   scale: 0.96 + 0.04 * value,
-                  child: Opacity(opacity: value, child: child),
+                  child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
                 );
               },
               child: ConstrainedBox(
@@ -334,6 +336,7 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 }

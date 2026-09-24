@@ -1,4 +1,4 @@
-import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_theme_data.dart';
 
@@ -22,17 +22,17 @@ class BackgroundOrbs extends StatelessWidget {
           final i = entry.key;
           final orb = entry.value;
           final parallax = 0.07 + i * 0.05;
-          final orbWidget = ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-            child: Container(
-              width: orb.size,
-              height: orb.size,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [orb.color, orb.color.withValues(alpha: 0)],
-                  stops: const [0.0, 0.68],
-                ),
+          final orbWidget = Container(
+            width: orb.size,
+            height: orb.size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  orb.color.withValues(alpha: orb.color.a * 0.85),
+                  orb.color.withValues(alpha: 0),
+                ],
+                stops: const [0.0, 0.75],
               ),
             ),
           );

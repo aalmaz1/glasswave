@@ -61,16 +61,24 @@ class GlassContainer extends StatelessWidget {
           fit: fit,
           children: [
             Positioned.fill(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: color ?? G.bg,
-                    borderRadius: BorderRadius.circular(borderRadius),
-                    border: border ?? Border.all(color: G.border, width: 1.0),
-                  ),
-                ),
-              ),
+              child: blur > 0
+                  ? BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: color ?? G.bg,
+                          borderRadius: BorderRadius.circular(borderRadius),
+                          border: border ?? Border.all(color: G.border, width: 1.0),
+                        ),
+                      ),
+                    )
+                  : Container(
+                      decoration: BoxDecoration(
+                        color: color ?? G.bg,
+                        borderRadius: BorderRadius.circular(borderRadius),
+                        border: border ?? Border.all(color: G.border, width: 1.0),
+                      ),
+                    ),
             ),
             if (accentGradient != null)
               Positioned.fill(

@@ -65,8 +65,10 @@ class GlassConfirmOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
         Positioned.fill(
           child: GestureDetector(
             onTap: onCancel,
@@ -86,7 +88,7 @@ class GlassConfirmOverlay extends StatelessWidget {
               builder: (context, value, child) {
                 return Transform.scale(
                   scale: 0.96 + 0.04 * value,
-                  child: Opacity(opacity: value, child: child),
+                  child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
                 );
               },
               child: ConstrainedBox(
@@ -158,8 +160,9 @@ class GlassConfirmOverlay extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 }
 
 enum _ConfirmBtnStyle { neutral, light, danger, highlight }

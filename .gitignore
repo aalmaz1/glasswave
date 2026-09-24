@@ -1,53 +1,102 @@
-```gitignore
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
-*.exe
-*.dll
-*.so
-*.a
-*.out
+# ==============================================================================
+# Glasswave Monorepo Root .gitignore
+# Stack: Vite / React / TypeScript / Capacitor (Android/iOS) / Tauri / Flutter
+# ==============================================================================
 
-# Dependencies
+# Node.js & Web Dependencies
 node_modules/
-venv/
-.venv/
+.npm/
+.pnpm-store/
+.yarn/
+.vite/
+.turbo/
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+
+# Environment & Secret Files
 .env
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
 .env.*
 !.env.example
 
-# Build directories
+# Build Outputs & Bundles
 dist/
+dist-ssr/
 build/
 target/
+**/target/
+**/gen/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing & Coverage
 coverage/
 htmlcov/
 .mypy_cache/
 .pytest_cache/
 
-# Flutter (glasswave_flutter_ver/)
+# Android & Gradle (Global fallback)
+.gradle/
+**/local.properties
+**/captures/
+**/.externalNativeBuild
+**/.cxx/
+*.apk
+*.aab
+*.dex
+*.keystore
+*.jks
+
+# iOS & Xcode (Global fallback)
+**/DerivedData/
+**/xcuserdata/
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+
+# Flutter & Dart
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
+.pub-cache/
+.pub/
 *.iml
+*.ipr
+*.iws
 
-# Editors and IDEs
-.vscode/
+# Editors & IDEs
 .idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 *.swp
 *.swo
 *.tmp
+*.bak
 
-# System files
+# OS System Files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Compressed files
+# Archives & Compressed files
 *.zip
 *.gz
 *.tar
@@ -57,17 +106,3 @@ Thumbs.db
 *.7z
 *.rar
 *.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
-```
