@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/note.dart';
 import '../models/app_user.dart';
+import '../services/firebase_service.dart';
+import '../services/notification_service.dart';
 import '../services/persistence_service.dart';
 import '../theme/app_theme_data.dart';
 
@@ -15,9 +18,11 @@ final persistenceServiceProvider = Provider<PersistenceService>((ref) {
   return PersistenceService(prefs);
 });
 
+final firebaseServiceProvider = Provider<FirebaseService>((ref) => FirebaseService());
+
 final authProvider = StateNotifierProvider<AuthNotifier, AppUser?>((ref) {
-  final service = ref.watch(persistenceServiceProvider);
-  return AuthNotifier(service);
+  final fbService = ref.watch(firebaseServiceProvider);
+  return AuthNotifier(fbService);
 });
 
 class AuthErrors {
@@ -30,58 +35,81 @@ class AuthErrors {
 }
 
 class AuthNotifier extends StateNotifier<AppUser?> {
-  final PersistenceService _service;
+  final FirebaseService _fbService;
+  StreamSubscription<AppUser?>? _sub;
 
-  AuthNotifier(this._service) : super(null) {
-    _loadUser();
+  AuthNotifier(this._fbService) : super(_fbService.currentUser) {
+    _sub = _fbService.authStateChanges().listen((user) {
+      state = user;
+    });
   }
 
-  void _loadUser() {
-    state = _service.getMe();
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 
   Future<String?> login(String email, String password) async {
-    email = email.toLowerCase().trim();
-    final ok = _service.verifyPassword(email, password);
-    if (!ok) return AuthErrors.wrongCredentials;
-    final users = await _service.getUsers();
-    final data = users[email];
-    final name = (data is Map && data['name'] is String) ? (data['name'] as String) : email;
-    final appUser = AppUser(email: email, name: name);
-    state = appUser;
-    await _service.setMe(appUser);
-    return null;
+    try {
+      await _fbService.login(email, password);
+      return null;
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'user-not-found':
+        case 'wrong-password':
+        case 'invalid-credential':
+          return AuthErrors.wrongCredentials;
+        case 'invalid-email':
+          return 'auth_err_invalid_email';
+        case 'user-disabled':
+          return 'auth_err_not_allowed';
+        case 'too-many-requests':
+          return 'auth_err_too_many';
+        default:
+          return AuthErrors.wrongCredentials;
+      }
+    } catch (e) {
+      return AuthErrors.wrongCredentials;
+    }
   }
 
   Future<String?> register(String email, String name, String password) async {
-    email = email.toLowerCase().trim();
-    final users = await _service.getUsers();
-    if (users.containsKey(email)) return AuthErrors.emailInUse;
     if (name.trim().length < 2) return AuthErrors.nameTooShort;
     if (password.length < 6) return AuthErrors.pwTooShort;
 
-    await _service.saveUser(email, name.trim(), password);
-    final appUser = AppUser(email: email, name: name.trim());
-    state = appUser;
-    await _service.setMe(appUser);
-    return null;
+    try {
+      await _fbService.register(email, name, password);
+      return null;
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'email-already-in-use':
+          return AuthErrors.emailInUse;
+        case 'weak-password':
+          return AuthErrors.pwTooShort;
+        case 'invalid-email':
+          return 'auth_err_invalid_email';
+        default:
+          return AuthErrors.emailInUse;
+      }
+    } catch (_) {
+      return AuthErrors.emailInUse;
+    }
   }
 
   Future<String?> deleteAccount(String password) async {
-    final user = state;
-    if (user == null) return AuthErrors.sessionExpired;
-    if (!_service.verifyPassword(user.email, password)) {
+    try {
+      await _fbService.deleteAccount(password);
+      return null;
+    } on FirebaseAuthException catch (_) {
+      return AuthErrors.wrongPwDelete;
+    } catch (_) {
       return AuthErrors.wrongPwDelete;
     }
-    await _service.deleteUser(user.email);
-    await _service.setMe(null);
-    state = null;
-    return null;
   }
 
   Future<void> logout() async {
-    state = null;
-    await _service.setMe(null);
+    await _fbService.logout();
   }
 }
 
@@ -198,28 +226,45 @@ class ThemeNotifier extends StateNotifier<AppPrefs> {
 final notesProvider = StateNotifierProvider<NotesNotifier, List<Note>>((ref) {
   final user = ref.watch(authProvider);
   final service = ref.watch(persistenceServiceProvider);
-  return NotesNotifier(service, user?.email);
+  final fbService = ref.watch(firebaseServiceProvider);
+  return NotesNotifier(service, fbService, user);
 });
 
 class NotesNotifier extends StateNotifier<List<Note>> {
   final PersistenceService _service;
-  final String? _email;
+  final FirebaseService _fbService;
+  final AppUser? _user;
+  StreamSubscription<List<Note>>? _notesSub;
 
-  NotesNotifier(this._service, this._email) : super([]) {
-    _loadNotes();
+  NotesNotifier(this._service, this._fbService, this._user) : super([]) {
+    _initNotes();
   }
 
-  void _loadNotes() {
-    if (_email != null) {
-      state = _service.getNotes(_email) ?? [];
+  void _initNotes() {
+    final user = _user;
+    if (user != null && user.uid.isNotEmpty) {
+      final cached = _service.getNotes(user.email);
+      if (cached != null) state = cached;
+
+      _notesSub = _fbService.streamNotes(user.uid).listen((remoteNotes) {
+        state = remoteNotes;
+        _service.saveNotes(user.email, remoteNotes);
+      });
     } else {
       state = _service.getGuestNotes() ?? [];
     }
   }
 
+  @override
+  void dispose() {
+    _notesSub?.cancel();
+    super.dispose();
+  }
+
   Future<void> _saveNotes() async {
-    if (_email != null) {
-      await _service.saveNotes(_email, state);
+    final user = _user;
+    if (user != null) {
+      await _service.saveNotes(user.email, state);
     } else {
       await _service.saveGuestNotes(state);
     }
@@ -233,31 +278,53 @@ class NotesNotifier extends StateNotifier<List<Note>> {
   }
 
   Future<void> addNote(Note note) async {
-    state = [note, ...state];
-    await _saveNotes();
+    await upsert(note);
   }
 
   Future<void> upsert(Note note) async {
-    if (state.any((n) => n.id == note.id)) {
-      state = state.map((n) => n.id == note.id ? note : n).toList();
+    final user = _user;
+    if (user != null && user.uid.isNotEmpty) {
+      final firestoreId = await _fbService.writeNote(note, user.uid);
+      final updated = note.copyWith(firestoreId: firestoreId);
+      if (state.any((n) => n.id == note.id)) {
+        state = state.map((n) => n.id == note.id ? updated : n).toList();
+      } else {
+        state = [updated, ...state];
+      }
     } else {
-      state = [note, ...state];
+      if (state.any((n) => n.id == note.id)) {
+        state = state.map((n) => n.id == note.id ? note : n).toList();
+      } else {
+        state = [note, ...state];
+      }
     }
     await _saveNotes();
   }
 
   Future<void> clearTrash() async {
+    final user = _user;
+    final toDelete = state.where((n) => n.trashed).toList();
     state = state.where((n) => !n.trashed).toList();
+    if (user != null && user.uid.isNotEmpty) {
+      for (final note in toDelete) {
+        await _fbService.deleteNote(note);
+      }
+    }
     await _saveNotes();
   }
 
   Future<void> updateNote(Note note) async {
-    state = state.map((n) => n.id == note.id ? note : n).toList();
-    await _saveNotes();
+    await upsert(note);
   }
 
   Future<void> deleteNote(int id) async {
+    final note = state.firstWhere((n) => n.id == id, orElse: () => Note(id: id, title: '', body: '', updatedAt: DateTime.now(), accentIdx: 0));
     state = state.where((n) => n.id != id).toList();
+    await NotificationService().cancelNotification(id);
+    final user = _user;
+    if (user != null && user.uid.isNotEmpty) {
+      await _fbService.deleteNote(note);
+    }
     await _saveNotes();
   }
 
@@ -278,12 +345,24 @@ class NotesNotifier extends StateNotifier<List<Note>> {
 
   Future<void> setReminder(int id, DateTime? reminder) async {
     final note = state.firstWhere((n) => n.id == id);
-    await updateNote(
-      note.copyWith(reminder: reminder, clearReminder: reminder == null),
-    );
+    final updated = note.copyWith(reminder: reminder, clearReminder: reminder == null);
+    await updateNote(updated);
+
+    if (reminder != null) {
+      await NotificationService().scheduleNotification(
+        id: updated.id,
+        title: updated.title,
+        body: updated.body,
+        scheduledDate: reminder,
+      );
+    } else {
+      await NotificationService().cancelNotification(updated.id);
+    }
   }
 
-  void clearNotes() { state = []; }
+  void clearNotes() {
+    state = [];
+  }
 }
 
 final dashboardTabProvider = StateProvider<int>((ref) => 0);
