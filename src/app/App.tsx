@@ -14,6 +14,7 @@ import {
 } from "../notifications";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ReminderModal, SortSheet } from "./components/NoteOverlays";
+import { SplashGate } from "./components/SplashGate";
 import {
   BottomNav,
   EmptyState,
@@ -25,6 +26,7 @@ import {
   NoteSyncError,
 } from "./components/NotesView";
 import { prefetchOnIdle } from "../prefetch";
+import { rememberSplashTheme } from "../splash";
 import { useTheme } from "./hooks/useTheme";
 import {
   DEFAULT_THEME,
@@ -69,6 +71,10 @@ const EditorModal = React.lazy(() =>
 const SettingsScreen = React.lazy(() =>
   import("./components/SettingsScreen").then((module) => ({ default: module.SettingsScreen }))
 );
+
+/** How long the boot splash waits for the first notes snapshot before the
+ *  in-app notes loader takes over (offline, Firestore may need ~10s). */
+const BOOT_NOTES_GRACE_MS = 3000;
 
 function useWidth() {
   const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 1280);
@@ -253,6 +259,28 @@ export default function App() {
   // query ref yet, but the list is indisputably loading — keep the spinner.
   const notesLoading =
     queryLoading || (currentUser !== null && notesQuery === null && notesError === null);
+
+  // The wave splash from index.html covers the whole boot: restoring the
+  // session and, for a signed-in user, the first notes snapshot (normally
+  // served from the IndexedDB cache right away), so there is no intermediate
+  // "Loading…" screen. `booted` keeps later sign-ins splash-free.
+  const [booted, setBooted] = useState(false);
+  const firstNotesPending = currentUser !== null && firestoreData === null && notesError === null;
+  const bootPending = !booted && (!authReady || firstNotesPending);
+  useEffect(() => {
+    if (booted || !authReady) return;
+    if (!firstNotesPending) {
+      setBooted(true);
+      return;
+    }
+    const id = window.setTimeout(() => setBooted(true), BOOT_NOTES_GRACE_MS);
+    return () => window.clearTimeout(id);
+  }, [booted, authReady, firstNotesPending]);
+  // Remember the settled theme so the next launch paints the splash in it.
+  // Not earlier: until auth resolves this is still the guest theme.
+  useEffect(() => {
+    if (booted) rememberSplashTheme(theme);
+  }, [booted, theme]);
 
   const allNotes: Note[] = useMemo(() => {
     // A guest with no notes of their own sees the intro cards instead of an
@@ -693,305 +721,297 @@ export default function App() {
     return err;
   };
 
-  if (!authReady) {
-    return (
-      <main className="app-loading" role="status" aria-live="polite">
-        {t.loading}
-      </main>
-    );
-  }
+  // Same position in both returns, so the gate is not remounted when auth
+  // resolves and the splash stays up without a hiccup.
+  const splashGate = bootPending ? <SplashGate /> : null;
+  if (!authReady) return splashGate;
 
   return (
-    <div
-      style={{
-        fontFamily: "'Manrope','Inter',sans-serif",
-        background: theme.bg,
-        minHeight: "100vh",
-        position: "relative",
-        overflow: "hidden",
-        fontSize: "1rem",
-      }}
-    >
-      <style>{buildCSS()}</style>
-
-      <div
-        ref={orbsRef}
-        style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}
-      >
-        {theme.orbs.map((o, i) => (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              top: o.top,
-              left: o.left,
-              width: o.size,
-              height: o.size,
-              borderRadius: "50%",
-              background: `radial-gradient(circle,${o.color} 0%,transparent 68%)`,
-              filter: "blur(2px)",
-              willChange: "transform",
-            }}
-          />
-        ))}
-      </div>
-
+    <>
+      {splashGate}
       <div
         style={{
+          fontFamily: "'Manrope','Inter',sans-serif",
+          background: theme.bg,
+          minHeight: "100vh",
           position: "relative",
-          zIndex: 10,
-          maxWidth: isMobile ? "100%" : isTablet ? 920 : 1220,
-          margin: "0 auto",
-          height: "100vh",
+          overflow: "hidden",
+          fontSize: "1rem",
         }}
       >
-        {screen === "settings" ? (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              overflowY: "auto",
-              padding: isMobile ? "0 16px" : isTablet ? "0 28px" : "0 44px",
-            }}
-          >
-            <React.Suspense
-              fallback={
-                <div className="app-loading" role="status">
-                  {t.loading}
-                </div>
-              }
-            >
-              <SettingsScreen
-                themeId={themeId}
-                setThemeId={updateTheme}
-                onBack={() => setScreen("dashboard")}
-                currentUser={currentUser}
-                onLogout={handleLogout}
-                onDeleteAccount={handleDeleteAccount}
-                language={language}
-              />
-            </React.Suspense>
-          </div>
-        ) : (
-          <>
+        <style>{buildCSS()}</style>
+
+        <div
+          ref={orbsRef}
+          style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}
+        >
+          {theme.orbs.map((o, i) => (
             <div
+              key={i}
               style={{
                 position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                zIndex: 30,
-                padding: isMobile ? "0 16px" : isTablet ? "0 28px" : "0 44px",
-                maxWidth: isMobile ? "100%" : isTablet ? 920 : 1220,
-                margin: "0 auto",
-                width: "100%",
+                top: o.top,
+                left: o.left,
+                width: o.size,
+                height: o.size,
+                borderRadius: "50%",
+                background: `radial-gradient(circle,${o.color} 0%,transparent 68%)`,
+                filter: "blur(2px)",
+                willChange: "transform",
               }}
-            >
-              <KeepSearchBar
-                search={search}
-                setSearch={setSearch}
-                inputRef={searchInputRef}
-                sortActive={sort !== "default"}
-                onSort={openSortSheet}
-                onSettings={openSettings}
-              />
-            </div>
+            />
+          ))}
+        </div>
+
+        <div
+          style={{
+            position: "relative",
+            zIndex: 10,
+            maxWidth: isMobile ? "100%" : isTablet ? 920 : 1220,
+            margin: "0 auto",
+            height: "100vh",
+          }}
+        >
+          {screen === "settings" ? (
             <div
-              className="scroll-host"
               style={{
                 position: "absolute",
                 inset: 0,
                 overflowY: "auto",
-                paddingTop: `calc(92px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))`,
-                paddingBottom: `calc(150px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))`,
-                paddingLeft: isMobile ? 24 : isTablet ? 36 : 52,
-                paddingRight: isMobile ? 24 : isTablet ? 36 : 52,
+                padding: isMobile ? "0 16px" : isTablet ? "0 28px" : "0 44px",
               }}
-              onScroll={handleNotesScroll}
             >
-              {currentUser && notesError && firestoreData === null ? (
-                <NotesLoadError onRetry={() => setNotesQueryVersion((v) => v + 1)} t={t} />
-              ) : currentUser && notesLoading && firestoreData === null ? (
-                <LoadingState t={t} />
-              ) : filtered.length === 0 ? (
-                <EmptyState tab={tab} search={search} t={t} onCreate={openNew} />
-              ) : (
-                <>
-                  {tab === "trash" && (
-                    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-                      <button
-                        type="button"
-                        onClick={() => setConfirm({ type: "empty-trash" })}
-                        style={{
-                          ...glassBase(12),
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 7,
-                          padding: "8px 12px",
-                          borderRadius: 11,
-                          cursor: "pointer",
-                          fontFamily: "inherit",
-                          color: "rgba(255,170,170,0.95)",
-                          fontSize: "0.76rem",
-                          fontWeight: 600,
-                          border: "1px solid rgba(255,120,120,0.32)",
-                          background: "rgba(145,20,35,0.18)",
-                        }}
-                      >
-                        <Trash2 size={13} />
-                        {t.emptyTrash}
-                      </button>
-                    </div>
-                  )}
-                  <GridView
-                    pinned={pinned}
-                    unpinned={unpinned}
-                    cols={cols}
-                    theme={theme}
-                    isMobile={isMobile}
-                    isTablet={isTablet}
-                    tab={tab}
-                    onOpen={openEdit}
-                    onPin={handlePinNote}
-                    onArchive={handleArchiveNote}
-                    onRestore={restoreNote}
-                    onTrash={moveToTrash}
-                    onDeleteForever={(n) => setConfirm({ type: "delete-note", note: n })}
-                    onReminder={handleReminderNote}
-                    now={now}
-                    language={language}
-                    t={t}
-                  />
-                  {hasMoreNotes && (
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        marginTop: 20,
-                        paddingBottom: 8,
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setNotesLimit((l) => l + NOTES_PAGE_SIZE)}
-                        style={{
-                          ...glassBase(12),
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 7,
-                          padding: "9px 16px",
-                          borderRadius: 11,
-                          cursor: "pointer",
-                          fontFamily: "inherit",
-                          color: G.textPrimary,
-                          fontSize: "0.78rem",
-                          fontWeight: 600,
-                        }}
-                      >
-                        <RefreshCw size={14} />
-                        {t.loadMore}
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
+              <React.Suspense fallback={<SplashGate delay={200} />}>
+                <SettingsScreen
+                  themeId={themeId}
+                  setThemeId={updateTheme}
+                  onBack={() => setScreen("dashboard")}
+                  currentUser={currentUser}
+                  onLogout={handleLogout}
+                  onDeleteAccount={handleDeleteAccount}
+                  language={language}
+                />
+              </React.Suspense>
             </div>
-            <BottomNav tab={tab} setTab={setTab} isMobile={isMobile} t={t} />
-          </>
+          ) : (
+            <>
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  zIndex: 30,
+                  padding: isMobile ? "0 16px" : isTablet ? "0 28px" : "0 44px",
+                  maxWidth: isMobile ? "100%" : isTablet ? 920 : 1220,
+                  margin: "0 auto",
+                  width: "100%",
+                }}
+              >
+                <KeepSearchBar
+                  search={search}
+                  setSearch={setSearch}
+                  inputRef={searchInputRef}
+                  sortActive={sort !== "default"}
+                  onSort={openSortSheet}
+                  onSettings={openSettings}
+                />
+              </div>
+              <div
+                className="scroll-host"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  overflowY: "auto",
+                  paddingTop: `calc(92px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))`,
+                  paddingBottom: `calc(150px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))`,
+                  paddingLeft: isMobile ? 24 : isTablet ? 36 : 52,
+                  paddingRight: isMobile ? 24 : isTablet ? 36 : 52,
+                }}
+                onScroll={handleNotesScroll}
+              >
+                {currentUser && notesError && firestoreData === null ? (
+                  <NotesLoadError onRetry={() => setNotesQueryVersion((v) => v + 1)} t={t} />
+                ) : currentUser && notesLoading && firestoreData === null ? (
+                  <LoadingState t={t} />
+                ) : filtered.length === 0 ? (
+                  <EmptyState tab={tab} search={search} t={t} onCreate={openNew} />
+                ) : (
+                  <>
+                    {tab === "trash" && (
+                      <div
+                        style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setConfirm({ type: "empty-trash" })}
+                          style={{
+                            ...glassBase(12),
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 7,
+                            padding: "8px 12px",
+                            borderRadius: 11,
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            color: "rgba(255,170,170,0.95)",
+                            fontSize: "0.76rem",
+                            fontWeight: 600,
+                            border: "1px solid rgba(255,120,120,0.32)",
+                            background: "rgba(145,20,35,0.18)",
+                          }}
+                        >
+                          <Trash2 size={13} />
+                          {t.emptyTrash}
+                        </button>
+                      </div>
+                    )}
+                    <GridView
+                      pinned={pinned}
+                      unpinned={unpinned}
+                      cols={cols}
+                      theme={theme}
+                      isMobile={isMobile}
+                      isTablet={isTablet}
+                      tab={tab}
+                      onOpen={openEdit}
+                      onPin={handlePinNote}
+                      onArchive={handleArchiveNote}
+                      onRestore={restoreNote}
+                      onTrash={moveToTrash}
+                      onDeleteForever={(n) => setConfirm({ type: "delete-note", note: n })}
+                      onReminder={handleReminderNote}
+                      now={now}
+                      language={language}
+                      t={t}
+                    />
+                    {hasMoreNotes && (
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "center",
+                          marginTop: 20,
+                          paddingBottom: 8,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setNotesLimit((l) => l + NOTES_PAGE_SIZE)}
+                          style={{
+                            ...glassBase(12),
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 7,
+                            padding: "9px 16px",
+                            borderRadius: 11,
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            color: G.textPrimary,
+                            fontSize: "0.78rem",
+                            fontWeight: 600,
+                          }}
+                        >
+                          <RefreshCw size={14} />
+                          {t.loadMore}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              <BottomNav tab={tab} setTab={setTab} isMobile={isMobile} t={t} />
+            </>
+          )}
+        </div>
+
+        {screen === "dashboard" && <FabBtn onClick={openNew} isMobile={isMobile} t={t} />}
+
+        {showSort && (
+          <SortSheet
+            current={sort}
+            onSelect={(o) => {
+              setSort(o);
+              setShowSort(false);
+            }}
+            onClose={() => setShowSort(false)}
+            t={t}
+          />
         )}
-      </div>
 
-      {screen === "dashboard" && <FabBtn onClick={openNew} isMobile={isMobile} t={t} />}
+        {reminderNoteId !== null &&
+          (() => {
+            const n = allNotes.find((x) => x.id === reminderNoteId);
+            if (!n) return null;
+            return (
+              <ReminderModal
+                note={n}
+                onSave={(d) => {
+                  mutNote(n.id, { reminder: d });
+                  const key = `${n.firestoreId || `local-${n.id}`}`;
+                  if (d) {
+                    scheduleReminderNotification(
+                      key,
+                      n.title || t.untitled,
+                      stripHtml(n.body).slice(0, 140),
+                      d
+                    );
+                  } else {
+                    cancelReminderNotification(key);
+                  }
+                  setReminderNoteId(null);
+                }}
+                onClose={() => setReminderNoteId(null)}
+                language={language}
+                t={t}
+              />
+            );
+          })()}
 
-      {showSort && (
-        <SortSheet
-          current={sort}
-          onSelect={(o) => {
-            setSort(o);
-            setShowSort(false);
-          }}
-          onClose={() => setShowSort(false)}
-          t={t}
-        />
-      )}
-
-      {reminderNoteId !== null &&
-        (() => {
-          const n = allNotes.find((x) => x.id === reminderNoteId);
-          if (!n) return null;
-          return (
-            <ReminderModal
-              note={n}
-              onSave={(d) => {
-                mutNote(n.id, { reminder: d });
-                const key = `${n.firestoreId || `local-${n.id}`}`;
-                if (d) {
-                  scheduleReminderNotification(
-                    key,
-                    n.title || t.untitled,
-                    stripHtml(n.body).slice(0, 140),
-                    d
-                  );
-                } else {
-                  cancelReminderNotification(key);
-                }
-                setReminderNoteId(null);
-              }}
-              onClose={() => setReminderNoteId(null)}
+        {editorOpen && (
+          <React.Suspense fallback={<SplashGate delay={200} />}>
+            <EditorModal
+              creating={creating}
+              initialTitle={editing?.title ?? ""}
+              initialBody={editing?.body ?? ""}
+              onClose={closeEd}
+              onSave={save}
+              onAutosave={autosave}
+              requestCloseRef={editorRequestCloseRef}
+              isMobile={isMobile}
+              isTablet={isTablet}
               language={language}
               t={t}
             />
-          );
-        })()}
+          </React.Suspense>
+        )}
 
-      {editorOpen && (
-        <React.Suspense
-          fallback={
-            <div className="app-loading" role="status">
-              {t.loading}
-            </div>
-          }
-        >
-          <EditorModal
-            creating={creating}
-            initialTitle={editing?.title ?? ""}
-            initialBody={editing?.body ?? ""}
-            onClose={closeEd}
-            onSave={save}
-            onAutosave={autosave}
-            requestCloseRef={editorRequestCloseRef}
-            isMobile={isMobile}
-            isTablet={isTablet}
-            language={language}
-            t={t}
+        {confirm && (
+          <ConfirmDialog
+            title={
+              confirm.type === "empty-trash" ? t.emptyTrashConfirmTitle : t.confirmDeleteNoteTitle
+            }
+            body={
+              confirm.type === "empty-trash" ? t.emptyTrashConfirmBody : t.confirmDeleteNoteBody
+            }
+            confirmLabel={confirm.type === "empty-trash" ? t.emptyTrash : t.deleteForeverAction}
+            cancelLabel={t.cancel}
+            onCancel={() => setConfirm(null)}
+            onConfirm={() => {
+              if (confirm.type === "empty-trash") emptyTrash();
+              else deleteNoteForever(confirm.note);
+              setConfirm(null);
+            }}
           />
-        </React.Suspense>
-      )}
+        )}
 
-      {confirm && (
-        <ConfirmDialog
-          title={
-            confirm.type === "empty-trash" ? t.emptyTrashConfirmTitle : t.confirmDeleteNoteTitle
-          }
-          body={confirm.type === "empty-trash" ? t.emptyTrashConfirmBody : t.confirmDeleteNoteBody}
-          confirmLabel={confirm.type === "empty-trash" ? t.emptyTrash : t.deleteForeverAction}
-          cancelLabel={t.cancel}
-          onCancel={() => setConfirm(null)}
-          onConfirm={() => {
-            if (confirm.type === "empty-trash") emptyTrash();
-            else deleteNoteForever(confirm.note);
-            setConfirm(null);
-          }}
-        />
-      )}
-
-      {noteSyncError && (
-        <NoteSyncError
-          message={noteSyncError}
-          closeLabel={t.close}
-          onDismiss={() => setNoteSyncError(null)}
-        />
-      )}
-    </div>
+        {noteSyncError && (
+          <NoteSyncError
+            message={noteSyncError}
+            closeLabel={t.close}
+            onDismiss={() => setNoteSyncError(null)}
+          />
+        )}
+      </div>
+    </>
   );
 }
