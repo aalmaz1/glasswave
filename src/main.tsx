@@ -3,8 +3,10 @@ import { createRoot } from "react-dom/client";
 import "./styles/index.css";
 import { LanguageProvider, detectLanguage, loadTranslation } from "./i18n";
 import { AppErrorBoundary } from "./app/components/ErrorBoundary";
+import { SplashRelease } from "./app/components/SplashGate";
 import { initNativeShell } from "./native";
 import { registerServiceWorker } from "./pwa";
+import { releaseInitialSplash } from "./splash";
 
 void initNativeShell();
 registerServiceWorker();
@@ -13,6 +15,8 @@ const rootEl = document.getElementById("root");
 
 /** Static, pre-i18n fallback shown if the app module fails to load. */
 function renderStartupError(message: string) {
+  // The wave splash from index.html sits above #root — get it out of the way.
+  releaseInitialSplash();
   if (!rootEl) return;
   const lang = (navigator.language || "ru").toLowerCase();
   const title =
@@ -49,6 +53,7 @@ async function bootstrap() {
           <AppErrorBoundary>
             <App />
           </AppErrorBoundary>
+          <SplashRelease />
         </LanguageProvider>
       );
     }

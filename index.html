@@ -32,10 +32,137 @@
       html, body { height: 100%; margin: 0; background: #130500; }
       #root { height: 100%; }
       body { overflow: hidden; }
+
+      /* Full-screen wave splash: painted from the first byte of HTML, before any
+         JS, and faded out by src/splash.ts once the app is ready. Colours come
+         from the last theme the user saw (see the inline script below). */
+      :root {
+        --gw-bg: linear-gradient(145deg, #130500 0%, #2e0c00 28%, #4a1400 52%, #6b1e00 75%, #8a2800 100%);
+        --gw-c1: 255, 110, 20;
+        --gw-c2: 200, 50, 0;
+        --gw-c3: 255, 160, 30;
+      }
+      .gw-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        overflow: hidden;
+        background: #130500;
+        background: var(--gw-bg);
+        opacity: 1;
+        transition: opacity 0.5s ease;
+        contain: strict;
+      }
+      .gw-splash[hidden] { display: none !important; }
+      .gw-splash.gw-out { opacity: 0; pointer-events: none; }
+      .gw-glow {
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+        animation: gw-breathe 6s ease-in-out infinite alternate;
+      }
+      .gw-glow-a {
+        width: 95vmax; height: 95vmax; left: -32vmax; top: -44vmax;
+        background: radial-gradient(circle, rgba(var(--gw-c1), 0.34) 0%, rgba(var(--gw-c1), 0) 62%);
+      }
+      .gw-glow-b {
+        width: 75vmax; height: 75vmax; right: -28vmax; top: -12vmax;
+        background: radial-gradient(circle, rgba(var(--gw-c3), 0.22) 0%, rgba(var(--gw-c3), 0) 60%);
+        animation-duration: 8s;
+        animation-delay: -3s;
+      }
+      .gw-sea {
+        position: absolute; left: 0; right: 0; bottom: 0; height: 66%;
+        transition: transform 0.55s cubic-bezier(0.5, 0, 0.75, 0);
+      }
+      .gw-out .gw-sea { transform: translate3d(0, 16%, 0); }
+      .gw-rise { position: absolute; inset: 0; animation: gw-rise 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+      .gw-swell { position: absolute; left: 0; right: 0; bottom: 0; animation: gw-bob 4.6s ease-in-out infinite alternate; }
+      .gw-wave {
+        position: absolute; left: 0; bottom: 0; height: 100%;
+        width: 200%;
+        width: max(200%, 1800px); /* keeps swells long and calm on phones */
+        animation: gw-drift 12s linear infinite;
+        will-change: transform;
+      }
+      .gw-wave svg { display: block; width: 100%; height: 100%; }
+      .gw-crest { fill: none; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+      .gw-s1 { height: 100%; animation-duration: 5.2s; }
+      .gw-s2 { height: 84%; animation-duration: 4.4s; animation-delay: -1.3s; }
+      .gw-s3 { height: 67%; animation-duration: 3.8s; animation-delay: -2.1s; }
+      .gw-s4 { height: 50%; animation-duration: 4.9s; animation-delay: -0.7s; }
+      .gw-w1 { animation-duration: 26s; }
+      .gw-w2 { animation-duration: 19s; animation-direction: reverse; }
+      .gw-w3 { animation-duration: 14s; }
+      .gw-w4 { animation-duration: 10s; animation-direction: reverse; }
+      .gw-w1 .gw-fill { fill: rgba(var(--gw-c3), 0.2); }
+      .gw-w2 .gw-fill { fill: rgba(var(--gw-c2), 0.3); }
+      .gw-w3 .gw-fill { fill: rgba(var(--gw-c1), 0.26); }
+      .gw-w4 .gw-fill { fill: rgba(var(--gw-c1), 0.34); }
+      .gw-w1 .gw-crest { stroke: rgba(255, 255, 255, 0.1); }
+      .gw-w2 .gw-crest { stroke: rgba(255, 255, 255, 0.14); }
+      .gw-w3 .gw-crest { stroke: rgba(255, 255, 255, 0.2); }
+      .gw-w4 .gw-crest { stroke: rgba(255, 255, 255, 0.36); }
+      .gw-depth {
+        position: absolute; inset: 0; pointer-events: none;
+        background: linear-gradient(180deg, rgba(0, 0, 0, 0) 35%, rgba(0, 0, 0, 0.36) 100%);
+      }
+      .gw-sr {
+        position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+        overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+      }
+      @keyframes gw-drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
+      @keyframes gw-bob { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 6%, 0); } }
+      @keyframes gw-rise { from { transform: translate3d(0, 40%, 0); opacity: 0; } to { transform: none; opacity: 1; } }
+      @keyframes gw-breathe { from { opacity: 0.6; transform: scale(1); } to { opacity: 1; transform: scale(1.08); } }
+      @keyframes gw-breathe-soft { from { opacity: 0.6; } to { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) {
+        .gw-wave, .gw-swell, .gw-rise { animation: none; }
+        .gw-glow { animation-name: gw-breathe-soft; }
+        .gw-out .gw-sea { transform: none; }
+      }
     </style>
+    <noscript><style>.gw-splash { display: none !important; }</style></noscript>
+    <script>
+      // Paint the splash in the colours of the last theme the user saw.
+      (function () {
+        try {
+          var s = JSON.parse(localStorage.getItem("glasswave_splash_v1") || "null");
+          if (!s) return;
+          var root = document.documentElement.style;
+          if (/^linear-gradient\([#%,.\w\s()-]+\)$/.test(s.bg)) root.setProperty("--gw-bg", s.bg);
+          ["c1", "c2", "c3"].forEach(function (k) {
+            if (/^\d{1,3},\d{1,3},\d{1,3}$/.test(s[k])) root.setProperty("--gw-" + k, s[k]);
+          });
+        } catch (e) {}
+      })();
+    </script>
   </head>
 
   <body>
+    <div id="gw-splash" class="gw-splash" role="status" aria-live="polite">
+      <div class="gw-glow gw-glow-a"></div>
+      <div class="gw-glow gw-glow-b"></div>
+      <div class="gw-sea">
+        <div class="gw-rise">
+          <div class="gw-swell gw-s1"><div class="gw-wave gw-w1"><svg viewBox="0 0 2880 320" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path class="gw-fill" d="M0 70Q360 2 720 70T1440 70T2160 70T2880 70V320H0Z"/><path class="gw-crest" d="M0 70Q360 2 720 70T1440 70T2160 70T2880 70"/></svg></div></div>
+          <div class="gw-swell gw-s2"><div class="gw-wave gw-w2"><svg viewBox="0 0 2880 320" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path class="gw-fill" d="M0 74Q180 126 360 74T720 74T1080 74T1440 74T1800 74T2160 74T2520 74T2880 74V320H0Z"/><path class="gw-crest" d="M0 74Q180 126 360 74T720 74T1080 74T1440 74T1800 74T2160 74T2520 74T2880 74"/></svg></div></div>
+          <div class="gw-swell gw-s3"><div class="gw-wave gw-w3"><svg viewBox="0 0 2880 320" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path class="gw-fill" d="M0 66Q120 30 240 66T480 66T720 66T960 66T1200 66T1440 66T1680 66T1920 66T2160 66T2400 66T2640 66T2880 66V320H0Z"/><path class="gw-crest" d="M0 66Q120 30 240 66T480 66T720 66T960 66T1200 66T1440 66T1680 66T1920 66T2160 66T2400 66T2640 66T2880 66"/></svg></div></div>
+          <div class="gw-swell gw-s4"><div class="gw-wave gw-w4"><svg viewBox="0 0 2880 320" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path class="gw-fill" d="M0 60Q180 16 360 60T720 60T1080 60T1440 60T1800 60T2160 60T2520 60T2880 60V320H0Z"/><path class="gw-crest" d="M0 60Q180 16 360 60T720 60T1080 60T1440 60T1800 60T2160 60T2520 60T2880 60"/></svg></div></div>
+        </div>
+        <div class="gw-depth"></div>
+      </div>
+      <span class="gw-sr">Загрузка...</span>
+    </div>
+    <script>
+      (function () {
+        try {
+          var lang = localStorage.getItem("preferred-lang") || (navigator.language || "ru").toLowerCase();
+          var label = lang.indexOf("ko") === 0 ? "로딩 중..." : lang.indexOf("en") === 0 ? "Loading..." : "Загрузка...";
+          document.querySelector("#gw-splash .gw-sr").textContent = label;
+        } catch (e) {}
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
