@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/app_user.dart';
@@ -8,19 +7,7 @@ class FirebaseService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  Stream<AppUser?> authStateChanges() {
-    return _auth.authStateChanges().map((user) {
-      if (user == null || user.email == null) return null;
-      return AppUser(
-        email: user.email!,
-        name: user.displayName ?? user.email!.split('@').first,
-        uid: user.uid,
-      );
-    });
-  }
-
-  AppUser? get currentUser {
-    final user = _auth.currentUser;
+  AppUser? _mapUser(User? user) {
     if (user == null || user.email == null) return null;
     return AppUser(
       email: user.email!,
@@ -28,6 +15,12 @@ class FirebaseService {
       uid: user.uid,
     );
   }
+
+  Stream<AppUser?> authStateChanges() {
+    return _auth.authStateChanges().map(_mapUser);
+  }
+
+  AppUser? get currentUser => _mapUser(_auth.currentUser);
 
   Future<void> login(String email, String password) async {
     await _auth.signInWithEmailAndPassword(
@@ -59,13 +52,23 @@ class FirebaseService {
     );
     await user.reauthenticateWithCredential(cred);
 
-    // Delete user's notes in Firestore
+    // Delete user's notes in Firestore using chunked atomic batches (max 500 per batch)
     final snapshot = await _db
         .collection('notes')
         .where('ownerUid', isEqualTo: user.uid)
         .get();
-    for (final doc in snapshot.docs) {
-      await doc.reference.delete();
+
+    if (snapshot.docs.isNotEmpty) {
+      const chunkSize = 500;
+      for (var i = 0; i < snapshot.docs.length; i += chunkSize) {
+        final end = (i + chunkSize < snapshot.docs.length) ? i + chunkSize : snapshot.docs.length;
+        final chunk = snapshot.docs.sublist(i, end);
+        final batch = _db.batch();
+        for (final doc in chunk) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+      }
     }
 
     await user.delete();
@@ -83,21 +86,33 @@ class FirebaseService {
     });
   }
 
-  String _createDocId() {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    final rand = Random.secure();
-    return List.generate(20, (_) => chars[rand.nextInt(chars.length)]).join();
-  }
-
   Future<String> writeNote(Note note, String ownerUid) async {
-    final docId = note.firestoreId ?? _createDocId();
-    final docRef = _db.collection('notes').doc(docId);
+    final docRef = note.firestoreId != null
+        ? _db.collection('notes').doc(note.firestoreId)
+        : _db.collection('notes').doc();
     await docRef.set(note.toFirestore(ownerUid), SetOptions(merge: true));
-    return docId;
+    return docRef.id;
   }
 
   Future<void> deleteNote(Note note) async {
     if (note.firestoreId == null) return;
     await _db.collection('notes').doc(note.firestoreId).delete();
   }
+
+  Future<void> deleteNotes(List<Note> notes) async {
+    final validNotes = notes.where((n) => n.firestoreId != null).toList();
+    if (validNotes.isEmpty) return;
+
+    const chunkSize = 500;
+    for (var i = 0; i < validNotes.length; i += chunkSize) {
+      final end = (i + chunkSize < validNotes.length) ? i + chunkSize : validNotes.length;
+      final chunk = validNotes.sublist(i, end);
+      final batch = _db.batch();
+      for (final note in chunk) {
+        batch.delete(_db.collection('notes').doc(note.firestoreId));
+      }
+      await batch.commit();
+    }
+  }
 }
+

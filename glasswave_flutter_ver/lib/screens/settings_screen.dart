@@ -642,7 +642,7 @@ class _ThemeTile extends StatelessWidget {
     return GestureDetector(
       onTap: onChange,
       child: GlassContainer(
-        blur: 20,
+        blur: 0,
         borderRadius: 18,
         border: Border.all(
           color: active ? const Color(0x80FFFFFF) : G.border, // white 0.50 / 0.20

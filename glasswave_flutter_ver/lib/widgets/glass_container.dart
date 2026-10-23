@@ -29,8 +29,8 @@ class GlassContainer extends StatelessWidget {
   const GlassContainer({
     super.key,
     required this.child,
-    this.blur = 24.0,
-    this.borderRadius = 20.0,
+    this.blur = 30.0,
+    this.borderRadius = 22.0,
     this.color,
     this.border,
     this.boxShadow,
@@ -97,14 +97,14 @@ class GlassContainer extends StatelessWidget {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(borderRadius),
                       gradient: LinearGradient(
-                        begin: Alignment.bottomLeft,
-                        end: Alignment.topRight,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                         colors: [
-                          Colors.white.withValues(alpha: 0.06),
-                          Colors.white.withValues(alpha: 0),
+                          Colors.white.withValues(alpha: 0.14),
                           Colors.white.withValues(alpha: 0.03),
+                          Colors.white.withValues(alpha: 0.0),
                         ],
-                        stops: const [0.0, 0.5, 1.0],
+                        stops: const [0.0, 0.40, 1.0],
                       ),
                     ),
                   ),
@@ -199,12 +199,12 @@ class GlassChip extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: GlassContainer(
-          blur: 16,
-          borderRadius: 12,
+          blur: 20,
+          borderRadius: 14,
           color: highlight ? G.bgHov : G.bg,
           border: Border.all(
             color: highlight
-                ? Colors.white.withValues(alpha: 0.35)
+                ? Colors.white.withValues(alpha: 0.45)
                 : G.border,
           ),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),

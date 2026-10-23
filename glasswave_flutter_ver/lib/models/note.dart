@@ -13,7 +13,7 @@ class Note {
   final bool trashed;
   final DateTime? reminder;
 
-  Note({
+  const Note({
     this.firestoreId,
     required this.id,
     required this.title,
@@ -76,15 +76,15 @@ class Note {
     return Note(
       firestoreId: json['firestoreId'] as String?,
       id: json['id'] is int ? json['id'] as int : int.parse(json['id'].toString()),
-      title: json['title'] ?? '',
-      body: json['body'] ?? '',
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : DateTime.now(),
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
-      accentIdx: json['accentIdx'] ?? 0,
-      pinned: json['pinned'] ?? false,
-      archived: json['archived'] ?? false,
-      trashed: json['trashed'] ?? false,
-      reminder: json['reminder'] != null ? DateTime.parse(json['reminder']) : null,
+      title: json['title'] as String? ?? '',
+      body: json['body'] as String? ?? '',
+      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt'] as String) : DateTime.now(),
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'] as String) : null,
+      accentIdx: (json['accentIdx'] as num?)?.toInt() ?? 0,
+      pinned: json['pinned'] == true,
+      archived: json['archived'] == true,
+      trashed: json['trashed'] == true,
+      reminder: json['reminder'] != null ? DateTime.parse(json['reminder'] as String) : null,
     );
   }
 
@@ -130,4 +130,37 @@ class Note {
       'reminder': reminder != null ? Timestamp.fromDate(reminder!) : null,
     };
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Note &&
+          runtimeType == other.runtimeType &&
+          firestoreId == other.firestoreId &&
+          id == other.id &&
+          title == other.title &&
+          body == other.body &&
+          updatedAt == other.updatedAt &&
+          createdAt == other.createdAt &&
+          accentIdx == other.accentIdx &&
+          pinned == other.pinned &&
+          archived == other.archived &&
+          trashed == other.trashed &&
+          reminder == other.reminder;
+
+  @override
+  int get hashCode => Object.hash(
+        firestoreId,
+        id,
+        title,
+        body,
+        updatedAt,
+        createdAt,
+        accentIdx,
+        pinned,
+        archived,
+        trashed,
+        reminder,
+      );
 }
+

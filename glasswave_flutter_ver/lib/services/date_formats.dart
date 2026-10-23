@@ -1,6 +1,13 @@
 import 'package:intl/intl.dart';
 
 abstract final class GlassDates {
+  static final Map<String, DateFormat> _formatters = {};
+
+  static DateFormat _getFormatter(String pattern, String locale) {
+    final key = '$pattern|$locale';
+    return _formatters.putIfAbsent(key, () => DateFormat(pattern, locale));
+  }
+
   static String intlLocale(String langCode) {
     switch (langCode) {
       case 'ru':
@@ -18,7 +25,7 @@ abstract final class GlassDates {
       'ko' => 'y"년 "M"월 "d"일"',
       _ => 'MMMM d, y',
     };
-    return DateFormat(pattern, intlLocale(langCode)).format(d);
+    return _getFormatter(pattern, intlLocale(langCode)).format(d);
   }
 
   static String short(DateTime d, String langCode) {
@@ -27,7 +34,7 @@ abstract final class GlassDates {
       'ko' => 'M"월 "d"일 "a hh:mm',
       _ => 'MMM d, hh:mm a',
     };
-    return DateFormat(pattern, intlLocale(langCode)).format(d);
+    return _getFormatter(pattern, intlLocale(langCode)).format(d);
   }
 
   static String reminder(DateTime d, String langCode) {
@@ -36,7 +43,7 @@ abstract final class GlassDates {
       'ko' => 'M"월 "d"일 "a hh:mm',
       _ => 'MMMM d, hh:mm a',
     };
-    return DateFormat(pattern, intlLocale(langCode)).format(d);
+    return _getFormatter(pattern, intlLocale(langCode)).format(d);
   }
 
   static String monthDay(DateTime d, String langCode) {
@@ -45,6 +52,7 @@ abstract final class GlassDates {
       'ko' => 'M"월 "d"일"',
       _ => 'MMMM d',
     };
-    return DateFormat(pattern, intlLocale(langCode)).format(d);
+    return _getFormatter(pattern, intlLocale(langCode)).format(d);
   }
 }
+

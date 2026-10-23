@@ -48,6 +48,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
 
+  static final _whitespaceRegex = RegExp(r'\s+');
+  static final _leadingSpaceRegex = RegExp(r'^\s*');
+  static final _numListStartRegex = RegExp(r'^\d+\. ');
+
   String _baselineTitle = '';
   String _baselineBody = '';
   int? _noteId;
@@ -112,7 +116,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   int get _wordCount {
     final text = _bodyController.text.trim();
     if (text.isEmpty) return 0;
-    return text.split(RegExp(r'\s+')).length;
+    return text.split(_whitespaceRegex).length;
   }
 
   Note _buildNote() {
@@ -243,7 +247,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       final newPos = (currentPos - startIdx - prefix.length).clamp(0, newLine.length);
       _bodyController.selection = TextSelection.collapsed(offset: startIdx + newPos);
     } else {
-      final newLine = line.replaceFirst(RegExp(r'^\s*'), prefix);
+      final newLine = line.replaceFirst(_leadingSpaceRegex, prefix);
       final newText = text.replaceRange(startIdx, lineEnd, newLine);
       _bodyController.text = newText;
       final newPos = currentPos + prefix.length;
@@ -553,7 +557,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 const _FmtSep(),
                 _FmtBtn('•', () => _toggleLinePrefix('- '), active: startsWith('- ')),
                 _FmtBtn('1.', () => _toggleLinePrefix('1. '),
-                    active: RegExp(r'^\d+\. ').hasMatch(line)),
+                    active: _numListStartRegex.hasMatch(line)),
                 _FmtBtn('❝', () => _toggleLinePrefix('> '), active: startsWith('> ')),
                 _FmtBtn('</>', () {
                   _insertFormat('```\n', '\n```');

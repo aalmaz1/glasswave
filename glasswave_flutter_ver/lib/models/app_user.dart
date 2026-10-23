@@ -3,7 +3,7 @@ class AppUser {
   final String name;
   final String uid;
 
-  AppUser({
+  const AppUser({
     required this.email,
     required this.name,
     required this.uid,
@@ -16,8 +16,21 @@ class AppUser {
       };
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
-        email: json['email'] ?? '',
-        name: json['name'] ?? '',
-        uid: json['uid'] ?? '',
+        email: json['email'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        uid: json['uid'] as String? ?? '',
       );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AppUser &&
+          runtimeType == other.runtimeType &&
+          email == other.email &&
+          name == other.name &&
+          uid == other.uid;
+
+  @override
+  int get hashCode => Object.hash(email, name, uid);
 }
+

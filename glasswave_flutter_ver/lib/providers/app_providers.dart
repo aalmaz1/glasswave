@@ -20,10 +20,7 @@ final persistenceServiceProvider = Provider<PersistenceService>((ref) {
 
 final firebaseServiceProvider = Provider<FirebaseService>((ref) => FirebaseService());
 
-final authProvider = StateNotifierProvider<AuthNotifier, AppUser?>((ref) {
-  final fbService = ref.watch(firebaseServiceProvider);
-  return AuthNotifier(fbService);
-});
+final authProvider = NotifierProvider<AuthNotifier, AppUser?>(AuthNotifier.new);
 
 class AuthErrors {
   static const wrongCredentials = 'auth_err_wrong_pw';
@@ -34,25 +31,26 @@ class AuthErrors {
   static const wrongPwDelete = 'auth_err_wrong_pw';
 }
 
-class AuthNotifier extends StateNotifier<AppUser?> {
-  final FirebaseService _fbService;
+class AuthNotifier extends Notifier<AppUser?> {
   StreamSubscription<AppUser?>? _sub;
 
-  AuthNotifier(this._fbService) : super(_fbService.currentUser) {
-    _sub = _fbService.authStateChanges().listen((user) {
+  @override
+  AppUser? build() {
+    final fbService = ref.watch(firebaseServiceProvider);
+    _sub?.cancel();
+    _sub = fbService.authStateChanges().listen((user) {
       state = user;
     });
-  }
-
-  @override
-  void dispose() {
-    _sub?.cancel();
-    super.dispose();
+    ref.onDispose(() {
+      _sub?.cancel();
+    });
+    return fbService.currentUser;
   }
 
   Future<String?> login(String email, String password) async {
+    final fbService = ref.read(firebaseServiceProvider);
     try {
-      await _fbService.login(email, password);
+      await fbService.login(email, password);
       return null;
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
@@ -78,8 +76,9 @@ class AuthNotifier extends StateNotifier<AppUser?> {
     if (name.trim().length < 2) return AuthErrors.nameTooShort;
     if (password.length < 6) return AuthErrors.pwTooShort;
 
+    final fbService = ref.read(firebaseServiceProvider);
     try {
-      await _fbService.register(email, name, password);
+      await fbService.register(email, name, password);
       return null;
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
@@ -98,8 +97,9 @@ class AuthNotifier extends StateNotifier<AppUser?> {
   }
 
   Future<String?> deleteAccount(String password) async {
+    final fbService = ref.read(firebaseServiceProvider);
     try {
-      await _fbService.deleteAccount(password);
+      await fbService.deleteAccount(password);
       return null;
     } on FirebaseAuthException catch (_) {
       return AuthErrors.wrongPwDelete;
@@ -109,7 +109,8 @@ class AuthNotifier extends StateNotifier<AppUser?> {
   }
 
   Future<void> logout() async {
-    await _fbService.logout();
+    final fbService = ref.read(firebaseServiceProvider);
+    await fbService.logout();
   }
 }
 
@@ -120,23 +121,7 @@ class AppPrefs {
   AppPrefs({required this.themeId, required this.language});
 }
 
-final themeProvider = StateNotifierProvider<ThemeNotifier, AppPrefs>((ref) {
-  final service = ref.watch(persistenceServiceProvider);
-  final user = ref.watch(authProvider);
-  final email = user?.email;
-  String? preloadedLang;
-  String? preloadedTheme;
-  if (email != null) {
-    final prefs = service.getPrefs(email);
-    preloadedLang = prefs['language'] as String?;
-    preloadedTheme = prefs['themeId'] as String?;
-  } else {
-    preloadedLang = service.getGuestLanguageRaw();
-    preloadedTheme = service.getGuestTheme();
-  }
-  final initialTheme = _parseThemeStatic(preloadedTheme, fallback: null);
-  return ThemeNotifier(service, email, initialTheme, preloadedLang ?? 'ru');
-});
+final themeProvider = NotifierProvider<ThemeNotifier, AppPrefs>(ThemeNotifier.new);
 
 const ThemeId kDefaultTheme = ThemeId.sunset;
 
@@ -149,57 +134,50 @@ ThemeId _parseThemeStatic(String? raw, {ThemeId? fallback}) {
   return fallback ?? kDefaultTheme;
 }
 
-class ThemeNotifier extends StateNotifier<AppPrefs> {
-  final PersistenceService _service;
-  final String? _email;
+class ThemeNotifier extends Notifier<AppPrefs> {
+  @override
+  AppPrefs build() {
+    final service = ref.watch(persistenceServiceProvider);
+    final user = ref.watch(authProvider);
+    final email = user?.email;
 
-  ThemeNotifier(this._service, this._email, ThemeId initialTheme, String initialLang)
-      : super(AppPrefs(themeId: initialTheme, language: initialLang)) {
-    _loadPrefs();
-  }
-
-  void _loadPrefs() {
     ThemeId theme;
     String lang;
     bool isFirstLoad = false;
-    if (_email != null) {
-      final raw = _service.getPrefs(_email);
-      theme = _parseTheme(raw['themeId'] as String?, fallback: kDefaultTheme);
+
+    if (email != null) {
+      final raw = service.getPrefs(email);
+      theme = _parseThemeStatic(raw['themeId'] as String?, fallback: kDefaultTheme);
       final savedLang = raw['language'] as String?;
       if (savedLang == null) {
-        lang = state.language;
+        lang = 'ru';
         isFirstLoad = true;
       } else {
         lang = savedLang;
       }
     } else {
-      final savedTheme = _service.getGuestTheme();
-      theme = _parseTheme(savedTheme, fallback: kDefaultTheme);
+      final savedTheme = service.getGuestTheme();
+      theme = _parseThemeStatic(savedTheme, fallback: kDefaultTheme);
       if (savedTheme == null) isFirstLoad = true;
-      final savedLang = _service.getGuestLanguageRaw();
-      lang = savedLang ?? state.language;
+      final savedLang = service.getGuestLanguageRaw();
+      lang = savedLang ?? 'ru';
       if (savedLang == null) isFirstLoad = true;
     }
-    state = AppPrefs(themeId: theme, language: lang);
-    if (isFirstLoad) unawaited(_persistInitial());
+
+    final initialPrefs = AppPrefs(themeId: theme, language: lang);
+    if (isFirstLoad) {
+      unawaited(_persistInitial(service, email, initialPrefs));
+    }
+    return initialPrefs;
   }
 
-  Future<void> _persistInitial() async {
-    if (_email != null) {
-      await _service.savePrefs(_email, {'themeId': state.themeId.name, 'language': state.language});
+  Future<void> _persistInitial(PersistenceService service, String? email, AppPrefs prefs) async {
+    if (email != null) {
+      await service.savePrefs(email, {'themeId': prefs.themeId.name, 'language': prefs.language});
     } else {
-      await _service.setGuestTheme(state.themeId.name);
-      await _service.setGuestLanguage(state.language);
+      await service.setGuestTheme(prefs.themeId.name);
+      await service.setGuestLanguage(prefs.language);
     }
-  }
-
-  ThemeId _parseTheme(String? raw, {ThemeId? fallback}) {
-    if (raw != null) {
-      for (final t in ThemeId.values) {
-        if (t.name == raw) return t;
-      }
-    }
-    return fallback ?? kDefaultTheme;
   }
 
   void setTheme(ThemeId id) {
@@ -213,60 +191,56 @@ class ThemeNotifier extends StateNotifier<AppPrefs> {
   }
 
   Future<void> _persist() async {
-    if (_email != null) {
+    final service = ref.read(persistenceServiceProvider);
+    final user = ref.read(authProvider);
+    final email = user?.email;
+    if (email != null) {
       final p = {'themeId': state.themeId.name, 'language': state.language};
-      await _service.savePrefs(_email, p);
+      await service.savePrefs(email, p);
     } else {
-      await _service.setGuestTheme(state.themeId.name);
-      await _service.setGuestLanguage(state.language);
+      await service.setGuestTheme(state.themeId.name);
+      await service.setGuestLanguage(state.language);
     }
   }
 }
 
-final notesProvider = StateNotifierProvider<NotesNotifier, List<Note>>((ref) {
-  final user = ref.watch(authProvider);
-  final service = ref.watch(persistenceServiceProvider);
-  final fbService = ref.watch(firebaseServiceProvider);
-  return NotesNotifier(service, fbService, user);
-});
+final notesProvider = NotifierProvider<NotesNotifier, List<Note>>(NotesNotifier.new);
 
-class NotesNotifier extends StateNotifier<List<Note>> {
-  final PersistenceService _service;
-  final FirebaseService _fbService;
-  final AppUser? _user;
+class NotesNotifier extends Notifier<List<Note>> {
   StreamSubscription<List<Note>>? _notesSub;
 
-  NotesNotifier(this._service, this._fbService, this._user) : super([]) {
-    _initNotes();
-  }
+  @override
+  List<Note> build() {
+    final user = ref.watch(authProvider);
+    final service = ref.watch(persistenceServiceProvider);
+    final fbService = ref.watch(firebaseServiceProvider);
 
-  void _initNotes() {
-    final user = _user;
+    _notesSub?.cancel();
+    ref.onDispose(() {
+      _notesSub?.cancel();
+    });
+
     if (user != null && user.uid.isNotEmpty) {
-      final cached = _service.getNotes(user.email);
-      if (cached != null) state = cached;
+      final cached = service.getNotes(user.email);
 
-      _notesSub = _fbService.streamNotes(user.uid).listen((remoteNotes) {
+      _notesSub = fbService.streamNotes(user.uid).listen((remoteNotes) {
         state = remoteNotes;
-        _service.saveNotes(user.email, remoteNotes);
+        service.saveNotes(user.email, remoteNotes);
       });
+
+      return cached ?? [];
     } else {
-      state = _service.getGuestNotes() ?? [];
+      return service.getGuestNotes() ?? [];
     }
   }
 
-  @override
-  void dispose() {
-    _notesSub?.cancel();
-    super.dispose();
-  }
-
   Future<void> _saveNotes() async {
-    final user = _user;
+    final user = ref.read(authProvider);
+    final service = ref.read(persistenceServiceProvider);
     if (user != null) {
-      await _service.saveNotes(user.email, state);
+      await service.saveNotes(user.email, state);
     } else {
-      await _service.saveGuestNotes(state);
+      await service.saveGuestNotes(state);
     }
   }
 
@@ -282,35 +256,37 @@ class NotesNotifier extends StateNotifier<List<Note>> {
   }
 
   Future<void> upsert(Note note) async {
-    final user = _user;
-    if (user != null && user.uid.isNotEmpty) {
-      final firestoreId = await _fbService.writeNote(note, user.uid);
-      final updated = note.copyWith(firestoreId: firestoreId);
-      if (state.any((n) => n.id == note.id)) {
-        state = state.map((n) => n.id == note.id ? updated : n).toList();
-      } else {
-        state = [updated, ...state];
-      }
+    final user = ref.read(authProvider);
+    final fbService = ref.read(firebaseServiceProvider);
+
+    // Optimistic local update
+    if (state.any((n) => n.id == note.id)) {
+      state = state.map((n) => n.id == note.id ? note : n).toList();
     } else {
-      if (state.any((n) => n.id == note.id)) {
-        state = state.map((n) => n.id == note.id ? note : n).toList();
-      } else {
-        state = [note, ...state];
-      }
+      state = [note, ...state];
     }
     await _saveNotes();
+
+    if (user != null && user.uid.isNotEmpty) {
+      final firestoreId = await fbService.writeNote(note, user.uid);
+      if (note.firestoreId == null && firestoreId.isNotEmpty) {
+        final updated = note.copyWith(firestoreId: firestoreId);
+        state = state.map((n) => n.id == note.id ? updated : n).toList();
+        await _saveNotes();
+      }
+    }
   }
 
   Future<void> clearTrash() async {
-    final user = _user;
+    final user = ref.read(authProvider);
+    final fbService = ref.read(firebaseServiceProvider);
     final toDelete = state.where((n) => n.trashed).toList();
     state = state.where((n) => !n.trashed).toList();
-    if (user != null && user.uid.isNotEmpty) {
-      for (final note in toDelete) {
-        await _fbService.deleteNote(note);
-      }
-    }
     await _saveNotes();
+
+    if (user != null && user.uid.isNotEmpty && toDelete.isNotEmpty) {
+      await fbService.deleteNotes(toDelete);
+    }
   }
 
   Future<void> updateNote(Note note) async {
@@ -318,14 +294,19 @@ class NotesNotifier extends StateNotifier<List<Note>> {
   }
 
   Future<void> deleteNote(int id) async {
-    final note = state.firstWhere((n) => n.id == id, orElse: () => Note(id: id, title: '', body: '', updatedAt: DateTime.now(), accentIdx: 0));
+    final user = ref.read(authProvider);
+    final fbService = ref.read(firebaseServiceProvider);
+    final note = state.firstWhere(
+      (n) => n.id == id,
+      orElse: () => Note(id: id, title: '', body: '', updatedAt: DateTime.now(), accentIdx: 0),
+    );
     state = state.where((n) => n.id != id).toList();
     await NotificationService().cancelNotification(id);
-    final user = _user;
-    if (user != null && user.uid.isNotEmpty) {
-      await _fbService.deleteNote(note);
-    }
     await _saveNotes();
+
+    if (user != null && user.uid.isNotEmpty) {
+      await fbService.deleteNote(note);
+    }
   }
 
   Future<void> togglePin(int id) async {
@@ -365,5 +346,26 @@ class NotesNotifier extends StateNotifier<List<Note>> {
   }
 }
 
-final dashboardTabProvider = StateProvider<int>((ref) => 0);
-final sortOrderProvider = StateProvider<SortOrder>((ref) => SortOrder.defaultValue);
+final dashboardTabProvider = NotifierProvider<DashboardTabNotifier, int>(DashboardTabNotifier.new);
+
+class DashboardTabNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void setTab(int index) => state = index;
+  @override
+  set state(int value) => super.state = value;
+}
+
+final sortOrderProvider = NotifierProvider<SortOrderNotifier, SortOrder>(SortOrderNotifier.new);
+
+class SortOrderNotifier extends Notifier<SortOrder> {
+  @override
+  SortOrder build() => SortOrder.defaultValue;
+
+  void setSortOrder(SortOrder order) => state = order;
+  @override
+  set state(SortOrder value) => super.state = value;
+}
+
+

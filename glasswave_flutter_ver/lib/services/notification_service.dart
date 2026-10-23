@@ -32,7 +32,7 @@ class NotificationService {
       macOS: darwinSettings,
     );
 
-    await _notificationsPlugin.initialize(initSettings);
+    await _notificationsPlugin.initialize(settings: initSettings);
     _initialized = true;
   }
 
@@ -106,26 +106,22 @@ class NotificationService {
 
     try {
       await _notificationsPlugin.zonedSchedule(
-        notificationId,
-        title.isEmpty ? 'GlassWave 🌊' : title,
-        body,
-        tzScheduledDate,
-        notificationDetails,
+        id: notificationId,
+        title: title.isEmpty ? 'GlassWave 🌊' : title,
+        body: body,
+        scheduledDate: tzScheduledDate,
+        notificationDetails: notificationDetails,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
       );
     } catch (e) {
       // Fallback for devices where exact alarm scheduling is not granted by OS
       await _notificationsPlugin.zonedSchedule(
-        notificationId,
-        title.isEmpty ? 'GlassWave 🌊' : title,
-        body,
-        tzScheduledDate,
-        notificationDetails,
+        id: notificationId,
+        title: title.isEmpty ? 'GlassWave 🌊' : title,
+        body: body,
+        scheduledDate: tzScheduledDate,
+        notificationDetails: notificationDetails,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
       );
     }
   }
@@ -133,6 +129,6 @@ class NotificationService {
   Future<void> cancelNotification(int id) async {
     await init();
     final notificationId = id.abs() % 2147483647;
-    await _notificationsPlugin.cancel(notificationId);
+    await _notificationsPlugin.cancel(id: notificationId);
   }
 }

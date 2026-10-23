@@ -37,28 +37,23 @@ class GlassWaveApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final appTheme = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: const Color(0xFF0B0B1A),
+      textTheme: GoogleFonts.manropeTextTheme(
+        ThemeData.dark().textTheme,
+      ),
+    );
+
     return MaterialApp(
       title: 'GlassWave',
       debugShowCheckedModeBanner: false,
       localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,
       locale: context.locale,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0B0B1A),
-        textTheme: GoogleFonts.manropeTextTheme(
-          ThemeData.dark().textTheme,
-        ),
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0B0B1A),
-        textTheme: GoogleFonts.manropeTextTheme(
-          ThemeData.dark().textTheme,
-        ),
-      ),
+      theme: appTheme,
+      darkTheme: appTheme,
       themeMode: ThemeMode.dark,
       home: const DashboardScreen(),
     );

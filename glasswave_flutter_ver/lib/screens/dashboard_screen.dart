@@ -309,7 +309,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             _RoundIconButton(
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      const SettingsScreen(),
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
+                    return FadeTransition(
+                      opacity: CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                      ),
+                      child: child,
+                    );
+                  },
+                  transitionDuration: const Duration(milliseconds: 220),
+                ),
               ),
               child: const Icon(LucideIcons.settings, size: 18, color: G.textSecondary),
             ),
@@ -393,7 +407,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       label: item.$3,
                       active: currentTab == item.$1,
                       onTap: () =>
-                          ref.read(dashboardTabProvider.notifier).state = item.$1,
+                          ref.read(dashboardTabProvider.notifier).setTab(item.$1),
                     ),
                 ],
               ),
@@ -864,7 +878,7 @@ class SortSheetOverlay extends ConsumerWidget {
                                     icon: opt.$4,
                                     active: current == opt.$1,
                                     onTap: () {
-                                      ref.read(sortOrderProvider.notifier).state = opt.$1;
+                                      ref.read(sortOrderProvider.notifier).setSortOrder(opt.$1);
                                       Navigator.pop(context);
                                     },
                                   ),

@@ -1,82 +1,16 @@
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/note.dart';
-import '../models/app_user.dart';
-
-const _kPwSalt = 'glasswave::v1::local-only::salt';
-
-String _hashPassword(String password) {
-  final bytes = utf8.encode('$_kPwSalt::$password');
-  return sha256.convert(bytes).toString();
-}
 
 class PersistenceService {
   final SharedPreferences _prefs;
   PersistenceService(this._prefs);
 
-  static const String _usersKey = 'glasswave_users_v2';
-  static const String _meKey = 'glasswave_me_v2';
   static String _notesKey(String email) => 'glasswave_notes_${email.toLowerCase()}';
   static String _prefsKey(String email) => 'glasswave_prefs_${email.toLowerCase()}';
+  static const String _guestNotesKey = 'glasswave_guest_notes_v1';
   static const String _guestThemeKey = 'glasswave_guest_theme';
   static const String _guestLangKey = 'glasswave_guest_lang';
-
-  Future<void> deleteUser(String email) async {
-    final users = await getUsers();
-    users.remove(email.toLowerCase());
-    await _prefs.setString(_usersKey, json.encode(users));
-    await _prefs.remove(_notesKey(email));
-    await _prefs.remove(_prefsKey(email));
-  }
-
-  Future<void> saveUser(String email, String name, String password) async {
-    final users = await getUsers();
-    users[email.toLowerCase()] = {
-      'name': name,
-      'pwHash': _hashPassword(password),
-    };
-    await _prefs.setString(_usersKey, json.encode(users));
-  }
-
-  bool verifyPassword(String email, String password) {
-    final raw = _prefs.getString(_usersKey);
-    if (raw == null) return false;
-    final users = Map<String, dynamic>.from(json.decode(raw) as Map);
-    final record = users[email.toLowerCase()];
-    if (record is! Map) return false;
-    final stored = record['pwHash'] ?? record['pw'];
-    if (stored == null) return false;
-    final inputHash = _hashPassword(password);
-    if (stored == inputHash) return true;
-    if (stored == password) {
-      record['pwHash'] = inputHash;
-      record.remove('pw');
-      _prefs.setString(_usersKey, json.encode(users));
-      return true;
-    }
-    return false;
-  }
-
-  Future<Map<String, dynamic>> getUsers() async {
-    final raw = _prefs.getString(_usersKey);
-    if (raw == null) return {};
-    return Map<String, dynamic>.from(json.decode(raw) as Map);
-  }
-
-  Future<void> setMe(AppUser? user) async {
-    if (user == null) {
-      await _prefs.remove(_meKey);
-    } else {
-      await _prefs.setString(_meKey, json.encode(user.toJson()));
-    }
-  }
-
-  AppUser? getMe() {
-    final raw = _prefs.getString(_meKey);
-    if (raw == null) return null;
-    return AppUser.fromJson(json.decode(raw) as Map<String, dynamic>);
-  }
 
   Future<void> saveNotes(String email, List<Note> notes) async {
     final raw = json.encode(notes.map((e) => e.toJson()).toList());
@@ -111,11 +45,7 @@ class PersistenceService {
     return prefs['language'] as String?;
   }
 
-  String getLanguage(String email) {
-    return getLanguageRaw(email) ?? 'ru';
-  }
-
-  static const String _guestNotesKey = 'glasswave_guest_notes_v1';
+  String getLanguage(String email) => getLanguageRaw(email) ?? 'ru';
 
   Future<void> saveGuestNotes(List<Note> notes) async {
     final raw = json.encode(notes.map((e) => e.toJson()).toList());
