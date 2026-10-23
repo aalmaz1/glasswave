@@ -44,7 +44,6 @@ jobs:
         run: npm ci
 
       - name: Typecheck
-        # Gate the release on the compiler so broken TS never ships as an APK.
         run: npm run typecheck
 
       - name: Lint
@@ -71,7 +70,7 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
 
-      - name: Build release APK
+      - name: Build release APK (split per ABI)
         working-directory: android-capacitor
         env:
           KEYSTORE_FILE: ${{ runner.temp }}/glasswave-release.keystore
@@ -80,23 +79,27 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon
 
-      - name: Prepare APK
+      # --- ИЗМЕНЕНИЯ НАЧИНАЮТСЯ ЗДЕСЬ ---
+      - name: Prepare APKs for release
         run: |
-          cp android-capacitor/app/build/outputs/apk/release/app-release.apk \
-            "GlassWave-${VERSION_NAME}.apk"
+          mkdir -p dist
+          # Копируем все сгенерированные APK-файлы в папку dist
+          cp android-capacitor/app/build/outputs/apk/release/*.apk dist/
+          ls -l dist/ # Для отладки: покажет, какие файлы были скопированы
 
-      - name: Upload workflow artifact
+      - name: Upload workflow artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: GlassWave-${{ env.VERSION_NAME }}
-          path: GlassWave-${{ env.VERSION_NAME }}.apk
+          name: GlassWave-${{ env.VERSION_NAME }}-apks
+          path: dist/*.apk
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Прикрепляем все APK-файлы из папки dist к релизу
           gh release create "v${VERSION_NAME}" \
-            "GlassWave-${VERSION_NAME}.apk" \
+            dist/*.apk \
             --target "${GITHUB_SHA}" \
             --title "GlassWave v${VERSION_NAME}" \
             --generate-notes \
