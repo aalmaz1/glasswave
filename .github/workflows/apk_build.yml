@@ -88,7 +88,7 @@ jobs:
           ls -l dist/ # Для отладки: покажет, какие файлы были скопированы
 
       - name: Upload workflow artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: GlassWave-${{ env.VERSION_NAME }}-apks
           path: dist/*.apk

@@ -63,13 +63,13 @@ jobs:
           ls -l dist/
 
       - name: Upload APKs
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: GlassWave-flutter-${{ env.VERSION_NAME }}-apks
           path: glasswave_flutter_ver/dist/*.apk
 
       - name: Upload debug symbols
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: GlassWave-flutter-${{ env.VERSION_NAME }}-symbols
           path: glasswave_flutter_ver/debug-info/*.symbols
