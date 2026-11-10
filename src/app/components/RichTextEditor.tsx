@@ -1,7 +1,7 @@
 import { useEditor, EditorContent } from '@tiptap/react';
+import type { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
-import Underline from '@tiptap/extension-underline';
 import React, { useEffect } from 'react';
 import { useTranslation } from '../../i18n';
 
@@ -74,6 +74,22 @@ const MenuBar = ({
   );
 };
 
+/**
+ * Push external content into the editor if it drifted.
+ *
+ * Guarded against destroyed editors: `useEditor` can schedule destruction on a
+ * timer (unmount/remount races under Suspense), and React may still flush a
+ * pending effect that holds the old instance. Reading `getHTML()` after
+ * `destroy()` throws `TypeError: Cannot read properties of null (reading
+ * 'cached')` because the schema is torn down with the editor.
+ */
+export function syncEditorContent(editor: Editor | null | undefined, content: string): void {
+  if (!editor || editor.isDestroyed) return;
+  if (content !== editor.getHTML()) {
+    editor.commands.setContent(content || '', { emitUpdate: false });
+  }
+}
+
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   content,
   onChange,
@@ -81,10 +97,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 }) => {
   const editor = useEditor({
     extensions: [
+      // NOTE: StarterKit already bundles the underline mark (@tiptap/
+      // extension-underline) — adding it again produces "Duplicate extension
+      // names" and corrupts the editor schema. Do not re-add it here.
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
       }),
-      Underline,
       Placeholder.configure({
         placeholder,
         emptyNodeClass: 'is-editor-empty',
@@ -92,6 +110,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     ],
     content: content || '',
     onUpdate: ({ editor: ed }) => {
+      // The editor can already be destroyed when deferred updates land
+      // (TipTap schedules destruction on a timer); never read from it then.
+      if (ed.isDestroyed) return;
       onChange(ed.getHTML());
     },
     editorProps: {
@@ -103,10 +124,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   // Sync external content changes (e.g. opening another note)
   useEffect(() => {
-    if (!editor) return;
-    if (content !== editor.getHTML()) {
-      editor.commands.setContent(content || '', { emitUpdate: false });
-    }
+    syncEditorContent(editor, content);
   }, [content, editor]);
 
   if (!editor) return null;
