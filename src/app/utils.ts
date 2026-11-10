@@ -27,12 +27,7 @@ export function stripHtml(html: string): string {
 }
 
 /** Human-friendly relative time, localized. */
-export function fmtDate(
-  d: Date,
-  locale: string,
-  t: Translation,
-  now: number = Date.now()
-): string {
+export function fmtDate(d: Date, locale: string, t: Translation, now: number = Date.now()): string {
   const secs = Math.floor((now - d.getTime()) / 1000);
   if (secs < 60) return t.timeJustNow;
   const mins = Math.floor(secs / 60);

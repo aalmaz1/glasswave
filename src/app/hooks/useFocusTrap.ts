@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
 const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), ' +
+  "a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), " +
   'select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
@@ -17,10 +17,7 @@ const FOCUSABLE_SELECTOR =
  * nested dialogs (e.g. the editor's "unsaved changes" confirm) can coexist:
  * only the topmost dialog traps the keyboard.
  */
-export function useFocusTrap<T extends HTMLElement>(
-  active: boolean,
-  onEscape?: () => void
-) {
+export function useFocusTrap<T extends HTMLElement>(active: boolean, onEscape?: () => void) {
   const ref = useRef<T | null>(null);
   const onEscapeRef = useRef(onEscape);
   onEscapeRef.current = onEscape;

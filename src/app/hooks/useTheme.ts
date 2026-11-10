@@ -1,11 +1,21 @@
 import { useState, useEffect, useCallback } from "react";
 
 const ALL_THEMES = [
-  "sunset", "ice", "mono", "cyber", "aurora", "rose", "cosmos", "forest",
-  "obsidian", "graphite", "midnight", "espresso",
+  "sunset",
+  "ice",
+  "mono",
+  "cyber",
+  "aurora",
+  "rose",
+  "cosmos",
+  "forest",
+  "obsidian",
+  "graphite",
+  "midnight",
+  "espresso",
 ] as const;
 
-export type ThemeId = typeof ALL_THEMES[number];
+export type ThemeId = (typeof ALL_THEMES)[number];
 
 const LS_GUEST_THEME = "glasswave_guest_theme";
 const LS_USER_PREFS = (email: string) => `glasswave_prefs_${email.toLowerCase()}`;
@@ -28,7 +38,9 @@ export function useTheme(
         if (prefs.themeId && ALL_THEMES.includes(prefs.themeId)) {
           return prefs.themeId as ThemeId;
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       return initialThemeId ?? "sunset";
     } else {
       try {
@@ -36,7 +48,9 @@ export function useTheme(
         if (saved && (ALL_THEMES as readonly string[]).includes(saved)) {
           return saved as ThemeId;
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       const random = getRandomTheme();
       localStorage.setItem(LS_GUEST_THEME, random);
       return random;
@@ -50,7 +64,9 @@ export function useTheme(
         if (prefs.themeId && ALL_THEMES.includes(prefs.themeId)) {
           setThemeIdRaw(prefs.themeId as ThemeId);
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     } else {
       try {
         const saved = localStorage.getItem(LS_GUEST_THEME);
@@ -69,18 +85,23 @@ export function useTheme(
     }
   }, [currentUser]);
 
-  const setThemeId = useCallback((id: ThemeId) => {
-    setThemeIdRaw(id);
-    if (currentUser) {
-      try {
-        const key = LS_USER_PREFS(currentUser.email);
-        const existing = JSON.parse(localStorage.getItem(key) || "{}");
-        localStorage.setItem(key, JSON.stringify({ ...existing, themeId: id }));
-      } catch { /* ignore */ }
-    } else {
-      localStorage.setItem(LS_GUEST_THEME, id);
-    }
-  }, [currentUser]);
+  const setThemeId = useCallback(
+    (id: ThemeId) => {
+      setThemeIdRaw(id);
+      if (currentUser) {
+        try {
+          const key = LS_USER_PREFS(currentUser.email);
+          const existing = JSON.parse(localStorage.getItem(key) || "{}");
+          localStorage.setItem(key, JSON.stringify({ ...existing, themeId: id }));
+        } catch {
+          /* ignore */
+        }
+      } else {
+        localStorage.setItem(LS_GUEST_THEME, id);
+      }
+    },
+    [currentUser]
+  );
 
   return [themeId, setThemeId];
 }
