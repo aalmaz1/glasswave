@@ -358,7 +358,7 @@ class _AuthPanelState extends ConsumerState<_AuthPanel> {
     }
     if (!mounted) return;
     setState(() {
-      _error = res ?? '';
+      _error = res != null ? tr(res) : '';
       _isLoading = false;
     });
   }

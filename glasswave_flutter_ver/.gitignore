@@ -13,3 +13,4 @@ android/.gradle/
 android/local.properties
 ios/Pods/
 ios/Runner.xcworkspace/xcuserdata/
+debug-info/
