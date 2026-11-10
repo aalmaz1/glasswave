@@ -1,0 +1,87 @@
+name: Build and release Flutter APK
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'glasswave_flutter_ver/**'
+      - '.github/workflows/flutter-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: flutter-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    name: Build Flutter APK and publish release
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: glasswave_flutter_ver
+    env:
+      VERSION_NAME: 1.0.${{ github.run_number }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable          # лучше заменить на конкретную версию, см. ниже
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Flutter analyze
+        run: flutter analyze
+
+      - name: Build split-per-abi release APK
+        run: |
+          flutter build apk --release --split-per-abi \
+            --obfuscate --split-debug-info=./debug-info
+
+      - name: Prepare artifacts
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-*-release.apk dist/
+          ls -l dist/
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v6
+        with:
+          name: GlassWave-flutter-${{ env.VERSION_NAME }}-apks
+          path: glasswave_flutter_ver/dist/*.apk
+
+      - name: Upload debug symbols
+        uses: actions/upload-artifact@v6
+        with:
+          name: GlassWave-flutter-${{ env.VERSION_NAME }}-symbols
+          path: glasswave_flutter_ver/debug-info/*.symbols
+          retention-days: 90
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "flutter-v${VERSION_NAME}" \
+            dist/*.apk \
+            --target "${GITHUB_SHA}" \
+            --title "GlassWave Flutter v${VERSION_NAME}" \
+            --generate-notes \
+            --latest=false
