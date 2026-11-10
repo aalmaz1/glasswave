@@ -1,9 +1,9 @@
-import { useEditor, EditorContent } from '@tiptap/react';
-import type { Editor } from '@tiptap/core';
-import StarterKit from '@tiptap/starter-kit';
-import Placeholder from '@tiptap/extension-placeholder';
-import React, { useEffect } from 'react';
-import { useTranslation } from '../../i18n';
+import { useEditor, EditorContent } from "@tiptap/react";
+import type { Editor } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
+import Placeholder from "@tiptap/extension-placeholder";
+import React, { useEffect } from "react";
+import { useTranslation } from "../../i18n";
 
 interface RichTextEditorProps {
   content: string;
@@ -30,46 +30,106 @@ const ToolbarBtn = ({
     disabled={disabled}
     title={title}
     aria-label={title}
-    className={`rt-btn${isActive ? ' is-active' : ''}`}
+    className={`rt-btn${isActive ? " is-active" : ""}`}
   >
     {children}
   </button>
 );
 
-const MenuBar = ({
-  editor,
-}: {
-  editor: ReturnType<typeof useEditor>;
-}) => {
+const MenuBar = ({ editor }: { editor: ReturnType<typeof useEditor> }) => {
   const { t } = useTranslation();
   if (!editor) return null;
 
   return (
     <div className="rich-text-toolbar">
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} isActive={editor.isActive('heading', { level: 1 })} title={t.fmtH1}>H1</ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} isActive={editor.isActive('heading', { level: 2 })} title={t.fmtH2}>H2</ToolbarBtn>
+      <ToolbarBtn
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        isActive={editor.isActive("heading", { level: 1 })}
+        title={t.fmtH1}
+      >
+        H1
+      </ToolbarBtn>
+      <ToolbarBtn
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        isActive={editor.isActive("heading", { level: 2 })}
+        title={t.fmtH2}
+      >
+        H2
+      </ToolbarBtn>
       <span className="rt-sep" />
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} title={t.fmtBold}>
+      <ToolbarBtn
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        isActive={editor.isActive("bold")}
+        title={t.fmtBold}
+      >
         <b>B</b>
       </ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} title={t.fmtItalic}>
+      <ToolbarBtn
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        isActive={editor.isActive("italic")}
+        title={t.fmtItalic}
+      >
         <i>I</i>
       </ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleStrike().run()} isActive={editor.isActive('strike')} title={t.fmtStrike}>
+      <ToolbarBtn
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+        isActive={editor.isActive("strike")}
+        title={t.fmtStrike}
+      >
         <s>S</s>
       </ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleUnderline().run()} isActive={editor.isActive('underline')} title={t.fmtUnderline}>
+      <ToolbarBtn
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        isActive={editor.isActive("underline")}
+        title={t.fmtUnderline}
+      >
         <u>U</u>
       </ToolbarBtn>
       <span className="rt-sep" />
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleBulletList().run()} isActive={editor.isActive('bulletList')} title={t.fmtBullet}>•</ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleOrderedList().run()} isActive={editor.isActive('orderedList')} title={t.fmtOrdered}>1.</ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleBlockquote().run()} isActive={editor.isActive('blockquote')} title={t.fmtQuote}>❝</ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleCodeBlock().run()} isActive={editor.isActive('codeBlock')} title={t.fmtCode}>{`</>`}</ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().setHorizontalRule().run()} title={t.fmtHr}>―</ToolbarBtn>
+      <ToolbarBtn
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        isActive={editor.isActive("bulletList")}
+        title={t.fmtBullet}
+      >
+        •
+      </ToolbarBtn>
+      <ToolbarBtn
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        isActive={editor.isActive("orderedList")}
+        title={t.fmtOrdered}
+      >
+        1.
+      </ToolbarBtn>
+      <ToolbarBtn
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        isActive={editor.isActive("blockquote")}
+        title={t.fmtQuote}
+      >
+        ❝
+      </ToolbarBtn>
+      <ToolbarBtn
+        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+        isActive={editor.isActive("codeBlock")}
+        title={t.fmtCode}
+      >{`</>`}</ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().setHorizontalRule().run()} title={t.fmtHr}>
+        ―
+      </ToolbarBtn>
       <span className="rt-sep" />
-      <ToolbarBtn onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title={t.fmtUndo}>↶</ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title={t.fmtRedo}>↷</ToolbarBtn>
+      <ToolbarBtn
+        onClick={() => editor.chain().focus().undo().run()}
+        disabled={!editor.can().undo()}
+        title={t.fmtUndo}
+      >
+        ↶
+      </ToolbarBtn>
+      <ToolbarBtn
+        onClick={() => editor.chain().focus().redo().run()}
+        disabled={!editor.can().redo()}
+        title={t.fmtRedo}
+      >
+        ↷
+      </ToolbarBtn>
     </div>
   );
 };
@@ -86,14 +146,14 @@ const MenuBar = ({
 export function syncEditorContent(editor: Editor | null | undefined, content: string): void {
   if (!editor || editor.isDestroyed) return;
   if (content !== editor.getHTML()) {
-    editor.commands.setContent(content || '', { emitUpdate: false });
+    editor.commands.setContent(content || "", { emitUpdate: false });
   }
 }
 
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   content,
   onChange,
-  placeholder = 'Start writing...',
+  placeholder = "Start writing...",
 }) => {
   const editor = useEditor({
     extensions: [
@@ -105,10 +165,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       }),
       Placeholder.configure({
         placeholder,
-        emptyNodeClass: 'is-editor-empty',
+        emptyNodeClass: "is-editor-empty",
       }),
     ],
-    content: content || '',
+    content: content || "",
     onUpdate: ({ editor: ed }) => {
       // The editor can already be destroyed when deferred updates land
       // (TipTap schedules destruction on a timer); never read from it then.
@@ -117,7 +177,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     },
     editorProps: {
       attributes: {
-        class: 'rich-text-content',
+        class: "rich-text-content",
       },
     },
   });

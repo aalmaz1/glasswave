@@ -34,23 +34,46 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
       <div
         role="alert"
         style={{
-          position: "fixed", inset: 0, display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center", gap: 16, padding: 24,
-          background: "#0b0b1a", color: "rgba(255,255,255,0.92)",
-          fontFamily: "'Manrope','Inter',sans-serif", textAlign: "center",
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 16,
+          padding: 24,
+          background: "#0b0b1a",
+          color: "rgba(255,255,255,0.92)",
+          fontFamily: "'Manrope','Inter',sans-serif",
+          textAlign: "center",
         }}
       >
         <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 700 }}>{t.errorTitle}</h1>
-        <p style={{ margin: 0, maxWidth: 420, fontSize: "0.88rem", lineHeight: 1.6, color: "rgba(255,255,255,0.60)" }}>
+        <p
+          style={{
+            margin: 0,
+            maxWidth: 420,
+            fontSize: "0.88rem",
+            lineHeight: 1.6,
+            color: "rgba(255,255,255,0.60)",
+          }}
+        >
           {t.errorMessage}
         </p>
         <button
           type="button"
           onClick={() => window.location.reload()}
           style={{
-            marginTop: 8, padding: "11px 22px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.20)",
-            background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.92)", cursor: "pointer",
-            fontFamily: "inherit", fontSize: "0.86rem", fontWeight: 700,
+            marginTop: 8,
+            padding: "11px 22px",
+            borderRadius: 14,
+            border: "1px solid rgba(255,255,255,0.20)",
+            background: "rgba(255,255,255,0.12)",
+            color: "rgba(255,255,255,0.92)",
+            cursor: "pointer",
+            fontFamily: "inherit",
+            fontSize: "0.86rem",
+            fontWeight: 700,
           }}
         >
           {t.errorReload}

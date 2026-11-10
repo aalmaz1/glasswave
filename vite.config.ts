@@ -1,7 +1,7 @@
-import { defineConfig } from 'vite'
-import tailwindcss from '@tailwindcss/vite'
-import react from '@vitejs/plugin-react'
-import { VitePWA } from 'vite-plugin-pwa'
+import { defineConfig } from "vite";
+import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   // Relative asset URLs so the same build works on the web and inside Capacitor.
@@ -89,10 +89,11 @@ export default defineConfig({
           if (id.includes("node_modules/")) {
             if (id.includes("firebase/")) return "vendor-firebase";
             if (id.includes("@tiptap/") || id.includes("prosemirror-")) return "vendor-tiptap";
-            if (id.includes("node_modules/react-dom/") || id.includes("node_modules/react/")) return "vendor-react";
+            if (id.includes("node_modules/react-dom/") || id.includes("node_modules/react/"))
+              return "vendor-react";
           }
         },
       },
     },
   },
-})
+});

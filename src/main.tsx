@@ -19,14 +19,16 @@ function renderStartupError(message: string) {
   releaseInitialSplash();
   if (!rootEl) return;
   const lang = (navigator.language || "ru").toLowerCase();
-  const title =
-    lang.startsWith("ko") ? "시작 오류" : lang.startsWith("en") ? "Startup error" : "Ошибка запуска";
-  const hint =
-    lang.startsWith("ko")
-      ? "앱을 시작하지 못했습니다. 페이지를 새로고침하세요."
-      : lang.startsWith("en")
-        ? "GlassWave failed to start. Reload the page and try again."
-        : "Не удалось запустить GlassWave. Обновите страницу и повторите попытку.";
+  const title = lang.startsWith("ko")
+    ? "시작 오류"
+    : lang.startsWith("en")
+      ? "Startup error"
+      : "Ошибка запуска";
+  const hint = lang.startsWith("ko")
+    ? "앱을 시작하지 못했습니다. 페이지를 새로고침하세요."
+    : lang.startsWith("en")
+      ? "GlassWave failed to start. Reload the page and try again."
+      : "Не удалось запустить GlassWave. Обновите страницу и повторите попытку.";
   rootEl.innerHTML = `
     <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0b1a;color:#fff;font-family:system-ui,sans-serif;padding:24px">
       <div style="max-width:460px;text-align:center">

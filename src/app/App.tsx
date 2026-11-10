@@ -446,7 +446,6 @@ export default function App() {
               new Notification(title, { body, icon: "/favicon.png" });
             } catch {}
           }
-          console.log("[Reminder]", title, body);
         }
       });
     };

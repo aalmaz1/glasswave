@@ -27,7 +27,10 @@ describe("TRANSLATIONS", () => {
     for (const lang of LANGS) {
       for (const [key, value] of Object.entries(TRANSLATIONS[lang])) {
         if (allowedEmpty.has(key)) continue;
-        expect(typeof value !== "string" || value.length > 0, `${lang}.${key} should not be empty`).toBe(true);
+        expect(
+          typeof value !== "string" || value.length > 0,
+          `${lang}.${key} should not be empty`
+        ).toBe(true);
       }
       expect(TRANSLATIONS[lang].editingNote).toBe("");
     }
