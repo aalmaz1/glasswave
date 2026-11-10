@@ -48,6 +48,13 @@ export default defineConfig([
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // eslint-plugin-react-hooks v7 adds React Compiler-oriented rules
+      // (refs / purity / set-state-in-effect) that flag long-standing patterns
+      // in this codebase rather than outright bugs. Kept off per the low-noise
+      // policy above; flip to "warn" when touching those areas.
+      "react-hooks/refs": "off",
+      "react-hooks/purity": "off",
+      "react-hooks/set-state-in-effect": "off",
       "react-refresh/only-export-components": "off",
 
       // Relaxations for the existing codebase.

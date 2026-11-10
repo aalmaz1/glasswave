@@ -41,7 +41,7 @@ firestore.rules         owner-only notes + field/type/size checks
 
 ## Web
 
-Needs Node.js 18+ (22+ if you also build the APK).
+Needs Node.js 20.19+ or 22.12+ (22+ if you also build the APK).
 
 ```bash
 git clone https://github.com/aalmaz1/glasswave.git

@@ -82,7 +82,8 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 850,
-    rollupOptions: {
+    // Vite 8 renamed rollupOptions -> rolldownOptions (Rolldown is the bundler now).
+    rolldownOptions: {
       output: {
         manualChunks(id) {
           if (id.includes("node_modules/")) {
