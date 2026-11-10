@@ -1,0 +1,39 @@
+# Dependabot keeps dependencies current across the three ecosystems in this
+# repo. Minor/patch updates are grouped into one weekly PR per ecosystem to
+# keep the noise down; major bumps arrive as individual PRs so each can be
+# reviewed (and tested) on its own.
+version: 2
+updates:
+  # React + Vite web app (root package.json)
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions used by the CI workflows
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Flutter port (glasswave_flutter_ver/pubspec.yaml)
+  - package-ecosystem: pub
+    directory: /glasswave_flutter_ver
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
