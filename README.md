@@ -41,7 +41,7 @@ firestore.rules         owner-only notes + field/type/size checks
 
 ## Web
 
-Needs Node.js 20.19+ or 22.12+ (22+ if you also build the APK).
+Needs Node.js 24+ (also for the APK build). Node 20.19+/22.12+ still runs Vite, but npm prints engine warnings for Firebase 13, which wants Node 24.12+.
 
 ```bash
 git clone https://github.com/aalmaz1/glasswave.git
