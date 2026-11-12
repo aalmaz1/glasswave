@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.glasswave.glasswave"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = maxOf(flutter.compileSdkVersion, 37)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
