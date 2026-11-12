@@ -37,7 +37,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(() {
-      _scrollY.value = _scrollController.offset;
+      final offset = _scrollController.offset;
+      if ((offset - _scrollY.value).abs() > 2.0) {
+        _scrollY.value = offset;
+      }
     });
     _searchController.addListener(() => setState(() {}));
     _searchFocus.addListener(() => setState(() {}));
@@ -97,7 +100,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       crossAxisCount = 2;
     }
 
-    final search = _searchController.text;
+    final search = _searchController.text.trim().toLowerCase();
     List<Note> filteredNotes = notes.where((n) {
       bool matchesTab = false;
       if (currentTab == 0) matchesTab = !n.trashed && !n.archived;
@@ -106,10 +109,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
       if (search.isEmpty) return matchesTab;
 
-      final q = search.toLowerCase();
-      final matchesSearch = n.title.toLowerCase().contains(q) ||
-          n.body.toLowerCase().contains(q);
-      return matchesTab && matchesSearch;
+      return matchesTab &&
+          (n.title.toLowerCase().contains(search) ||
+              n.body.toLowerCase().contains(search));
     }).toList();
 
     if (sortOrder == SortOrder.created) {
@@ -134,8 +136,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               child: Stack(
                 children: [
                   CustomScrollView(
-            controller: _scrollController,
-            slivers: [
+                    controller: _scrollController,
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
+                    slivers: [
               SliverPadding(
                 padding: EdgeInsets.only(
                   top: 92 + safeTop,
@@ -337,27 +342,32 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (items.isEmpty) return const SizedBox.shrink();
     final gap = _contentGap;
     final rowCount = (items.length / cols).ceil();
-    return Column(
-      children: [
-        for (var row = 0; row < rowCount; row++) ...[
-          if (row > 0) SizedBox(height: gap),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var i = 0; i < cols; i++) ...[
-                  if (i > 0) SizedBox(width: gap),
-                  Expanded(
-                    child: row * cols + i < items.length
-                        ? NoteCard(note: items[row * cols + i])
-                        : const SizedBox.shrink(),
-                  ),
+    return RepaintBoundary(
+      child: Column(
+        children: [
+          for (var row = 0; row < rowCount; row++) ...[
+            if (row > 0) SizedBox(height: gap),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < cols; i++) ...[
+                    if (i > 0) SizedBox(width: gap),
+                    Expanded(
+                      child: row * cols + i < items.length
+                          ? NoteCard(
+                              key: ValueKey(items[row * cols + i].id),
+                              note: items[row * cols + i],
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 
@@ -424,8 +434,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       barrierDismissible: false,
       barrierLabel: 'sort',
       barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 280),
-      transitionBuilder: (context, animation, secondaryAnimation, child) => child,
+      transitionDuration: const Duration(milliseconds: 260),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curvedAnimation = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curvedAnimation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.94, end: 1.0).animate(curvedAnimation),
+            child: child,
+          ),
+        );
+      },
       pageBuilder: (ctx, animation, secondaryAnimation) {
         return const SortSheetOverlay();
       },
@@ -646,43 +669,45 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
-        child: Stack(
-          alignment: Alignment.topCenter,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 20, color: active ? G.textPrimary : G.textMuted),
-                const SizedBox(height: 3),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 9.9,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                    letterSpacing: 0.2,
-                    color: active ? G.textPrimary : G.textMuted,
-                  ),
-                ),
-              ],
-            ),
-            if (active)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    width: 18,
-                    height: 2,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.70),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
+            AnimatedScale(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              scale: active ? 1.10 : 1.0,
+              child: Icon(
+                icon,
+                size: 20,
+                color: active ? G.textPrimary : G.textMuted,
               ),
+            ),
+            const SizedBox(height: 3),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              style: TextStyle(
+                fontSize: 9.9,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                letterSpacing: 0.2,
+                color: active ? G.textPrimary : G.textMuted,
+              ),
+              child: Text(label),
+            ),
+            const SizedBox(height: 2),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              width: active ? 18 : 0,
+              height: 2,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.70),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
           ],
         ),
       ),

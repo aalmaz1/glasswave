@@ -4,6 +4,17 @@ import 'package:flutter/material.dart';
 import '../theme/design_tokens.dart';
 
 class GlassContainer extends StatelessWidget {
+  static const _sheenGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0x24FFFFFF),
+      Color(0x08FFFFFF),
+      Color(0x00FFFFFF),
+    ],
+    stops: [0.0, 0.40, 1.0],
+  );
+
   final Widget child;
   final double blur;
   final double borderRadius;
@@ -96,16 +107,7 @@ class GlassContainer extends StatelessWidget {
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(borderRadius),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.white.withValues(alpha: 0.14),
-                          Colors.white.withValues(alpha: 0.03),
-                          Colors.white.withValues(alpha: 0.0),
-                        ],
-                        stops: const [0.0, 0.40, 1.0],
-                      ),
+                      gradient: _sheenGradient,
                     ),
                   ),
                 ),

@@ -13,7 +13,6 @@ import '../services/date_formats.dart';
 import '../theme/app_theme_data.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/glass_container.dart';
-import '../widgets/confirm_dialog.dart';
 
 Future<void> openEditorOverlay(
   BuildContext context, {
@@ -25,8 +24,21 @@ Future<void> openEditorOverlay(
     barrierDismissible: false,
     barrierLabel: 'editor',
     barrierColor: Colors.transparent,
-    transitionDuration: const Duration(milliseconds: 300),
-      transitionBuilder: (context, animation, secondaryAnimation, child) => child,
+    transitionDuration: const Duration(milliseconds: 280),
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final curvedAnimation = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curvedAnimation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.94, end: 1.0).animate(curvedAnimation),
+          child: child,
+        ),
+      );
+    },
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
       return EditorScreen(note: note, asNewNote: asNewNote);
     },
@@ -155,7 +167,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   void _persistSilent() {
-    if (_titleController.text.trim().isEmpty && _bodyController.text.trim().isEmpty) return;
+    final title = _titleController.text.trim();
+    final body = _bodyController.text.trim();
+
+    if (title.isEmpty && body.isEmpty) {
+      if (_noteId != null && _source == null) {
+        ref.read(notesProvider.notifier).deleteNote(_noteId!);
+      }
+      return;
+    }
+
     final created = _buildNote();
     final notifier = ref.read(notesProvider.notifier);
     if (_source == null) {
@@ -168,39 +189,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     if (mounted) setState(() {});
   }
 
-  void _save() {
-    if (_titleController.text.trim().isEmpty && _bodyController.text.trim().isEmpty) {
-      Navigator.pop(context);
-      return;
-    }
-    final note = _buildNote();
-    final notifier = ref.read(notesProvider.notifier);
-    if (_source == null) {
-      notifier.upsert(note);
-    } else {
-      notifier.updateNote(note);
-    }
-    Navigator.pop(context);
-  }
-
-  Future<void> _requestClose() async {
-    if (!_dirty) {
-      Navigator.pop(context);
-      return;
-    }
-    final choice = await showGlassConfirm(
-      context,
-      title: tr('unsaved_changes_title'),
-      body: tr('unsaved_changes_body'),
-      confirmLabel: tr('unsaved_save'),
-      cancelLabel: tr('cancel'),
-      extraLabel: tr('unsaved_discard'),
-      danger: false,
-    );
-    if (!mounted) return;
-    if (choice == GlassConfirmChoice.confirm) {
-      _save();
-    } else if (choice == GlassConfirmChoice.extra) {
+  void _saveAndClose() {
+    _autosaveTimer?.cancel();
+    _persistSilent();
+    if (mounted && Navigator.of(context).canPop()) {
       Navigator.pop(context);
     }
   }
@@ -304,9 +296,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
     return CallbackShortcuts(
       bindings: {
-        SingleActivator(LogicalKeyboardKey.escape): _requestClose,
-        SingleActivator(LogicalKeyboardKey.keyS, control: true): _save,
-        SingleActivator(LogicalKeyboardKey.keyS, meta: true): _save,
+        SingleActivator(LogicalKeyboardKey.escape): _saveAndClose,
       },
       child: Material(
         type: MaterialType.transparency,
@@ -314,111 +304,108 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           children: [
             Positioned.fill(
               child: GestureDetector(
-              onTap: _requestClose,
-              child: BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: isMobile ? 0 : 2,
-                  sigmaY: isMobile ? 0 : 2,
+                onTap: _saveAndClose,
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(
+                    sigmaX: isMobile ? 0 : 2,
+                    sigmaY: isMobile ? 0 : 2,
+                  ),
+                  child: Container(color: G.overlay),
                 ),
-                child: Container(color: G.overlay),
               ),
             ),
-          ),
-          Center(
-            child: Padding(
-              padding: EdgeInsets.all(isMobile ? 12 : 24),
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.0, end: 1.0),
-                duration: const Duration(milliseconds: 300),
-                curve: const Cubic(0.34, 1.46, 0.64, 1.0),
-                builder: (context, value, child) {
-                  return Transform.translate(
-                    offset: Offset(0, 22 * (1 - value)),
-                    child: Transform.scale(
-                      scale: 0.97 + (0.03 * value),
-                      child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
-                    ),
-                  );
-                },
-                child: SizedBox(
-                  width: mW,
-                  height: mH,
-                  child: GlassContainer(
-                    blur: 32,
-                    borderRadius: screenRadius,
-                    color: G.bg,
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
-                    boxShadow: G.modalShadow,
-                    showRing: true,
-                    ringColors: G.ringModal,
-                    ringStops: G.ringModalStops,
-                    fit: StackFit.expand,
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                          decoration: BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(
-                                color: Colors.white.withValues(alpha: 0.08),
+            Center(
+              child: Padding(
+                padding: EdgeInsets.all(isMobile ? 12 : 24),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(milliseconds: 300),
+                  curve: const Cubic(0.34, 1.46, 0.64, 1.0),
+                  builder: (context, value, child) {
+                    return Transform.translate(
+                      offset: Offset(0, 22 * (1 - value)),
+                      child: Transform.scale(
+                        scale: 0.97 + (0.03 * value),
+                        child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
+                      ),
+                    );
+                  },
+                  child: SizedBox(
+                    width: mW,
+                    height: mH,
+                    child: GlassContainer(
+                      blur: 32,
+                      borderRadius: screenRadius,
+                      color: G.bg,
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+                      boxShadow: G.modalShadow,
+                      showRing: true,
+                      ringColors: G.ringModal,
+                      ringStops: G.ringModalStops,
+                      fit: StackFit.expand,
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                ),
                               ),
                             ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              GlassChip(
-                                onTap: _requestClose,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(LucideIcons.x, size: 14, color: G.textSecondary),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      tr('editor_close'),
-                                      style: const TextStyle(
-                                        fontSize: 12.5,
-                                        color: G.textSecondary,
-                                        fontWeight: FontWeight.w500,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                GlassChip(
+                                  highlight: true,
+                                  onTap: _saveAndClose,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(LucideIcons.arrowLeft, size: 15, color: G.textPrimary),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        tr('back'),
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          color: G.textPrimary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (!isMobile && widget.note == null)
-                                Text(
-                                  tr('editor_new').toUpperCase(),
-                                  style: const TextStyle(
-                                    fontSize: 10.6,
-                                    fontWeight: FontWeight.w500,
-                                    color: G.textMuted,
-                                    letterSpacing: 0.84,
+                                    ],
                                   ),
-                                )
-                              else
-                                const SizedBox.shrink(),
-                              GlassChip(
-                                highlight: true,
-                                onTap: _save,
-                                child: Row(
+                                ),
+                                if (!isMobile && widget.note == null)
+                                  Text(
+                                    tr('editor_new').toUpperCase(),
+                                    style: const TextStyle(
+                                      fontSize: 10.6,
+                                      fontWeight: FontWeight.w500,
+                                      color: G.textMuted,
+                                      letterSpacing: 0.84,
+                                    ),
+                                  )
+                                else
+                                  const SizedBox.shrink(),
+                                Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(LucideIcons.check, size: 14, color: G.textPrimary),
-                                    const SizedBox(width: 6),
+                                    const Icon(LucideIcons.cloudCheck, size: 14, color: G.textMuted),
+                                    const SizedBox(width: 5),
                                     Text(
-                                      tr('editor_save'),
+                                      tr('saved'),
                                       style: const TextStyle(
-                                        fontSize: 12.5,
-                                        color: G.textPrimary,
-                                        fontWeight: FontWeight.w600,
+                                        fontSize: 11.5,
+                                        color: G.textMuted,
+                                        fontWeight: FontWeight.w400,
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
                           child: TextField(

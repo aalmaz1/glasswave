@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -17,8 +16,21 @@ Future<void> showReminderModal(
     barrierDismissible: false,
     barrierLabel: 'reminder',
     barrierColor: Colors.transparent,
-    transitionDuration: const Duration(milliseconds: 220),
-      transitionBuilder: (context, animation, secondaryAnimation, child) => child,
+    transitionDuration: const Duration(milliseconds: 240),
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final curvedAnimation = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curvedAnimation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.94, end: 1.0).animate(curvedAnimation),
+          child: child,
+        ),
+      );
+    },
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
       return ReminderModal(initialDate: initialDate, onSave: onSave);
     },
@@ -108,29 +120,16 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
     return Material(
       type: MaterialType.transparency,
       child: Stack(
-      children: [
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-              child: Container(color: Colors.black.withValues(alpha: 0.55)),
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(color: G.overlay),
             ),
           ),
-        ),
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 260),
-              curve: const Cubic(0.34, 1.46, 0.64, 1.0),
-              builder: (context, value, child) {
-                return Transform.scale(
-                  scale: 0.96 + 0.04 * value,
-                  child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
-                );
-              },
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 360),
                 child: GlassContainer(
@@ -142,32 +141,36 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                   ringColors: G.ringReminder,
                   ringStops: G.ringReminderStops,
                   padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
-                                    child: Column(
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              const Icon(LucideIcons.calendarClock,
-                                  size: 18, color: Color(0xE6FFC83C)),
-                              const SizedBox(width: 10),
-                              Text(
-                                tr('remind_title'),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 16,
-                                    color: G.textPrimary),
-                              ),
-                            ],
+                          Expanded(
+                            child: Row(
+                              children: [
+                                const Icon(LucideIcons.calendarClock,
+                                    size: 18, color: Color(0xE6FFC83C)),
+                                const SizedBox(width: 10),
+                                Flexible(
+                                  child: Text(
+                                    tr('remind_title'),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 16,
+                                      color: G.textPrimary,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(LucideIcons.x, size: 16, color: G.textMuted),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
+                          GlassChip(
+                            onTap: () => Navigator.pop(context),
+                            child: const Icon(LucideIcons.x, size: 14, color: G.textSecondary),
                           ),
                         ],
                       ),
@@ -183,12 +186,12 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                                   const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                               decoration: BoxDecoration(
                                 color: active
-                                    ? const Color(0x1FFFC83C) // rgba(255,200,60,0.12)
+                                    ? const Color(0x1FFFC83C)
                                     : G.bg,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
                                   color: active
-                                      ? const Color(0x59FFC83C) // rgba(255,200,60,0.35)
+                                      ? const Color(0x59FFC83C)
                                       : G.border,
                                 ),
                               ),
@@ -196,18 +199,22 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    pick.$1,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13.8,
-                                      color: G.textPrimary,
+                                  Expanded(
+                                    child: Text(
+                                      pick.$1,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13.5,
+                                        color: G.textPrimary,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Text(
                                     fmt(pick.$2),
                                     style: const TextStyle(
-                                      fontSize: 12.2,
+                                      fontSize: 11.8,
                                       color: G.textSecondary,
                                     ),
                                   ),
@@ -241,17 +248,21 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                _selectedDate == null
-                                    ? tr('remind_pick')
-                                    : fmt(_selectedDate!),
-                                style: TextStyle(
-                                  fontSize: 13.8,
-                                  color: _selectedDate == null
-                                      ? Colors.white.withValues(alpha: 0.24)
-                                      : G.textPrimary,
+                              Expanded(
+                                child: Text(
+                                  _selectedDate == null
+                                      ? tr('remind_pick')
+                                      : fmt(_selectedDate!),
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    color: _selectedDate == null
+                                        ? Colors.white.withValues(alpha: 0.24)
+                                        : G.textPrimary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               const Icon(LucideIcons.calendar, size: 14, color: G.textMuted),
                             ],
                           ),
@@ -273,10 +284,10 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                                     padding: const EdgeInsets.symmetric(vertical: 11),
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
-                                      color: const Color(0x14FF5050), // rgba(255,80,80,0.08)
+                                      color: const Color(0x14FF5050),
                                       borderRadius: BorderRadius.circular(14),
                                       border: Border.all(
-                                        color: const Color(0x47FF6464), // rgba(255,100,100,0.28)
+                                        color: const Color(0x47FF6464),
                                       ),
                                     ),
                                     child: Text(
@@ -307,10 +318,10 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
                                   color:
                                       _selectedDate == null
                                           ? Colors.white.withValues(alpha: 0.04)
-                                          : const Color(0x24FFC83C), // rgba(255,200,60,0.14)
+                                          : const Color(0x24FFC83C),
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
-                                    color: const Color(0x59FFC83C), // rgba(255,200,60,0.35)
+                                    color: const Color(0x59FFC83C),
                                   ),
                                 ),
                                 child: Text(
@@ -334,9 +345,8 @@ class _ReminderModalState extends ConsumerState<ReminderModal> {
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 }

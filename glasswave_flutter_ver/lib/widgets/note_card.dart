@@ -23,6 +23,43 @@ class NoteCard extends ConsumerStatefulWidget {
 
 class _NoteCardState extends ConsumerState<NoteCard> {
   bool _isHovered = false;
+  bool _isExiting = false;
+  double _exitDx = 0.0;
+  double _exitOpacity = 1.0;
+
+  void _animateExit(double targetDx, VoidCallback onAction) {
+    if (_isExiting) return;
+    setState(() {
+      _isExiting = true;
+      _exitDx = targetDx;
+      _exitOpacity = 0.0;
+    });
+    Future.delayed(const Duration(milliseconds: 260), () {
+      if (mounted) onAction();
+    });
+  }
+
+  void _handleArchive() {
+    _animateExit(350.0, () {
+      ref.read(notesProvider.notifier).toggleArchive(widget.note.id);
+    });
+  }
+
+  void _handleTrash() {
+    _animateExit(350.0, () {
+      ref.read(notesProvider.notifier).toggleTrash(widget.note.id);
+    });
+  }
+
+  void _handleRestore() {
+    _animateExit(-350.0, () {
+      if (ref.read(dashboardTabProvider) == 1) {
+        ref.read(notesProvider.notifier).toggleArchive(widget.note.id);
+      } else {
+        ref.read(notesProvider.notifier).toggleTrash(widget.note.id);
+      }
+    });
+  }
 
   String _fmtDate(DateTime d, String locale) {
     final diff = DateTime.now().difference(d);
@@ -73,201 +110,197 @@ class _NoteCardState extends ConsumerState<NoteCard> {
       openEditorOverlay(context, note: widget.note, asNewNote: isDemo);
     }
 
-    final double scale = hoverActive ? 1.02 : 1.0;
+    final double scale = _isExiting ? 0.92 : (hoverActive ? 1.02 : 1.0);
     final double translateY = hoverActive ? -6.0 : 0.0;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 320),
-        curve: const Cubic(0.34, 1.56, 0.64, 1.0),
-        transformAlignment: Alignment.center,
-        transform: Matrix4.diagonal3Values(scale, scale, 1.0)
-          ..setTranslationRaw(0.0, translateY, 0.0),
-        child: GestureDetector(
-          onTap: openEditor,
-          child: RepaintBoundary(
-            child: GlassContainer(
-              borderRadius: 20,
-              blur: isMobile ? 0 : 28,
-              showRing: true,
-              showSheen: true,
-              ringColors: hoverActive ? G.ringCardHover : G.ringCard,
-              ringStops: hoverActive ? G.ringStopsHover : G.ringStops,
-              sheenOpacity: hoverActive ? 1.0 : G.sheenOpacity,
-              color: hoverActive ? G.bgHov : G.bg,
-              border: Border.all(color: hoverActive ? G.borderHov : G.border),
-              innerTop: hoverActive ? const Color(0x70FFFFFF) : G.innerTop,
-              innerBottom: hoverActive ? const Color(0x33FFFFFF) : G.innerBottom,
-              boxShadow: G.glassShadow(hover: hoverActive),
-              accentGradient: LinearGradient(
-                begin: const Alignment(-0.58, -1.55),
-                end: const Alignment(0.58, 1.55),
-                colors: [
-                  hoverActive ? _brightness(accent, 1.6) : accent,
-                  Colors.white.withValues(alpha: 0.01),
-                ],
-                stops: const [0.0, 0.7],
-              ),
-              fit: StackFit.expand,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: minH),
-                child: Padding(
-                  padding: pad,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  widget.note.title.isEmpty
-                                      ? tr('editor_no_title')
-                                      : widget.note.title,
-                                  style: TextStyle(
-                                    color: G.textPrimary,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: titleFont,
-                                    height: 1.28,
-                                    letterSpacing: -0.02 * titleFont,
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      opacity: _exitOpacity,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          transformAlignment: Alignment.center,
+          transform: Matrix4.diagonal3Values(scale, scale, 1.0)
+            ..setTranslationRaw(_exitDx, translateY, 0.0),
+          child: GestureDetector(
+            onTap: openEditor,
+            child: RepaintBoundary(
+              child: GlassContainer(
+                borderRadius: 20,
+                blur: 0,
+                showRing: true,
+                showSheen: true,
+                ringColors: hoverActive ? G.ringCardHover : G.ringCard,
+                ringStops: hoverActive ? G.ringStopsHover : G.ringStops,
+                sheenOpacity: hoverActive ? 1.0 : G.sheenOpacity,
+                color: hoverActive ? G.bgHov : G.bg,
+                border: Border.all(color: hoverActive ? G.borderHov : G.border),
+                innerTop: hoverActive ? const Color(0x70FFFFFF) : G.innerTop,
+                innerBottom: hoverActive ? const Color(0x33FFFFFF) : G.innerBottom,
+                boxShadow: G.glassShadow(hover: hoverActive),
+                accentGradient: LinearGradient(
+                  begin: const Alignment(-0.58, -1.55),
+                  end: const Alignment(0.58, 1.55),
+                  colors: [
+                    hoverActive ? _brightness(accent, 1.6) : accent,
+                    Colors.white.withValues(alpha: 0.01),
+                  ],
+                  stops: const [0.0, 0.7],
+                ),
+                fit: StackFit.expand,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: minH),
+                  child: Padding(
+                    padding: pad,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    widget.note.title.isEmpty
+                                        ? tr('editor_no_title')
+                                        : widget.note.title,
+                                    style: TextStyle(
+                                      color: G.textPrimary,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: titleFont,
+                                      height: 1.28,
+                                      letterSpacing: -0.02 * titleFont,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
+                                const SizedBox(width: 8),
+                                if (!isDemo)
+                                  _PinButton(
+                                    pinned: widget.note.pinned,
+                                    onTap: () =>
+                                        ref.read(notesProvider.notifier).togglePin(widget.note.id),
+                                  )
+                                else if (widget.note.pinned)
+                                  const Padding(
+                                    padding: EdgeInsets.all(4),
+                                    child: Icon(
+                                      LucideIcons.pin,
+                                      size: 14,
+                                      color: Color(0xB3FFFFFF),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _plainPreview(widget.note.body),
+                              style: TextStyle(
+                                color: G.textSecondary,
+                                fontSize: bodyFont,
+                                height: 1.5,
+                                fontWeight: FontWeight.w400,
                               ),
-                              const SizedBox(width: 8),
-                              if (!isDemo)
-                                _PinButton(
-                                  pinned: widget.note.pinned,
-                                  onTap: () =>
-                                      ref.read(notesProvider.notifier).togglePin(widget.note.id),
-                                )
-                              else if (widget.note.pinned)
-                                const Padding(
-                                  padding: EdgeInsets.all(4),
-                                  child: Icon(
-                                    LucideIcons.pin,
-                                    size: 14,
-                                    color: Color(0xB3FFFFFF),
-                                  ),
-                                ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (hasReminder && widget.note.reminder != null) ...[
+                              const SizedBox(height: 8),
+                              _ReminderBadge(
+                                date: widget.note.reminder!,
+                                langCode: locale,
+                                onTap: _openReminder,
+                              ),
                             ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _plainPreview(widget.note.body),
-                            style: TextStyle(
-                              color: G.textSecondary,
-                              fontSize: bodyFont,
-                              height: 1.5,
-                              fontWeight: FontWeight.w400,
-                            ),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (hasReminder && widget.note.reminder != null) ...[
-                            const SizedBox(height: 8),
-                            _ReminderBadge(
-                              date: widget.note.reminder!,
-                              langCode: locale,
-                              onTap: _openReminder,
-                            ),
                           ],
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(LucideIcons.clock, size: 9, color: G.textMuted),
-                              const SizedBox(width: 4),
-                              Text(
-                                _fmtDate(widget.note.updatedAt, locale),
-                                style: const TextStyle(
-                                  fontSize: 10.9,
-                                  color: G.textMuted,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(LucideIcons.clock, size: 9, color: G.textMuted),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _fmtDate(widget.note.updatedAt, locale),
+                                  style: const TextStyle(
+                                    fontSize: 10.9,
+                                    color: G.textMuted,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          if (!isDemo)
-                            AnimatedOpacity(
-                              duration: const Duration(milliseconds: 200),
-                              opacity: (isMobile || _isHovered) ? 1.0 : 0.0,
-                              child: IgnorePointer(
-                                ignoring: !isMobile && !_isHovered,
-                                child: Row(
-                                  children: tabIndex == 2
-                                      ? [
-                                          _MiniAction(
-                                            icon: LucideIcons.rotateCcw,
-                                            color: G.textSecondary,
-                                            onTap: () => ref
-                                                .read(notesProvider.notifier)
-                                                .toggleTrash(widget.note.id),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          _MiniAction(
-                                            icon: LucideIcons.trash2,
-                                            color: const Color(0xE6FF8C8C),
-                                            onTap: () async {
-                                              final result = await showGlassConfirm(
-                                                context,
-                                                title: tr('confirm_delete_title'),
-                                                body: tr('confirm_delete_body'),
-                                                confirmLabel: tr('delete_forever'),
-                                                cancelLabel: tr('cancel'),
-                                              );
-                                              if (result == GlassConfirmChoice.confirm &&
-                                                  mounted) {
+                              ],
+                            ),
+                            if (!isDemo)
+                              Row(
+                                children: tabIndex == 2
+                                    ? [
+                                        _MiniAction(
+                                          icon: LucideIcons.rotateCcw,
+                                          color: G.textSecondary,
+                                          onTap: _handleRestore,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        _MiniAction(
+                                          icon: LucideIcons.trash2,
+                                          color: const Color(0xE6FF8C8C),
+                                          onTap: () async {
+                                            final result = await showGlassConfirm(
+                                              context,
+                                              title: tr('confirm_delete_title'),
+                                              body: tr('confirm_delete_body'),
+                                              confirmLabel: tr('delete_forever'),
+                                              cancelLabel: tr('cancel'),
+                                            );
+                                            if (result == GlassConfirmChoice.confirm &&
+                                                mounted) {
+                                              _animateExit(350.0, () {
                                                 ref
                                                     .read(notesProvider.notifier)
                                                     .deleteNote(widget.note.id);
-                                              }
-                                            },
-                                          ),
-                                        ]
-                                      : [
-                                          _MiniAction(
-                                            icon: LucideIcons.bell,
-                                            color: hasReminder
-                                                ? const Color(0xCCFFC83C)
-                                                : G.textSecondary,
-                                            onTap: _openReminder,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          _MiniAction(
-                                            icon: LucideIcons.archive,
-                                            color: G.textSecondary,
-                                            onTap: () => ref
-                                                .read(notesProvider.notifier)
-                                                .toggleArchive(widget.note.id),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          _MiniAction(
-                                            icon: LucideIcons.trash2,
-                                            color: G.textSecondary,
-                                            onTap: () => ref
-                                                .read(notesProvider.notifier)
-                                                .toggleTrash(widget.note.id),
-                                          ),
-                                        ],
-                                ),
+                                              });
+                                            }
+                                          },
+                                        ),
+                                      ]
+                                    : [
+                                        _MiniAction(
+                                          icon: LucideIcons.bell,
+                                          color: hasReminder
+                                              ? const Color(0xCCFFC83C)
+                                              : G.textSecondary,
+                                          onTap: _openReminder,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        _MiniAction(
+                                          icon: LucideIcons.archive,
+                                          color: G.textSecondary,
+                                          onTap: tabIndex == 1
+                                              ? _handleRestore
+                                              : _handleArchive,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        _MiniAction(
+                                          icon: LucideIcons.trash2,
+                                          color: G.textSecondary,
+                                          onTap: _handleTrash,
+                                        ),
+                                      ],
                               ),
-                            ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

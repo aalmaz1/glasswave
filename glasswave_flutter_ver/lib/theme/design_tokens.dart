@@ -12,22 +12,39 @@ abstract final class G {
   static const Color overlay = Color(0x66000000); // 40% soft backdrop tint
   static const double radius = 22;
 
+  static const List<BoxShadow> _shadowNormal = [
+    BoxShadow(
+      color: Color(0x24000000), // Soft ambient contact shadow
+      blurRadius: 24,
+      spreadRadius: -4,
+      offset: Offset(0, 8),
+    ),
+    BoxShadow(
+      color: Color(0x14000000), // Wide diffused backdrop shadow
+      blurRadius: 48,
+      spreadRadius: 0,
+      offset: Offset(0, 14),
+    ),
+  ];
+
+  static const List<BoxShadow> _shadowHover = [
+    BoxShadow(
+      color: Color(0x3D000000),
+      blurRadius: 36,
+      spreadRadius: -2,
+      offset: Offset(0, 14),
+    ),
+    BoxShadow(
+      color: Color(0x24000000),
+      blurRadius: 72,
+      spreadRadius: 0,
+      offset: Offset(0, 24),
+    ),
+  ];
+
   // Ultra-realistic dual-layer glass elevation shadows (Apple visionOS style)
   static List<BoxShadow> glassShadow({bool hover = false}) {
-    return [
-      BoxShadow(
-        color: Color(hover ? 0x3D000000 : 0x24000000), // Soft ambient contact shadow
-        blurRadius: hover ? 36 : 24,
-        spreadRadius: hover ? -2 : -4,
-        offset: Offset(0, hover ? 14 : 8),
-      ),
-      BoxShadow(
-        color: Color(hover ? 0x24000000 : 0x14000000), // Wide diffused backdrop shadow
-        blurRadius: hover ? 72 : 48,
-        spreadRadius: 0,
-        offset: Offset(0, hover ? 24 : 14),
-      ),
-    ];
+    return hover ? _shadowHover : _shadowNormal;
   }
 
   static const List<BoxShadow> modalShadow = [

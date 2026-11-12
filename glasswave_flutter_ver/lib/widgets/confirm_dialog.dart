@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/design_tokens.dart';
 import 'glass_container.dart';
@@ -19,8 +18,21 @@ Future<GlassConfirmChoice?> showGlassConfirm(
     barrierDismissible: false,
     barrierLabel: 'confirm',
     barrierColor: Colors.transparent,
-    transitionDuration: const Duration(milliseconds: 220),
-      transitionBuilder: (context, animation, secondaryAnimation, child) => child,
+    transitionDuration: const Duration(milliseconds: 240),
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final curvedAnimation = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curvedAnimation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.94, end: 1.0).animate(curvedAnimation),
+          child: child,
+        ),
+      );
+    },
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
       return GlassConfirmOverlay(
         title: title,
@@ -69,28 +81,15 @@ class GlassConfirmOverlay extends StatelessWidget {
       type: MaterialType.transparency,
       child: Stack(
         children: [
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: onCancel,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-              child: Container(color: Colors.black.withValues(alpha: 0.62)),
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: onCancel,
+              child: Container(color: G.overlay),
             ),
           ),
-        ),
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 220),
-              curve: const Cubic(0.34, 1.46, 0.64, 1.0),
-              builder: (context, value, child) {
-                return Transform.scale(
-                  scale: 0.96 + 0.04 * value,
-                  child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
-                );
-              },
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 400),
                 child: GlassContainer(
@@ -98,12 +97,12 @@ class GlassConfirmOverlay extends StatelessWidget {
                   borderRadius: 22,
                   border: Border.all(
                     color: danger
-                        ? const Color(0x61FF7373) // rgba(255,115,115,0.38)
-                        : const Color(0x38FFFFFF), // rgba(255,255,255,0.22)
+                        ? const Color(0x61FF7373)
+                        : const Color(0x38FFFFFF),
                   ),
                   boxShadow: G.confirmShadow,
                   padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
-                                    child: Column(
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -113,7 +112,7 @@ class GlassConfirmOverlay extends StatelessWidget {
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: danger
-                              ? const Color(0xFAFFD7D7) // rgba(255,215,215,0.98)
+                              ? const Color(0xFAFFD7D7)
                               : G.textPrimary,
                         ),
                       ),
@@ -158,11 +157,10 @@ class GlassConfirmOverlay extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 }
 
 enum _ConfirmBtnStyle { neutral, light, danger, highlight }
@@ -195,7 +193,7 @@ class _ConfirmBtn extends StatelessWidget {
         break;
       case _ConfirmBtnStyle.danger:
         background = const Color(0x6BE13741);
-        border = const Color(0x8CFF6969); // rgba(255,105,105,0.55)
+        border = const Color(0x8CFF6969);
         text = Colors.white;
         weight = FontWeight.w700;
         break;
