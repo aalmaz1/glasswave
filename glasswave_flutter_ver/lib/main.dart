@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -37,19 +38,25 @@ class GlassWaveApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final fontStyle = GoogleFonts.manrope();
     final appTheme = ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: const Color(0xFF0B0B1A),
-      textTheme: GoogleFonts.manropeTextTheme(
-        ThemeData.dark().textTheme,
+      textTheme: ThemeData.dark().textTheme.apply(
+        fontFamily: fontStyle.fontFamily,
       ),
     );
 
     return MaterialApp(
       title: 'GlassWave',
       debugShowCheckedModeBanner: false,
-      localizationsDelegates: context.localizationDelegates,
+      localizationsDelegates: [
+        ...context.localizationDelegates,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       supportedLocales: context.supportedLocales,
       locale: context.locale,
       theme: appTheme,
