@@ -18,6 +18,7 @@ export default defineConfig([
     "node_modules",
     "coverage",
     "android-capacitor",
+    "glasswave_flutter_ver/**",
     "ios-capacitor",
     "public",
     "*.config.js",
