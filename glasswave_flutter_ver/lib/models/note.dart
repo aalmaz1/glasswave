@@ -73,18 +73,28 @@ class Note {
   }
 
   factory Note.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(dynamic val) {
+      if (val is String) return DateTime.tryParse(val);
+      return null;
+    }
+
+    final idVal = json['id'];
+    final id = idVal is num
+        ? idVal.toInt()
+        : (int.tryParse(idVal?.toString() ?? '') ?? DateTime.now().millisecondsSinceEpoch);
+
     return Note(
       firestoreId: json['firestoreId'] as String?,
-      id: json['id'] is int ? json['id'] as int : int.parse(json['id'].toString()),
-      title: json['title'] as String? ?? '',
-      body: json['body'] as String? ?? '',
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt'] as String) : DateTime.now(),
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'] as String) : null,
+      id: id,
+      title: json['title']?.toString() ?? '',
+      body: json['body']?.toString() ?? '',
+      updatedAt: parseDate(json['updatedAt']) ?? DateTime.now(),
+      createdAt: parseDate(json['createdAt']),
       accentIdx: (json['accentIdx'] as num?)?.toInt() ?? 0,
       pinned: json['pinned'] == true,
       archived: json['archived'] == true,
       trashed: json['trashed'] == true,
-      reminder: json['reminder'] != null ? DateTime.parse(json['reminder'] as String) : null,
+      reminder: parseDate(json['reminder']),
     );
   }
 

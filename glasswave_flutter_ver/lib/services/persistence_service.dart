@@ -20,8 +20,12 @@ class PersistenceService {
   List<Note>? getNotes(String email) {
     final raw = _prefs.getString(_notesKey(email));
     if (raw == null) return null;
-    final List<dynamic> list = json.decode(raw) as List;
-    return list.map((e) => Note.fromJson(e as Map<String, dynamic>)).toList();
+    try {
+      final List<dynamic> list = json.decode(raw) as List;
+      return list.map((e) => Note.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> savePrefs(String email, Map<String, dynamic> p) async {
@@ -31,7 +35,11 @@ class PersistenceService {
   Map<String, dynamic> getPrefs(String email) {
     final raw = _prefs.getString(_prefsKey(email));
     if (raw == null) return {};
-    return Map<String, dynamic>.from(json.decode(raw) as Map);
+    try {
+      return Map<String, dynamic>.from(json.decode(raw) as Map);
+    } catch (_) {
+      return {};
+    }
   }
 
   Future<void> saveLanguage(String email, String language) async {
@@ -55,8 +63,12 @@ class PersistenceService {
   List<Note>? getGuestNotes() {
     final raw = _prefs.getString(_guestNotesKey);
     if (raw == null) return null;
-    final List<dynamic> list = json.decode(raw) as List;
-    return list.map((e) => Note.fromJson(e as Map<String, dynamic>)).toList();
+    try {
+      final List<dynamic> list = json.decode(raw) as List;
+      return list.map((e) => Note.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> setGuestTheme(String themeId) async {

@@ -59,6 +59,7 @@ class EditorScreen extends ConsumerStatefulWidget {
 class _EditorScreenState extends ConsumerState<EditorScreen> {
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
+  final FocusNode _bodyFocus = FocusNode();
 
   static final _whitespaceRegex = RegExp(r'\s+');
   static final _leadingSpaceRegex = RegExp(r'^\s*');
@@ -82,7 +83,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     _baselineBody = widget.note?.body ?? '';
     _noteId = widget.asNewNote ? null : widget.note?.id;
     _titleController = TextEditingController(text: _baselineTitle);
-    _bodyController = TextEditingController(text: _baselineBody);
+    _bodyController = MarkdownTextEditingController(text: _baselineBody);
     _lastBodyText = _baselineBody;
     _titleController.addListener(_onTitleChanged);
     _bodyController.addListener(_onBodyChanged);
@@ -93,6 +94,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     _autosaveTimer?.cancel();
     _titleController.dispose();
     _bodyController.dispose();
+    _bodyFocus.dispose();
     super.dispose();
   }
 
@@ -197,32 +199,94 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
   }
 
-  void _insertFormat(String prefix, [String suffix = '']) {
+  bool _hasFormat(String prefix, String suffix) {
     final text = _bodyController.text;
     final selection = _bodyController.selection;
-    if (selection.isValid && !selection.isCollapsed) {
+    if (!selection.isValid) return false;
+
+    if (!selection.isCollapsed) {
       final selectedText = selection.textInside(text);
-      final newText =
-          text.replaceRange(selection.start, selection.end, '$prefix$selectedText$suffix');
+      if (selectedText.startsWith(prefix) &&
+          selectedText.endsWith(suffix) &&
+          selectedText.length >= (prefix.length + suffix.length)) {
+        return true;
+      }
+    }
+
+    final start = selection.start;
+    final end = selection.end;
+    if (start >= prefix.length && end + suffix.length <= text.length) {
+      final before = text.substring(start - prefix.length, start);
+      final after = text.substring(end, end + suffix.length);
+      if (before == prefix && after == suffix) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void _toggleFormat(String prefix, String suffix) {
+    final text = _bodyController.text;
+    final selection = _bodyController.selection;
+    final start = selection.start;
+    final end = selection.end;
+
+    if (!selection.isValid) {
+      final newText = '$text$prefix$suffix';
       _bodyController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection(
-          baseOffset: selection.start + prefix.length,
-          extentOffset: selection.end + prefix.length,
-        ),
+        selection: TextSelection.collapsed(offset: newText.length - suffix.length),
       );
-    } else {
-      final currentPos = selection.baseOffset != -1 ? selection.baseOffset : text.length;
-      final newText = text.replaceRange(currentPos, currentPos, '$prefix$suffix');
-      _bodyController.text = newText;
-      _bodyController.selection = TextSelection.collapsed(offset: currentPos + prefix.length);
+      _bodyFocus.requestFocus();
+      return;
     }
+
+    if (_hasFormat(prefix, suffix)) {
+      if (!selection.isCollapsed &&
+          selection.textInside(text).startsWith(prefix) &&
+          selection.textInside(text).endsWith(suffix)) {
+        final inside = selection.textInside(text);
+        final unwrapped = inside.substring(prefix.length, inside.length - suffix.length);
+        final newText = text.replaceRange(start, end, unwrapped);
+        _bodyController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection(baseOffset: start, extentOffset: start + unwrapped.length),
+        );
+      } else if (start >= prefix.length && end + suffix.length <= text.length) {
+        final newText = text.substring(0, start - prefix.length) +
+            text.substring(start, end) +
+            text.substring(end + suffix.length);
+        _bodyController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection(
+              baseOffset: start - prefix.length, extentOffset: end - prefix.length),
+        );
+      }
+    } else {
+      if (!selection.isCollapsed) {
+        final selectedText = selection.textInside(text);
+        final newText = text.replaceRange(start, end, '$prefix$selectedText$suffix');
+        _bodyController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection(
+              baseOffset: start + prefix.length, extentOffset: end + prefix.length),
+        );
+      } else {
+        final pos = selection.baseOffset != -1 ? selection.baseOffset : text.length;
+        final newText = text.replaceRange(pos, pos, '$prefix$suffix');
+        _bodyController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(offset: pos + prefix.length),
+        );
+      }
+    }
+    _bodyFocus.requestFocus();
   }
 
   void _toggleLinePrefix(String prefix) {
     final text = _bodyController.text;
     final selection = _bodyController.selection;
-    final currentPos = selection.baseOffset != -1 ? selection.baseOffset : text.length;
+    final currentPos = selection.isValid ? selection.baseOffset : text.length;
 
     int lineStart = currentPos > 0 ? text.lastIndexOf('\n', currentPos - 1) : -1;
     final startIdx = lineStart == -1 ? 0 : lineStart + 1;
@@ -235,16 +299,21 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     if (trimmed.startsWith(prefix)) {
       final newLine = line.replaceFirst(prefix, '');
       final newText = text.replaceRange(startIdx, lineEnd, newLine);
-      _bodyController.text = newText;
-      final newPos = (currentPos - startIdx - prefix.length).clamp(0, newLine.length);
-      _bodyController.selection = TextSelection.collapsed(offset: startIdx + newPos);
+      _bodyController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(
+            offset: (currentPos - prefix.length).clamp(startIdx, startIdx + newLine.length)),
+      );
     } else {
       final newLine = line.replaceFirst(_leadingSpaceRegex, prefix);
       final newText = text.replaceRange(startIdx, lineEnd, newLine);
-      _bodyController.text = newText;
-      final newPos = currentPos + prefix.length;
-      _bodyController.selection = TextSelection.collapsed(offset: newPos);
+      _bodyController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(
+            offset: (currentPos + prefix.length).clamp(startIdx, startIdx + newLine.length)),
+      );
     }
+    _bodyFocus.requestFocus();
   }
 
   void _undo() {
@@ -472,6 +541,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                                     padding: const EdgeInsets.fromLTRB(2, 4, 2, 40),
                                     child: TextField(
                                       controller: _bodyController,
+                                      focusNode: _bodyFocus,
                                       maxLines: null,
                                       minLines: null,
                                       expands: true,
@@ -514,53 +584,50 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final line = _currentLine();
     bool startsWith(String s) => line.startsWith(s);
 
+    final isBold = _hasFormat('**', '**');
+    final isItalic = _hasFormat('_', '_');
+    final isStrike = _hasFormat('~~', '~~');
+    final isUnderline = _hasFormat('__', '__');
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _FmtBtn('H1', () => _toggleLinePrefix('# '), active: startsWith('# ')),
-                _FmtBtn('H2', () => _toggleLinePrefix('## '), active: startsWith('## ')),
-                const _FmtSep(),
-                _FmtBtn('B', () => _insertFormat('**', '**'),
-                    active: _bodyController.text.contains('**')),
-                _FmtBtn('I', () => _insertFormat('_', '_'),
-                    active: _bodyController.text.contains('_')),
-                _FmtBtn('S', () => _insertFormat('~~', '~~'),
-                    active: _bodyController.text.contains('~~')),
-                _FmtBtn('U', () => _insertFormat('__', '__'),
-                    active: _bodyController.text.contains('__')),
-                const _FmtSep(),
-                _FmtBtn('•', () => _toggleLinePrefix('- '), active: startsWith('- ')),
-                _FmtBtn('1.', () => _toggleLinePrefix('1. '),
-                    active: _numListStartRegex.hasMatch(line)),
-                _FmtBtn('❝', () => _toggleLinePrefix('> '), active: startsWith('> ')),
-                _FmtBtn('</>', () {
-                  _insertFormat('```\n', '\n```');
-                }),
-                _FmtBtn('―', () {
-                  final text = _bodyController.text;
-                  final needsNl = text.isNotEmpty && !text.endsWith('\n') ? '\n' : '';
-                  _bodyController.text = '$text$needsNl\n---\n';
-                  _bodyController.selection =
-                      TextSelection.collapsed(offset: _bodyController.text.length);
-                }),
-                const _FmtSep(),
-                _FmtBtn('↶', _undo, active: false, disabled: _undoStack.isEmpty),
-                _FmtBtn('↷', _redo, active: false, disabled: _redoStack.isEmpty),
-              ],
-            ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        ),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _FmtBtn('H1', () => _toggleLinePrefix('# '), active: startsWith('# ')),
+              _FmtBtn('H2', () => _toggleLinePrefix('## '), active: startsWith('## ')),
+              const _FmtSep(),
+              _FmtBtn('B', () => _toggleFormat('**', '**'), active: isBold),
+              _FmtBtn('I', () => _toggleFormat('_', '_'), active: isItalic),
+              _FmtBtn('S', () => _toggleFormat('~~', '~~'), active: isStrike),
+              _FmtBtn('U', () => _toggleFormat('__', '__'), active: isUnderline),
+              const _FmtSep(),
+              _FmtBtn('•', () => _toggleLinePrefix('- '), active: startsWith('- ')),
+              _FmtBtn('1.', () => _toggleLinePrefix('1. '), active: _numListStartRegex.hasMatch(line)),
+              _FmtBtn('☐', () => _toggleLinePrefix('[ ] '), active: startsWith('[ ] ') || startsWith('[x] ')),
+              _FmtBtn('❝', () => _toggleLinePrefix('> '), active: startsWith('> ')),
+              _FmtBtn('</>', () => _toggleFormat('```\n', '\n```'), active: _hasFormat('```\n', '\n```')),
+              _FmtBtn('―', () {
+                final text = _bodyController.text;
+                final needsNl = text.isNotEmpty && !text.endsWith('\n') ? '\n' : '';
+                _bodyController.text = '$text$needsNl\n---\n';
+                _bodyController.selection =
+                    TextSelection.collapsed(offset: _bodyController.text.length);
+                _bodyFocus.requestFocus();
+              }),
+              const _FmtSep(),
+              _FmtBtn('↶', _undo, active: false, disabled: _undoStack.isEmpty),
+              _FmtBtn('↷', _redo, active: false, disabled: _redoStack.isEmpty),
+            ],
           ),
         ),
       ),
@@ -642,5 +709,118 @@ class _FmtSep extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 4),
       color: Colors.white.withValues(alpha: 0.14),
     );
+  }
+}
+
+class MarkdownTextEditingController extends TextEditingController {
+  MarkdownTextEditingController({super.text});
+
+  static final _markdownPattern = RegExp(
+    r'(?<h1_tag>^[ \t]*#[ \t]+[^\n]+)|'
+    r'(?<h2_tag>^[ \t]*##[ \t]+[^\n]+)|'
+    r'(?<bold>\*\*[^*]+\*\*)|'
+    r'(?<italic>_[^_]+_)|'
+    r'(?<underline>__[^_]+__)|'
+    r'(?<strike>~~[^~]+~~)|'
+    r'(?<code>`[^`]+`)',
+    multiLine: true,
+  );
+
+  @override
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
+    final List<InlineSpan> children = [];
+    final textVal = text;
+    int currentOffset = 0;
+
+    final matches = _markdownPattern.allMatches(textVal);
+
+    for (final match in matches) {
+      if (match.start > currentOffset) {
+        children.add(TextSpan(
+          text: textVal.substring(currentOffset, match.start),
+          style: style,
+        ));
+      }
+
+      final matchedText = match.group(0)!;
+
+      if (match.namedGroup('bold') != null) {
+        children.add(TextSpan(
+          text: matchedText,
+          style: style?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ));
+      } else if (match.namedGroup('italic') != null) {
+        children.add(TextSpan(
+          text: matchedText,
+          style: style?.copyWith(
+            fontStyle: FontStyle.italic,
+            color: Colors.white.withValues(alpha: 0.95),
+          ),
+        ));
+      } else if (match.namedGroup('underline') != null) {
+        children.add(TextSpan(
+          text: matchedText,
+          style: style?.copyWith(
+            decoration: TextDecoration.underline,
+            decorationColor: Colors.white70,
+          ),
+        ));
+      } else if (match.namedGroup('strike') != null) {
+        children.add(TextSpan(
+          text: matchedText,
+          style: style?.copyWith(
+            decoration: TextDecoration.lineThrough,
+            color: Colors.white54,
+          ),
+        ));
+      } else if (match.namedGroup('code') != null) {
+        children.add(TextSpan(
+          text: matchedText,
+          style: style?.copyWith(
+            fontFamily: 'monospace',
+            backgroundColor: Colors.white10,
+            color: const Color(0xFF80D8FF),
+          ),
+        ));
+      } else if (match.namedGroup('h1_tag') != null) {
+        children.add(TextSpan(
+          text: matchedText,
+          style: style?.copyWith(
+            fontSize: (style?.fontSize ?? 16) * 1.35,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ));
+      } else if (match.namedGroup('h2_tag') != null) {
+        children.add(TextSpan(
+          text: matchedText,
+          style: style?.copyWith(
+            fontSize: (style?.fontSize ?? 16) * 1.18,
+            fontWeight: FontWeight.w700,
+            color: Colors.white.withValues(alpha: 0.95),
+          ),
+        ));
+      } else {
+        children.add(TextSpan(text: matchedText, style: style));
+      }
+
+      currentOffset = match.end;
+    }
+
+    if (currentOffset < textVal.length) {
+      children.add(TextSpan(
+        text: textVal.substring(currentOffset),
+        style: style,
+      ));
+    }
+
+    return TextSpan(style: style, children: children);
   }
 }
