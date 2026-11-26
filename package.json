@@ -24,10 +24,10 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
-    "@capacitor/app": "^8.0.0",
+    "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.5.0",
     "@capacitor/ios": "^8.5.0",
-    "@capacitor/local-notifications": "^8.0.0",
+    "@capacitor/local-notifications": "^8.3.1",
     "@tiptap/extension-placeholder": "^3.35.0",
     "@tiptap/pm": "^3.35.0",
     "@tiptap/react": "^3.35.0",
